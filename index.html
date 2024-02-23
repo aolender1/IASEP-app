@@ -1,0 +1,29 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>IASEP</title>
+    <link rel="stylesheet" href="styles.css">
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.4/xlsx.full.min.js"></script>
+    <script src="script.js" defer></script>
+</head>
+<body>
+    <div class="container">
+        <label for="cliente">Cliente:</label>
+        <input type="text" id="cliente" name="cliente" class="input-grande" placeholder="Ingrese el nombre del cliente" list="clientes-list">
+        <datalist id="clientes-list"></datalist>
+
+        <label for="importe">Importe:</label>
+        <input type="text" id="importe" name="importe" class="input-grande" placeholder="Ingrese el importe de la factura">
+        
+        <button id="cargar" class="boton-grande">CARGAR</button>
+
+        <button id="crearExcel">Crear Excel</button>
+
+        <input type="file" id="fileInput" style="display: none;">
+        <button id="subirJSON">Subir JSON</button>
+
+    </div>
+</body>
+</html>
