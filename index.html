@@ -10,20 +10,29 @@
 </head>
 <body>
     <div class="container">
-        <label for="cliente">Cliente:</label>
-        <input type="text" id="cliente" name="cliente" class="input-grande" placeholder="Ingrese el nombre del cliente" list="clientes-list">
-        <datalist id="clientes-list"></datalist>
-
-        <label for="importe">Importe:</label>
-        <input type="text" id="importe" name="importe" class="input-grande" placeholder="Ingrese el importe de la factura">
-        
-        <button id="cargar" class="boton-grande">CARGAR</button>
-
-        <button id="crearExcel">Crear Excel</button>
-
-        <input type="file" id="fileInput" style="display: none;">
-        <button id="subirJSON">Subir JSON</button>
-
+        <div class="form-container">
+            <label for="cliente">CLIENTE</label>
+            <input type="text" id="cliente" list="clientes-list" class="input-grande" placeholder="Ingrese el nombre del cliente">
+            <datalist id="clientes-list"></datalist>
+            <label for="importe">IMPORTE</label>
+            <input type="text" id="importe" class="input-grande" placeholder="Ingrese el importe">
+            <button onclick="guardarDatos()" class="boton-grande" id="cargar">CARGAR</button>
+            <button id="crearExcel" class="boton-secundario">Crear EXCEL</button>
+            <button id="subirJSON" class="boton-secundario">Subir JSON</button>
+            <input type="file" id="fileInput" style="display: none;" accept=".json">
+        </div>
+        <div class="table-container">
+            <table id="tabla-datos">
+                <thead>
+                    <tr>
+                        <th>Cliente</th>
+                        <th>Importe</th>
+                    </tr>
+                </thead>
+                <tbody id="tabla-body">
+                </tbody>
+            </table>
+        </div>
     </div>
 </body>
 </html>

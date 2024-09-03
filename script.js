@@ -11,14 +11,17 @@ document.addEventListener("DOMContentLoaded", function() {
 
     // Cargar clientes del archivo JSON
     function cargarClientesDesdeJSON(clientes) {
+        console.log("Iniciando carga de clientes:", clientes);
         // Limpiar opciones existentes
         clientesList.innerHTML = '';
         // Crear lista de opciones para el autocompletado
         clientes.forEach(cliente => {
+            console.log("Procesando cliente:", cliente);
             const option = document.createElement('option');
             option.value = cliente.NOMBRE;
             clientesList.appendChild(option);
         });
+        console.log("Carga de clientes completada");
     }
 
     // Autocompletar el input de cliente
@@ -87,15 +90,20 @@ document.addEventListener("DOMContentLoaded", function() {
 
     // Evento change del input de tipo file
     fileInput.addEventListener('change', function(event) {
+        console.log("Archivo seleccionado");
         const file = event.target.files[0]; // Obtener el primer archivo seleccionado
         const reader = new FileReader();
         reader.onload = function(e) {
+            console.log("Archivo leído");
             const contenido = e.target.result;
             try {
+                console.log("Contenido del archivo:", contenido);
                 const json = JSON.parse(contenido);
+                console.log("JSON parseado:", json);
                 cargarClientesDesdeJSON(json); // Procesar el JSON
                 alert('JSON cargado correctamente.');
             } catch (error) {
+                console.error("Error al procesar JSON:", error);
                 alert('Error al cargar el archivo JSON.');
             }
         };
@@ -109,6 +117,7 @@ document.addEventListener("DOMContentLoaded", function() {
         if (nombre && !isNaN(importe)) {
             data.push({ nombre, importe });
             console.log('Datos guardados:', data);
+            actualizarTabla();
             // Limpiar los inputs después de guardar
             clienteInput.value = '';
             importeInput.value = '';
@@ -116,6 +125,22 @@ document.addEventListener("DOMContentLoaded", function() {
             clienteInput.focus();
         } else {
             alert('Por favor ingrese un nombre y un importe válido.');
+        }
+    }
+
+    function actualizarTabla() {
+        const tablaBody = document.getElementById('tabla-body');
+        tablaBody.innerHTML = ''; // Limpiar la tabla
+    
+        // Recorrer el array data desde el último elemento hasta el primero
+        for (let i = data.length - 1; i >= 0; i--) {
+            const item = data[i];
+            const row = tablaBody.insertRow();
+            const cellNombre = row.insertCell(0);
+            const cellImporte = row.insertCell(1);
+            
+            cellNombre.textContent = item.nombre;
+            cellImporte.textContent = '$' + item.importe.toFixed(2);
         }
     }
 

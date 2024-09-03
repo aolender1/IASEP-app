@@ -1,13 +1,23 @@
 .container {
-    max-width: 800px;
+    max-width: 1200px;
     margin: 50px auto;
+    display: flex;
+    justify-content: space-between;
+}
+
+.form-container {
+    width: 65%;
     text-align: center;
+}
+
+.table-container {
+    width: 30%;
 }
 
 .input-grande {
     width: 90%;
     padding: 15px;
-    font-size: 48px;
+    font-size: 44px;
     margin-bottom: 20px;
     border-radius: 8px;
     border: 1px solid #ccc;
@@ -27,5 +37,33 @@ label {
     background-color: #007bff;
     color: #fff;
     cursor: pointer;
-    margin-top: 20px; /* Agregamos margen superior al botón */
+    margin-top: 20px;
+}
+
+.boton-secundario {
+    padding: 10px 20px;
+    font-size: 24px;
+    border-radius: 6px;
+    border: 1px solid #007bff;
+    background-color: #fff;
+    color: #007bff;
+    cursor: pointer;
+    margin-top: 10px;
+    margin-right: 10px;
+}
+
+#tabla-datos {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 14px;
+}
+
+#tabla-datos th, #tabla-datos td {
+    border: 1px solid #ddd;
+    padding: 8px;
+    text-align: left;
+}
+
+#tabla-datos th {
+    background-color: #f2f2f2;
 }
