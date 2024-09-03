@@ -114,6 +114,7 @@ document.addEventListener("DOMContentLoaded", function() {
     function guardarDatos() {
         const nombre = clienteInput.value;
         const importe = parseFloat(importeInput.value.replace('$', '').replace(',', '')); // Convertir a float
+        console.log('Nombre:', nombre, 'Importe:', importe);
         if (nombre && !isNaN(importe)) {
             data.push({ nombre, importe });
             console.log('Datos guardados:', data);
@@ -124,6 +125,7 @@ document.addEventListener("DOMContentLoaded", function() {
             // Enfocar nuevamente el campo del nombre
             clienteInput.focus();
         } else {
+            console.log('Validación fallida');
             alert('Por favor ingrese un nombre y un importe válido.');
         }
     }
