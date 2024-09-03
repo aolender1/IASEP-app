@@ -178,3 +178,29 @@ document.addEventListener("DOMContentLoaded", function() {
         return buf;
     }
 });
+
+// Función para cambiar el tema
+function toggleTheme() {
+    const body = document.body;
+    body.classList.toggle('dark-theme');
+    
+    // Guardar la preferencia del usuario
+    const isDarkTheme = body.classList.contains('dark-theme');
+    localStorage.setItem('darkTheme', isDarkTheme);
+    
+    // Cambiar el texto del botón
+    const themeToggle = document.getElementById('themeToggle');
+    themeToggle.textContent = isDarkTheme ? 'Tema Claro' : 'Tema Oscuro';
+}
+
+// Aplicar el tema guardado al cargar la página
+document.addEventListener('DOMContentLoaded', () => {
+    const isDarkTheme = localStorage.getItem('darkTheme') === 'true';
+    if (isDarkTheme) {
+        document.body.classList.add('dark-theme');
+    }
+    
+    const themeToggle = document.getElementById('themeToggle');
+    themeToggle.textContent = isDarkTheme ? 'Tema Claro' : 'Tema Oscuro';
+    themeToggle.addEventListener('click', toggleTheme);
+});
