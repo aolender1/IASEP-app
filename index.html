@@ -13,8 +13,10 @@
     <div class="container">
         <div class="form-container">
             <label for="cliente">CLIENTE</label>
-            <input type="text" id="cliente" list="clientes-list" class="input-grande" placeholder="Ingrese el nombre del cliente">
-            <datalist id="clientes-list"></datalist>
+            <div style="position: relative; width: 90%;">
+                <input type="text" id="cliente" class="input-grande" placeholder="Ingrese el nombre del cliente">
+                <div id="suggestions-container" class="suggestions-container"></div>
+            </div>
             <label for="importe">IMPORTE</label>
             <input type="text" id="importe" class="input-grande" placeholder="Ingrese el importe">
             <button onclick="guardarDatos()" class="boton-grande" id="cargar">CARGAR</button>
