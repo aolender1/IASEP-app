@@ -125,6 +125,41 @@ label {
     cursor: pointer;
 }
 
+   /* Estilos para el botón de eliminación */
+   .btn-eliminar {
+    background: none;
+    border: none;
+    cursor: pointer;
+    padding: 5px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: red; /* Color del ícono en modo claro */
+    transition: color 0.3s;
+}
+
+/* Cambiar el color del ícono en modo oscuro */
+.dark-theme .btn-eliminar {
+    color: lightcoral; /* Color del ícono en modo oscuro */
+}
+
+/* Estilos para el icono SVG */
+.icon-eliminar {
+    width: 24px; /* Ajusta el tamaño según prefieras */
+    height: 24px;
+    transition: filter 0.3s;
+}
+
+/* Efecto hover para el botón */
+.btn-eliminar:hover .icon-eliminar {
+    filter: brightness(0.8);
+}
+
+/* Eliminar el outline al enfocar el botón */
+.btn-eliminar:focus {
+    outline: none;
+}
+
 /* Estilos para el tema oscuro */
 body.dark-theme {
     background-color: #333;

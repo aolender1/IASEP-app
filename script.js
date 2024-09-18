@@ -204,22 +204,65 @@ function highlightSuggestion(suggestions) {
         }
     }
 
-    // Function to update the table with data
-    function actualizarTabla() {
-        const tablaBody = document.getElementById('tabla-body');
-        tablaBody.innerHTML = ''; // Clear the table
+       // Función para actualizar la tabla con datos
+   function actualizarTabla() {
+    const tablaBody = document.getElementById('tabla-body');
+    tablaBody.innerHTML = ''; // Limpiar la tabla
 
-        // Iterate over 'data' array from last to first element
-        for (let i = data.length - 1; i >= 0; i--) {
-            const item = data[i];
-            const row = tablaBody.insertRow();
-            const cellNombre = row.insertCell(0);
-            const cellImporte = row.insertCell(1);
+    // Iterar sobre el array 'data' desde el último hasta el primero
+    for (let i = data.length - 1; i >= 0; i--) {
+        const item = data[i];
+        const row = tablaBody.insertRow();
 
-            cellNombre.textContent = item.nombre;
-            cellImporte.textContent = '$' + item.importe.toFixed(2);
+        const cellNombre = row.insertCell(0);
+        const cellImporte = row.insertCell(1);
+        const cellAcciones = row.insertCell(2); // Nueva celda para acciones
+
+        cellNombre.textContent = item.nombre;
+        cellImporte.textContent = '$' + item.importe.toFixed(2);
+
+        // Crear el botón de eliminación utilizando una etiqueta <button> con una <img>
+        const btnEliminar = document.createElement('button');
+        btnEliminar.classList.add('btn-eliminar');
+        btnEliminar.setAttribute('aria-label', 'Eliminar registro'); // Accesibilidad
+
+        // Crear la etiqueta <img> para el SVG
+        const imgEliminar = document.createElement('img');
+        imgEliminar.src = 'assets/delete-icon.svg'; // Ruta al archivo SVG
+        imgEliminar.alt = 'Eliminar';
+        imgEliminar.classList.add('icon-eliminar');
+
+        btnEliminar.appendChild(imgEliminar);
+
+        // Añadir evento al botón para eliminar la fila
+        btnEliminar.addEventListener('click', function() {
+            eliminarRegistro(i);
+        });
+
+        cellAcciones.appendChild(btnEliminar);
+    }
+}
+
+// Función para eliminar un registro del array 'data' y actualizar la tabla
+function eliminarRegistro(index) {
+    if (index > -1 && index < data.length) {
+        // Opcional: Confirmación antes de eliminar
+        const confirmacion = confirm('¿Estás seguro de que deseas eliminar este registro?');
+        if (confirmacion) {
+            data.splice(index, 1); // Eliminar el elemento del array
+            localStorage.setItem('data', JSON.stringify(data)); // Actualizar almacenamiento si aplica
+            actualizarTabla(); // Actualizar la tabla
         }
     }
+}
+
+// Función para eliminar un registro del array 'data' y actualizar la tabla
+function eliminarRegistro(index) {
+    if (index > -1 && index < data.length) {
+        data.splice(index, 1); // Eliminar el elemento del array
+        actualizarTabla(); // Actualizar la tabla
+    }
+}
 
     // Function to create the Excel file
     function crearExcel() {
