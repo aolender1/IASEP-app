@@ -49,7 +49,7 @@ label {
 
 .suggestions-container {
     position: absolute;
-    width: 90%; /* Match the width of the input */
+    width: 90%; /* Igual al ancho del input */
     max-height: 200px;
     overflow-y: auto;
     background-color: #fff;
@@ -107,8 +107,8 @@ label {
 }
 
 .highlighted {
-    background-color: #007bff; /* Background color for highlighted suggestion */
-    color: #fff; /* Text color for highlighted suggestion */
+    background-color: #007bff; /* Color de fondo para la sugerencia resaltada */
+    color: #fff; /* Color de texto para la sugerencia resaltada */
 }
 
 /* Estilos para el botón de cambio de tema */

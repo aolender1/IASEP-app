@@ -4,7 +4,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>IASEP Farmacia</title>
-    <link rel="icon" type="image/x-icon" href="/assets/favicon.ico">
+    <link rel="icon" type="image/x-icon" href="assets/favicon.ico">
     <link rel="stylesheet" href="styles.css">
     <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.4/xlsx.full.min.js"></script>
 </head>
@@ -13,7 +13,7 @@
     <div class="container">
         <div class="form-container">
             <label for="cliente">CLIENTE</label>
-            <div style="position: relative; width: 90%;">
+            <div class="input-wrapper">
                 <input type="text" id="cliente" class="input-grande" placeholder="Ingrese el nombre del cliente">
                 <div id="suggestions-container" class="suggestions-container"></div>
             </div>
@@ -30,7 +30,7 @@
                     <tr>
                         <th>Cliente</th>
                         <th>Importe</th>
-                        <th>Eliminar</th>
+                        <th>Acciones</th> <!-- Nueva columna para acciones -->
                     </tr>
                 </thead>
                 <tbody id="tabla-body">
