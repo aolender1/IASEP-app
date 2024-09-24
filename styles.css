@@ -89,7 +89,7 @@ label {
     max-height: 200px;
     overflow-y: auto;
     background-color: #fff;
-    border: 1px solid #ccc;
+    border: 1px #ccc;
     z-index: 1000;
 }
 
@@ -143,6 +143,38 @@ label {
     margin-top: 10px;
     margin-right: 10px;
 }
+
+.boton-excel {
+    display: flex;
+    position: relative;
+    justify-content: center;
+    align-items: center;
+    background-color: #307750;
+    color: #fff;
+    border-style: none;
+    padding: 1em 2em;
+    border-radius: 0.5em;
+    overflow: hidden;
+    z-index: 1;
+    box-shadow: 4px 8px 10px -3px rgba(0, 0, 0, 0.356);
+    transition: all 250ms;
+  }
+  .boton-excel > svg {
+    margin-right: 1em;
+  }
+  .boton-excel::before {
+    content: "";
+    position: absolute;
+    height: 100%;
+    width: 0;
+    border-radius: 0.5em;
+    background-color: #469b61;
+    z-index: -1;
+    transition: all 350ms;
+  }
+  .boton-excel:hover::before {
+    width: 100%;
+  }  
 
 #tabla-datos {
     width: 100%;
@@ -214,7 +246,7 @@ body.dark-theme {
 /* Estilos para el contenedor de sugerencias en tema oscuro */
 .dark-theme .suggestions-container {
     background-color: #444; /* Fondo oscuro para el contenedor */
-    border: 1px solid #666; /* Borde más claro para el contenedor */
+    border: 1px #666; /* Borde más claro para el contenedor */
 }
 
 /* Estilos para los elementos de sugerencia en tema oscuro */
