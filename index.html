@@ -9,7 +9,23 @@
     <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.4/xlsx.full.min.js"></script>
 </head>
 <body>
-    <button id="themeToggle" class="theme-toggle">Cambiar Tema</button>
+    <div class="header">
+        <!-- Sección izquierda para los botones "Crear EXCEL" y "Subir JSON" -->
+        <div class="header-left">
+            <button id="crearExcel" class="boton-secundario">Crear EXCEL</button>
+            <button id="subirJSON" class="boton-secundario">Subir JSON</button>
+            <input type="file" id="fileInput" style="display: none;" accept=".json">
+        </div>
+        <!-- Sección derecha para el interruptor de cambio de tema -->
+        <div class="header-right">
+            <!-- Interruptor para cambiar de tema -->
+            <label class="switch">
+                <input type="checkbox" id="themeToggle">
+                <span class="slider"></span>
+            </label>
+        </div>
+    </div>
+
     <div class="container">
         <div class="form-container">
             <label for="cliente">CLIENTE</label>
@@ -20,9 +36,6 @@
             <label for="importe">IMPORTE</label>
             <input type="text" id="importe" class="input-grande" placeholder="Ingrese el importe">
             <button onclick="guardarDatos()" class="boton-grande" id="cargar">CARGAR</button>
-            <button id="crearExcel" class="boton-secundario">Crear EXCEL</button>
-            <button id="subirJSON" class="boton-secundario">Subir JSON</button>
-            <input type="file" id="fileInput" style="display: none;" accept=".json">
         </div>
         <div class="table-container">
             <table id="tabla-datos">
@@ -30,7 +43,7 @@
                     <tr>
                         <th>Cliente</th>
                         <th>Importe</th>
-                        <th>Acciones</th> <!-- Nueva columna para acciones -->
+                        <th>Eliminar</th>
                     </tr>
                 </thead>
                 <tbody id="tabla-body">
