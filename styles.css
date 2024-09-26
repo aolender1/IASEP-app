@@ -197,6 +197,22 @@ label {
     color: #fff; /* Color de texto para la sugerencia resaltada */
 }
 
+footer {
+    background-color: white;
+    color: black;
+    text-align: center;
+    padding: 10px 0;
+}
+
+footer a {
+    color: black;
+    text-decoration: underline;
+}
+
+footer a:hover {
+    opacity: 0.8;
+}
+
 /* Estilos para el botón de eliminación */
 .btn-eliminar {
     background: none;
@@ -304,6 +320,16 @@ body.dark-theme {
 
 .dark-theme .header-right .switch .slider::after {
     background-color: rgb(0, 0, 0); /* Color adicional para el slider en modo oscuro */
+}
+
+.dark-theme footer{
+    background-color: #2c2c2c;
+    color: #ffffff;
+}
+
+.dark-theme footer a{
+    background-color: #2c2c2c;
+    color: #ffffff;
 }
 
 /* El switch - la caja alrededor del deslizador */
