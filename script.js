@@ -10,7 +10,14 @@ document.addEventListener("DOMContentLoaded", function() {
 
     const data = []; // Array para almacenar los datos ingresados
     let clientes = []; // Array global para almacenar los datos de los clientes
+    let nuevosClientes = []; // Array para almacenar clientes agregados manualmente
     let currentIndex = -1;
+
+    // Obtener elementos del modal
+    const modalManual = document.getElementById('modalManual');
+    const agregarManualButton = document.getElementById('agregarManual');
+    const spanCerrar = document.getElementsByClassName('close')[0];
+    const formManual = document.getElementById('formManual');
 
     // Función para cargar clientes desde JSON y actualizar el array global 'clientes'
     function cargarClientesDesdeJSON(clientesData) {
@@ -162,6 +169,23 @@ document.addEventListener("DOMContentLoaded", function() {
         fileInput.click(); // Abrir el diálogo de selección de archivo JSON
     });
 
+    // Event listener para el botón 'Agregar Clientes Manualmente'
+    agregarManualButton.addEventListener('click', function() {
+        modalManual.style.display = 'block';
+        formManual.reset(); // Resetear el formulario
+    });
+
+    // Event listener para el cierre del modal (cuando se hace clic en la x o fuera del modal)
+    spanCerrar.addEventListener('click', function() {
+        modalManual.style.display = 'none';
+    });
+
+    window.addEventListener('click', function(event) {
+        if (event.target == modalManual) {
+            modalManual.style.display = 'none';
+        }
+    });
+
     // Event listener para el cambio en el input de archivo
     fileInput.addEventListener('change', function(event) {
         console.log("Archivo seleccionado");
@@ -184,7 +208,7 @@ document.addEventListener("DOMContentLoaded", function() {
         reader.readAsText(file); // Leer el contenido del archivo como texto
     });
 
-    // Función para guardar los datos ingresados
+    // Función para guardar los datos ingresados desde el formulario principal
     function guardarDatos() {
         const nombre = clienteInput.value.trim();
         const importe = parseFloat(importeInput.value.replace('$', '').replace(',', '')); // Convertir a float
@@ -220,24 +244,56 @@ document.addEventListener("DOMContentLoaded", function() {
         }
     }
 
+    // Función para guardar los datos ingresados desde el formulario manual
+    formManual.addEventListener('submit', function(event) {
+        event.preventDefault(); // Prevenir el envío por defecto
+
+        const nombreManual = document.getElementById('clienteManual').value.trim();
+        const afiliadoManual = document.getElementById('afiliadoManual').value.trim();
+        const importeManual = parseFloat(document.getElementById('importeManual').value.replace('$', '').replace(',', ''));
+
+        // Validación de los campos
+        if (!nombreManual || !afiliadoManual || isNaN(importeManual)) {
+            alert('Por favor, complete todos los campos correctamente.');
+            return;
+        }
+
+        // Agregar al array principal 'data'
+        data.push({ nombre: nombreManual, afiliado: afiliadoManual, importe: importeManual });
+
+        // Agregar al array 'nuevosClientes' solo con Cliente y Afiliado
+        nuevosClientes.push({ Cliente: nombreManual, Afiliado: afiliadoManual });
+
+        console.log('Datos manuales guardados:', data);
+        console.log('Nuevos Clientes:', nuevosClientes);
+
+        actualizarTabla();
+
+        // Limpiar los campos del formulario para ingresar otro cliente
+        formManual.reset();
+
+        // Focar nuevamente en el primer input del formulario manual
+        document.getElementById('clienteManual').focus();
+    });
+
     // Función para actualizar la tabla con los datos
     function actualizarTabla() {
         const tablaBody = document.getElementById('tabla-body');
         tablaBody.innerHTML = ''; // Limpiar la tabla
 
-        // Iterar sobre el array 'data' desde el último hasta el primero
+        // Iterar sobre 'data' desde el último hacia el primero
         for (let i = data.length - 1; i >= 0; i--) {
             const item = data[i];
             const row = tablaBody.insertRow();
 
             const cellNombre = row.insertCell(0);
             const cellImporte = row.insertCell(1);
-            const cellAcciones = row.insertCell(2); // Nueva celda para acciones
+            const cellAcciones = row.insertCell(2); // Celda para acciones
 
             cellNombre.textContent = item.nombre;
             cellImporte.textContent = '$' + item.importe.toFixed(2);
 
-            // Crear el botón de eliminación utilizando una etiqueta <button> con una <img>
+            // Crear el botón de eliminación
             const btnEliminar = document.createElement('button');
             btnEliminar.classList.add('btn-eliminar');
             btnEliminar.setAttribute('aria-label', 'Eliminar registro'); // Accesibilidad
@@ -252,7 +308,7 @@ document.addEventListener("DOMContentLoaded", function() {
 
             // Añadir evento al botón para eliminar la fila
             btnEliminar.addEventListener('click', function() {
-                eliminarRegistro(i);
+                eliminarRegistro(item);
             });
 
             cellAcciones.appendChild(btnEliminar);
@@ -260,13 +316,20 @@ document.addEventListener("DOMContentLoaded", function() {
     }
 
     // Función para eliminar un registro del array 'data' y actualizar la tabla
-    function eliminarRegistro(index) {
-        if (index > -1 && index < data.length) {
+    function eliminarRegistro(item) {
+        const index = data.indexOf(item);
+        if (index > -1) {
             // Confirmación antes de eliminar
             const confirmacion = confirm('¿Estás seguro de que deseas eliminar este registro?');
             if (confirmacion) {
                 data.splice(index, 1); // Eliminar el elemento del array
-                localStorage.setItem('data', JSON.stringify(data)); // Actualizar almacenamiento si aplica
+
+                // Si el cliente está en 'nuevosClientes', eliminarlo de ahí también
+                const indexNuevo = nuevosClientes.findIndex(c => c.Cliente === item.nombre && c.Afiliado === item.afiliado);
+                if (indexNuevo > -1) {
+                    nuevosClientes.splice(indexNuevo, 1);
+                }
+
                 actualizarTabla(); // Actualizar la tabla
             }
         }
@@ -289,16 +352,28 @@ document.addEventListener("DOMContentLoaded", function() {
         var workbook = XLSX.utils.book_new();
 
         // Crear una hoja de trabajo con las columnas deseadas
-        var worksheet = XLSX.utils.json_to_sheet(datosConOrden, { header: ["ORDEN", "NOMBRE", "AFILIADO", "IMPORTE"] });
+        var worksheetPrincipal = XLSX.utils.json_to_sheet(datosConOrden, { header: ["ORDEN", "NOMBRE", "AFILIADO", "IMPORTE"] });
 
-        // Añadir encabezados personalizados (opcional)
-        XLSX.utils.sheet_add_aoa(worksheet, [["ORDEN", "NOMBRE", "AFILIADO", "IMPORTE"]], { origin: "A1" });
-
-        // Ajustar el orden de las columnas (opcional, ya que el header ya lo especifica)
-        // También puedes agregar formatos si lo deseas
+        // Añadir encabezados personalizados
+        XLSX.utils.sheet_add_aoa(worksheetPrincipal, [["ORDEN", "NOMBRE", "AFILIADO", "IMPORTE"]], { origin: "A1" });
 
         // Añadir la hoja de trabajo al workbook
-        XLSX.utils.book_append_sheet(workbook, worksheet, "Datos");
+        XLSX.utils.book_append_sheet(workbook, worksheetPrincipal, "Datos");
+
+        // Verificar si hay nuevos clientes agregados manualmente
+        if (nuevosClientes.length > 0) {
+            // Ordenar alfabéticamente si lo deseas
+            const nuevosClientesOrdenados = [...nuevosClientes].sort((a, b) => a.Cliente.localeCompare(b.Cliente));
+
+            // Crear la hoja de trabajo para nuevos clientes
+            var worksheetNuevos = XLSX.utils.json_to_sheet(nuevosClientesOrdenados, { header: ["Cliente", "Afiliado"] });
+
+            // Añadir encabezados personalizados
+            XLSX.utils.sheet_add_aoa(worksheetNuevos, [["Cliente", "Afiliado"]], { origin: "A1" });
+
+            // Añadir la hoja de trabajo al workbook
+            XLSX.utils.book_append_sheet(workbook, worksheetNuevos, "Nuevos Clientes");
+        }
 
         // Escribir el workbook a una cadena binaria
         var excelBinary = XLSX.write(workbook, { bookType: 'xlsx', type: 'binary' });

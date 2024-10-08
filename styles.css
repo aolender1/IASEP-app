@@ -213,6 +213,90 @@ footer a:hover {
     opacity: 0.8;
 }
 
+/* Estilos para el Modal */
+.modal {
+    display: none; /* Oculto por defecto */
+    position: fixed; /* Permanecer en su posición */
+    z-index: 1000; /* Por encima de otros elementos */
+    left: 0;
+    top: 0;
+    width: 100%; /* Ancho completo */
+    height: 100%; /* Altura completa */
+    overflow: auto; /* Habilitar scroll si es necesario */
+    background-color: rgba(0, 0, 0, 0.5); /* Fondo semi-transparente */
+}
+
+.modal-content {
+    background-color: #fefefe;
+    margin: 10% auto; /* 10% desde arriba y centrado */
+    padding: 20px;
+    border: 1px solid #888;
+    width: 40%; /* Ancho del contenido */
+    border-radius: 8px;
+}
+
+.close {
+    color: #aaa;
+    float: right;
+    font-size: 28px;
+    font-weight: bold;
+    cursor: pointer;
+}
+
+.close:hover,
+.close:focus {
+    color: black;
+    text-decoration: none;
+}
+
+#formManual label {
+    display: block;
+    margin-top: 10px;
+}
+
+#formManual input {
+    width: 100%;
+    padding: 8px;
+    margin-top: 5px;
+    box-sizing: border-box;
+}
+
+#formManual button {
+    margin-top: 15px;
+    width: 100%;
+}
+
+/* Estilos para el Modal en Modo Oscuro */
+.dark-theme .modal-content {
+    background-color: #2c2c2c; /* Fondo oscuro para el modal */
+    color: #ffffff; /* Texto claro en el modal */
+}
+
+.dark-theme #formManual label {
+    color: #ffffff; /* Texto claro para los labels */
+}
+
+.dark-theme #formManual input {
+    background-color: #444444; /* Fondo oscuro para inputs */
+    color: #ffffff; /* Texto claro en inputs */
+    border: 1px solid #666666; /* Borde más claro */
+}
+
+/* Aumentar el tamaño de fuente de los inputs y labels del formulario manual */
+#formManual label {
+    font-size: 20px;
+}
+
+#formManual input {
+    font-size: 36px;
+    padding: 12px;
+}
+
+#formManual input::placeholder {
+    color: #999999; /* Color gris claro para los placeholders */
+    opacity: 1; /* Asegura que el color sea el especificado */
+}
+
 /* Estilos para el botón de eliminación */
 .btn-eliminar {
     background: none;

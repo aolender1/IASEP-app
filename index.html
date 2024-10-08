@@ -10,16 +10,16 @@
 </head>
 <body>
     <div class="header">
-        <!-- Sección izquierda para los botones "Crear EXCEL" y "Subir JSON" -->
+        <!-- Sección izquierda para los botones "Crear EXCEL", "Subir JSON" y "Agregar Clientes Manualmente" -->
         <div class="header-left">
             <button class="boton-excel" id="crearExcel">
-            <svg
-                fill="#fff"
-                xmlns="http://www.w3.org/2000/svg"
-                width="20"
-                height="20"
-                viewBox="0 0 50 50"
-            >
+                <svg
+                    fill="#fff"
+                    xmlns="http://www.w3.org/2000/svg"
+                    width="20"
+                    height="20"
+                    viewBox="0 0 50 50"
+                >
                 <path
                 d="M28.8125 .03125L.8125 5.34375C.339844 
                 5.433594 0 5.863281 0 6.34375L0 43.65625C0 
@@ -40,10 +40,11 @@
                 14.4375 28.34375L11.1875 34.375L6.1875 34.375L12.15625 25.03125ZM36 
                 20L44 20L44 22L36 22ZM36 27L44 27L44 29L36 29ZM36 35L44 35L44 37L36 37Z"
                 ></path>
-            </svg>
-            Crear Excel
+                </svg>
+                Crear Excel
             </button>
             <button id="subirJSON" class="boton-secundario">Subir JSON</button>
+            <button id="agregarManual" class="boton-secundario">Agregar Clientes Manualmente</button>
             <input type="file" id="fileInput" style="display: none;" accept=".json">
         </div>
         <!-- Sección derecha para el interruptor de cambio de tema -->
@@ -65,7 +66,7 @@
             </div>
             <label for="importe">IMPORTE</label>
             <input type="text" id="importe" class="input-grande" placeholder="Ingrese el importe">
-            <button onclick="guardarDatos()" class="boton-grande" id="cargar">CARGAR</button>
+            <button class="boton-grande" id="cargar">CARGAR</button>
         </div>
         <div class="table-container">
             <table id="tabla-datos">
@@ -81,6 +82,21 @@
             </table>
         </div>
     </div>
+
+    <!-- Modal para Agregar Clientes Manualmente -->
+    <div id="modalManual" class="modal">
+        <div class="modal-content">
+            <span class="close">&times;</span>
+            <h2>Agregar Cliente Manualmente</h2>
+            <form id="formManual">
+                <input type="text" class="input-form-manual" id="clienteManual" name="clienteManual" placeholder="Ingrese el nombre del cliente" required>
+                <input type="text" class="input-form-manual" id="afiliadoManual" name="afiliadoManual" placeholder="Ingrese el número de afiliado" required>
+                <input type="text" class="input-form-manual" id="importeManual" name="importeManual" placeholder="Ingrese el importe" required>
+                <button type="submit" class="boton-grande">Cargar</button>
+            </form>
+        </div>
+    </div>
+
     <footer>
         <p>aolender | <a href="https://github.com/aolender1" target="_blank">GitHub</a></p>
     </footer>
