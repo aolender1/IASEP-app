@@ -186,11 +186,27 @@ document.addEventListener("DOMContentLoaded", function() {
 
     // Función para guardar los datos ingresados
     function guardarDatos() {
-        const nombre = clienteInput.value;
+        const nombre = clienteInput.value.trim();
         const importe = parseFloat(importeInput.value.replace('$', '').replace(',', '')); // Convertir a float
-        console.log('Nombre:', nombre, 'Importe:', importe);
+
+        if (!nombre) {
+            alert('Por favor ingrese un nombre válido.');
+            return;
+        }
+
+        // Buscar el número de afiliado correspondiente al nombre
+        const clienteEncontrado = clientes.find(cliente => cliente.NOMBRE.toLowerCase() === nombre.toLowerCase());
+        if (!clienteEncontrado) {
+            alert('Cliente no encontrado en la lista de afiliados.');
+            return;
+        }
+
+        const afiliado = clienteEncontrado.NUMERO;
+
+        console.log('Nombre:', nombre, 'Afiliado:', afiliado, 'Importe:', importe);
+
         if (nombre && !isNaN(importe)) {
-            data.push({ nombre, importe });
+            data.push({ nombre, afiliado, importe });
             console.log('Datos guardados:', data);
             actualizarTabla();
             // Limpiar los inputs después de guardar
@@ -258,11 +274,28 @@ document.addEventListener("DOMContentLoaded", function() {
 
     // Función para crear el archivo Excel
     function crearExcel() {
+        // Crear una copia de los datos y ordenarlos alfabéticamente por 'nombre'
+        const datosOrdenados = [...data].sort((a, b) => a.nombre.localeCompare(b.nombre));
+
+        // Añadir la columna 'ORDEN'
+        const datosConOrden = datosOrdenados.map((item, index) => ({
+            ORDEN: index + 1,
+            NOMBRE: item.nombre,
+            AFILIADO: item.afiliado,
+            IMPORTE: item.importe
+        }));
+
         // Crear un nuevo workbook
         var workbook = XLSX.utils.book_new();
 
-        // Crear una hoja de trabajo
-        var worksheet = XLSX.utils.json_to_sheet(data);
+        // Crear una hoja de trabajo con las columnas deseadas
+        var worksheet = XLSX.utils.json_to_sheet(datosConOrden, { header: ["ORDEN", "NOMBRE", "AFILIADO", "IMPORTE"] });
+
+        // Añadir encabezados personalizados (opcional)
+        XLSX.utils.sheet_add_aoa(worksheet, [["ORDEN", "NOMBRE", "AFILIADO", "IMPORTE"]], { origin: "A1" });
+
+        // Ajustar el orden de las columnas (opcional, ya que el header ya lo especifica)
+        // También puedes agregar formatos si lo deseas
 
         // Añadir la hoja de trabajo al workbook
         XLSX.utils.book_append_sheet(workbook, worksheet, "Datos");
