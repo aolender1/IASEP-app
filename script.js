@@ -4,12 +4,12 @@ document.addEventListener("DOMContentLoaded", function() {
     const importeInput = document.getElementById('importe');
     const cargarButton = document.getElementById('cargar');
     const crearExcelButton = document.getElementById('crearExcel');
-    const subirJSONButton = document.getElementById('subirJSON');
+    const subirDatosExcelButton = document.getElementById('subirDatosExcel'); // Nuevo botón
     const fileInput = document.getElementById('fileInput');
     const themeToggle = document.getElementById('themeToggle'); // Interruptor de tema
 
-    const data = []; // Array para almacenar los datos ingresados
-    let clientes = []; // Array global para almacenar los datos de los clientes
+    const data = []; // Array para almacenar los datos ingresados (Deposito)
+    let baseDatos = []; // Array para almacenar los datos de la base de datos
     let nuevosClientes = []; // Array para almacenar clientes agregados manualmente
     let currentIndex = -1;
 
@@ -19,17 +19,17 @@ document.addEventListener("DOMContentLoaded", function() {
     const spanCerrar = document.getElementsByClassName('close')[0];
     const formManual = document.getElementById('formManual');
 
-    // Función para cargar clientes desde JSON y actualizar el array global 'clientes'
-    function cargarClientesDesdeJSON(clientesData) {
-        console.log("Iniciando carga de clientes:", clientesData);
-        clientes = clientesData; // Actualizar el array global clientes
-        console.log("Carga de clientes completada:", clientes);
+    // Función para cargar clientes desde la hoja "base-de-datos" de Excel
+    function cargarClientesDesdeExcel(clientesData) {
+        console.log("Iniciando carga de clientes desde Excel:", clientesData);
+        baseDatos = clientesData; // Actualizar el array baseDatos
+        console.log("Carga de clientes completada desde Excel:", baseDatos);
     }
 
     // Función para mostrar sugerencias
     function showSuggestions(value) {
         suggestionsContainer.innerHTML = ''; // Limpiar sugerencias anteriores
-        const filteredClientes = clientes.filter(cliente =>
+        const filteredClientes = baseDatos.filter(cliente =>
             cliente.NOMBRE.toLowerCase().includes(value.toLowerCase())
         );
 
@@ -97,7 +97,7 @@ document.addEventListener("DOMContentLoaded", function() {
             } else {
                 // Si no hay sugerencia resaltada, seleccionar el primer cliente coincidente
                 const inputValue = clienteInput.value.toLowerCase();
-                const filteredClientes = clientes.filter(cliente =>
+                const filteredClientes = baseDatos.filter(cliente =>
                     cliente.NOMBRE.toLowerCase().includes(inputValue)
                 );
 
@@ -117,7 +117,7 @@ document.addEventListener("DOMContentLoaded", function() {
             event.preventDefault(); // Prevenir envío del formulario
 
             const inputValue = clienteInput.value.toLowerCase();
-            const filteredClientes = clientes.filter(cliente =>
+            const filteredClientes = baseDatos.filter(cliente =>
                 cliente.NOMBRE.toLowerCase().includes(inputValue)
             );
 
@@ -155,7 +155,7 @@ document.addEventListener("DOMContentLoaded", function() {
     // Event listener para el botón 'CARGAR'
     cargarButton.addEventListener('click', guardarDatos);
 
-    // Event listener para el botón 'Crear EXCEL'
+    // Event listener para el botón 'Crear Excel'
     crearExcelButton.addEventListener('click', function() {
         if (data.length === 0) {
             alert('No hay datos para crear el Excel.');
@@ -164,9 +164,9 @@ document.addEventListener("DOMContentLoaded", function() {
         crearExcel();
     });
 
-    // Event listener para el botón 'Subir JSON'
-    subirJSONButton.addEventListener('click', function() {
-        fileInput.click(); // Abrir el diálogo de selección de archivo JSON
+    // Event listener para el botón 'Subir Datos en Excel'
+    subirDatosExcelButton.addEventListener('click', function() {
+        fileInput.click(); // Abrir el diálogo de selección de archivo Excel
     });
 
     // Event listener para el botón 'Agregar Clientes Manualmente'
@@ -188,24 +188,34 @@ document.addEventListener("DOMContentLoaded", function() {
 
     // Event listener para el cambio en el input de archivo
     fileInput.addEventListener('change', function(event) {
-        console.log("Archivo seleccionado");
         const file = event.target.files[0]; // Obtener el primer archivo seleccionado
-        const reader = new FileReader();
-        reader.onload = function(e) {
-            console.log("Archivo leído");
-            const contenido = e.target.result;
-            try {
-                console.log("Contenido del archivo:", contenido);
-                const json = JSON.parse(contenido);
-                console.log("JSON parseado:", json);
-                cargarClientesDesdeJSON(json); // Procesar el JSON
-                alert('JSON cargado correctamente.');
-            } catch (error) {
-                console.error("Error al procesar JSON:", error);
-                alert('Error al cargar el archivo JSON.');
-            }
-        };
-        reader.readAsText(file); // Leer el contenido del archivo como texto
+        if (file) {
+            const reader = new FileReader();
+            reader.onload = function(e) {
+                const data = new Uint8Array(e.target.result);
+                const workbook = XLSX.read(data, { type: 'array' });
+
+                // Obtener la hoja "base-de-datos"
+                const sheetName = "base-de-datos";
+                if (!workbook.Sheets[sheetName]) {
+                    alert(`La hoja "${sheetName}" no fue encontrada en el archivo Excel.`);
+                    return;
+                }
+
+                const worksheet = workbook.Sheets[sheetName];
+                const jsonData = XLSX.utils.sheet_to_json(worksheet, { defval: "" });
+
+                // Verificar que las columnas existen
+                if (!jsonData.length || !jsonData[0].ID || !jsonData[0].NOMBRE || !jsonData[0].NUMERO) {
+                    alert(`La hoja "${sheetName}" debe contener las columnas ID, NOMBRE y NUMERO.`);
+                    return;
+                }
+
+                cargarClientesDesdeExcel(jsonData);
+                alert('Datos cargados correctamente desde Excel.');
+            };
+            reader.readAsArrayBuffer(file); // Leer el contenido del archivo como ArrayBuffer
+        }
     });
 
     // Función para guardar los datos ingresados desde el formulario principal
@@ -219,7 +229,7 @@ document.addEventListener("DOMContentLoaded", function() {
         }
 
         // Buscar el número de afiliado correspondiente al nombre
-        const clienteEncontrado = clientes.find(cliente => cliente.NOMBRE.toLowerCase() === nombre.toLowerCase());
+        const clienteEncontrado = baseDatos.find(cliente => cliente.NOMBRE.toLowerCase() === nombre.toLowerCase());
         if (!clienteEncontrado) {
             alert('Cliente no encontrado en la lista de afiliados.');
             return;
@@ -337,7 +347,28 @@ document.addEventListener("DOMContentLoaded", function() {
 
     // Función para crear el archivo Excel
     function crearExcel() {
-        // Crear una copia de los datos y ordenarlos alfabéticamente por 'nombre'
+        // Combinar baseDatos con nuevosClientes para crear 'base-de-datos'
+        const combinedClientes = [...baseDatos, ...nuevosClientes.map(c => ({
+            ID: "", // Placeholder, se asignará después
+            NOMBRE: c.Cliente,
+            NUMERO: c.Afiliado
+        }))];
+
+        // Ordenar alfabéticamente por NOMBRE
+        combinedClientes.sort((a, b) => a.NOMBRE.localeCompare(b.NOMBRE));
+
+        // Asignar IDs secuenciales
+        combinedClientes.forEach((cliente, index) => {
+            cliente.ID = index + 1;
+        });
+
+        // Crear una hoja "base-de-datos"
+        const hojaBaseDatos = XLSX.utils.json_to_sheet(combinedClientes, { header: ["ID", "NOMBRE", "NUMERO"] });
+        XLSX.utils.sheet_add_aoa(hojaBaseDatos, [["ID", "NOMBRE", "NUMERO"]], { origin: "A1" });
+
+        // Preparar la hoja "Datos" con ORDEN, NOMBRE, AFILIADO e IMPORTE
+        // Aquí usamos 'data' que contiene las entradas cargadas en la sesión actual
+        // Ordenamos alfabéticamente por NOMBRE
         const datosOrdenados = [...data].sort((a, b) => a.nombre.localeCompare(b.nombre));
 
         // Añadir la columna 'ORDEN'
@@ -348,41 +379,37 @@ document.addEventListener("DOMContentLoaded", function() {
             IMPORTE: item.importe
         }));
 
-        // Crear un nuevo workbook
-        var workbook = XLSX.utils.book_new();
+        // Crear una hoja "Datos"
+        const hojaDatos = XLSX.utils.json_to_sheet(datosConOrden, { header: ["ORDEN", "NOMBRE", "AFILIADO", "IMPORTE"] });
+        XLSX.utils.sheet_add_aoa(hojaDatos, [["ORDEN", "NOMBRE", "AFILIADO", "IMPORTE"]], { origin: "A1" });
 
-        // Crear una hoja de trabajo con las columnas deseadas
-        var worksheetPrincipal = XLSX.utils.json_to_sheet(datosConOrden, { header: ["ORDEN", "NOMBRE", "AFILIADO", "IMPORTE"] });
-
-        // Añadir encabezados personalizados
-        XLSX.utils.sheet_add_aoa(worksheetPrincipal, [["ORDEN", "NOMBRE", "AFILIADO", "IMPORTE"]], { origin: "A1" });
-
-        // Añadir la hoja de trabajo al workbook
-        XLSX.utils.book_append_sheet(workbook, worksheetPrincipal, "Datos");
-
-        // Verificar si hay nuevos clientes agregados manualmente
+        // Crear una hoja "Nuevos Clientes" si hay nuevos clientes
+        let hojaNuevosClientes = null;
         if (nuevosClientes.length > 0) {
-            // Ordenar alfabéticamente si lo deseas
+            // Sort 'nuevosClientes' alfabéticamente por Cliente
             const nuevosClientesOrdenados = [...nuevosClientes].sort((a, b) => a.Cliente.localeCompare(b.Cliente));
 
             // Crear la hoja de trabajo para nuevos clientes
-            var worksheetNuevos = XLSX.utils.json_to_sheet(nuevosClientesOrdenados, { header: ["Cliente", "Afiliado"] });
+            hojaNuevosClientes = XLSX.utils.json_to_sheet(nuevosClientesOrdenados, { header: ["Cliente", "Afiliado"] });
+            XLSX.utils.sheet_add_aoa(hojaNuevosClientes, [["Cliente", "Afiliado"]], { origin: "A1" });
+        }
 
-            // Añadir encabezados personalizados
-            XLSX.utils.sheet_add_aoa(worksheetNuevos, [["Cliente", "Afiliado"]], { origin: "A1" });
-
-            // Añadir la hoja de trabajo al workbook
-            XLSX.utils.book_append_sheet(workbook, worksheetNuevos, "Nuevos Clientes");
+        // Crear un nuevo workbook y agregar las hojas
+        const workbook = XLSX.utils.book_new();
+        XLSX.utils.book_append_sheet(workbook, hojaBaseDatos, "base-de-datos");
+        XLSX.utils.book_append_sheet(workbook, hojaDatos, "Datos");
+        if (hojaNuevosClientes) {
+            XLSX.utils.book_append_sheet(workbook, hojaNuevosClientes, "Nuevos Clientes");
         }
 
         // Escribir el workbook a una cadena binaria
-        var excelBinary = XLSX.write(workbook, { bookType: 'xlsx', type: 'binary' });
+        const excelBinary = XLSX.write(workbook, { bookType: 'xlsx', type: 'binary' });
 
         // Convertir la cadena binaria a un Blob
-        var blob = new Blob([s2ab(excelBinary)], { type: "application/octet-stream" });
+        const blob = new Blob([s2ab(excelBinary)], { type: "application/octet-stream" });
 
         // Crear un enlace para descargar el archivo
-        var link = document.createElement("a");
+        const link = document.createElement("a");
         link.href = window.URL.createObjectURL(blob);
         link.download = "datos.xlsx";
         link.click();
@@ -390,9 +417,9 @@ document.addEventListener("DOMContentLoaded", function() {
 
     // Función para convertir una cadena a ArrayBuffer
     function s2ab(s) {
-        var buf = new ArrayBuffer(s.length);
-        var view = new Uint8Array(buf);
-        for (var i = 0; i < s.length; i++) {
+        const buf = new ArrayBuffer(s.length);
+        const view = new Uint8Array(buf);
+        for (let i = 0; i < s.length; i++) {
             view[i] = s.charCodeAt(i) & 0xFF;
         }
         return buf;

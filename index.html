@@ -10,7 +10,7 @@
 </head>
 <body>
     <div class="header">
-        <!-- Sección izquierda para los botones "Crear EXCEL", "Subir JSON" y "Agregar Clientes Manualmente" -->
+        <!-- Sección izquierda en la cabecera -->
         <div class="header-left">
             <button class="boton-excel" id="crearExcel">
                 <svg
@@ -43,9 +43,9 @@
                 </svg>
                 Crear Excel
             </button>
-            <button id="subirJSON" class="boton-secundario">Subir JSON</button>
+            <button id="subirDatosExcel" class="boton-secundario">Subir Datos en Excel</button>
             <button id="agregarManual" class="boton-secundario">Agregar Clientes Manualmente</button>
-            <input type="file" id="fileInput" style="display: none;" accept=".json">
+            <input type="file" id="fileInput" style="display: none;" accept=".xlsx, .xls">
         </div>
         <!-- Sección derecha para el interruptor de cambio de tema -->
         <div class="header-right">
@@ -89,9 +89,15 @@
             <span class="close">&times;</span>
             <h2>Agregar Cliente Manualmente</h2>
             <form id="formManual">
-                <input type="text" class="input-form-manual" id="clienteManual" name="clienteManual" placeholder="Ingrese el nombre del cliente" required>
-                <input type="text" class="input-form-manual" id="afiliadoManual" name="afiliadoManual" placeholder="Ingrese el número de afiliado" required>
-                <input type="text" class="input-form-manual" id="importeManual" name="importeManual" placeholder="Ingrese el importe" required>
+                <label for="clienteManual">Cliente:</label>
+                <input type="text" id="clienteManual" name="clienteManual" placeholder="Ingrese el nombre del cliente" required>
+
+                <label for="afiliadoManual">Afiliado:</label>
+                <input type="text" id="afiliadoManual" name="afiliadoManual" placeholder="Ingrese el número de afiliado" required>
+
+                <label for="importeManual">Importe:</label>
+                <input type="text" id="importeManual" name="importeManual" placeholder="Ingrese el importe" required>
+
                 <button type="submit" class="boton-grande">Cargar</button>
             </form>
         </div>
