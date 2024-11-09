@@ -266,6 +266,23 @@ footer a:hover {
     width: 100%;
 }
 
+/* Estilos para mostrar el número del cliente */
+.numero-cliente {
+    margin-top: 5px;
+    font-size: 18px;
+    color: #555;
+    display: none;
+}
+
+.numero-cliente.visible {
+    display: block;
+}
+
+/* Ajustes para modo oscuro */
+.dark-theme .numero-cliente {
+    color: #ccc;
+}
+
 /* Estilos para el Modal en Modo Oscuro */
 .dark-theme .modal-content {
     background-color: #2c2c2c; /* Fondo oscuro para el modal */

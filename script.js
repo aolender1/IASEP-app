@@ -7,6 +7,7 @@ document.addEventListener("DOMContentLoaded", function() {
     const subirDatosExcelButton = document.getElementById('subirDatosExcel'); // Nuevo botón
     const fileInput = document.getElementById('fileInput');
     const themeToggle = document.getElementById('themeToggle'); // Interruptor de tema
+    const mostrarNumeroCliente = document.getElementById('mostrar-numero-cliente');
 
     const data = []; // Array para almacenar los datos ingresados (Deposito)
     let baseDatos = []; // Array para almacenar los datos de la base de datos
@@ -28,7 +29,7 @@ document.addEventListener("DOMContentLoaded", function() {
 
     // Función para mostrar sugerencias
     function showSuggestions(value) {
-        suggestionsContainer.innerHTML = ''; // Limpiar sugerencias anteriores
+        suggestionsContainer.innerHTML = '';
         const filteredClientes = baseDatos.filter(cliente =>
             cliente.NOMBRE.toLowerCase().includes(value.toLowerCase())
         );
@@ -37,11 +38,13 @@ document.addEventListener("DOMContentLoaded", function() {
             const suggestionItem = document.createElement('div');
             suggestionItem.classList.add('suggestion-item');
             suggestionItem.textContent = cliente.NOMBRE;
-            suggestionItem.addEventListener('click', () => {
+            suggestionItem.addEventListener('click', (event) => {
+                event.stopPropagation();
                 clienteInput.value = cliente.NOMBRE;
                 suggestionsContainer.innerHTML = '';
                 suggestionsContainer.style.display = 'none';
-                // Mover el foco al siguiente input
+                mostrarNumeroCliente.textContent = `Número: ${cliente.NUMERO}`;
+                mostrarNumeroCliente.classList.add('visible');
                 importeInput.focus();
             });
             suggestionsContainer.appendChild(suggestionItem);
@@ -89,23 +92,33 @@ document.addEventListener("DOMContentLoaded", function() {
         } else if (event.key === 'Enter') {
             event.preventDefault(); // Prevenir envío del formulario
             if (currentIndex >= 0 && currentIndex < suggestions.length) {
-                // Seleccionar la sugerencia resaltada
                 clienteInput.value = suggestions[currentIndex].textContent;
                 suggestionsContainer.innerHTML = '';
                 suggestionsContainer.style.display = 'none';
-                importeInput.focus(); // Mover el foco al input de importe
+                const clienteSeleccionado = baseDatos.find(c => c.NOMBRE === suggestions[currentIndex].textContent);
+                if (clienteSeleccionado) {
+                    mostrarNumeroCliente.textContent = `Número: ${clienteSeleccionado.NUMERO}`;
+                    mostrarNumeroCliente.classList.add('visible');
+                }
+                importeInput.focus();
             } else {
-                // Si no hay sugerencia resaltada, seleccionar el primer cliente coincidente
                 const inputValue = clienteInput.value.toLowerCase();
                 const filteredClientes = baseDatos.filter(cliente =>
                     cliente.NOMBRE.toLowerCase().includes(inputValue)
                 );
 
                 if (filteredClientes.length > 0) {
-                    clienteInput.value = filteredClientes[0].NOMBRE; // Autocompletar al primer cliente coincidente
+                    clienteInput.value = filteredClientes[0].NOMBRE;
                     suggestionsContainer.innerHTML = '';
                     suggestionsContainer.style.display = 'none';
-                    importeInput.focus(); // Mover el foco al input de importe
+                    const primerCliente = filteredClientes[0];
+                    mostrarNumeroCliente.textContent = `Número: ${primerCliente.NUMERO}`;
+                    mostrarNumeroCliente.classList.add('visible');
+                    importeInput.focus();
+                } else {
+                    alert('No se encontró ningún nombre coincidente en la lista.');
+                    mostrarNumeroCliente.textContent = '';
+                    mostrarNumeroCliente.classList.remove('visible');
                 }
             }
         }
@@ -114,23 +127,35 @@ document.addEventListener("DOMContentLoaded", function() {
     // Event listener para la tecla 'Enter' en el input 'clienteInput'
     clienteInput.addEventListener('keypress', function(event) {
         if (event.key === 'Enter') {
-            event.preventDefault(); // Prevenir envío del formulario
-
+            event.preventDefault();
             const inputValue = clienteInput.value.toLowerCase();
             const filteredClientes = baseDatos.filter(cliente =>
                 cliente.NOMBRE.toLowerCase().includes(inputValue)
             );
 
             if (filteredClientes.length > 0) {
-                // Autocompletar al primer cliente coincidente
                 clienteInput.value = filteredClientes[0].NOMBRE;
                 suggestionsContainer.innerHTML = '';
                 suggestionsContainer.style.display = 'none';
-                importeInput.focus(); // Mover el foco al input de importe
+                const primerCliente = filteredClientes[0];
+                mostrarNumeroCliente.textContent = `Número: ${primerCliente.NUMERO}`;
+                mostrarNumeroCliente.classList.add('visible');
+                importeInput.focus();
             } else {
-                // No se encontraron clientes coincidentes
                 alert('No se encontró ningún nombre coincidente en la lista.');
+                mostrarNumeroCliente.textContent = '';
+                mostrarNumeroCliente.classList.remove('visible');
             }
+        }
+    });
+
+    // Limpiar el div al hacer clic fuera
+    document.addEventListener('click', function(e) {
+        if (!suggestionsContainer.contains(e.target) && e.target !== clienteInput) {
+            suggestionsContainer.innerHTML = '';
+            suggestionsContainer.style.display = 'none';
+            mostrarNumeroCliente.textContent = '';
+            mostrarNumeroCliente.classList.remove('visible');
         }
     });
 
