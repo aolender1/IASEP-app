@@ -86,7 +86,7 @@ label {
 .suggestions-container {
     position: absolute;
     width: 90%; /* Igual al ancho del input */
-    max-height: 200px;
+    max-height: 400px;
     overflow-y: auto;
     background-color: #fff;
     border: 1px #ccc;

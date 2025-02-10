@@ -279,76 +279,92 @@ document.addEventListener("DOMContentLoaded", function() {
         }
     }
 
-    // Función para guardar los datos ingresados desde el formulario manual
-    formManual.addEventListener('submit', function(event) {
-        event.preventDefault(); // Prevenir el envío por defecto
-
-        const nombreManual = document.getElementById('clienteManual').value.trim();
-        const afiliadoManual = document.getElementById('afiliadoManual').value.trim();
-        const importeManual = parseFloat(document.getElementById('importeManual').value.replace('$', '').replace(',', ''));
-
-        // Validación de los campos
-        if (!nombreManual || !afiliadoManual || isNaN(importeManual)) {
-            alert('Por favor, complete todos los campos correctamente.');
-            return;
-        }
-
-        // Agregar al array principal 'data'
-        data.push({ nombre: nombreManual, afiliado: afiliadoManual, importe: importeManual });
-
-        // Agregar al array 'nuevosClientes' solo con Cliente y Afiliado
-        nuevosClientes.push({ Cliente: nombreManual, Afiliado: afiliadoManual });
-
-        console.log('Datos manuales guardados:', data);
-        console.log('Nuevos Clientes:', nuevosClientes);
-
-        actualizarTabla();
-
-        // Limpiar los campos del formulario para ingresar otro cliente
-        formManual.reset();
-
-        // Focar nuevamente en el primer input del formulario manual
-        document.getElementById('clienteManual').focus();
-    });
+    // Función para guardar los datos ingresados desde el formulario manual  
+formManual.addEventListener('submit', function(event) {  
+    event.preventDefault(); // Prevenir el envío por defecto  
+    
+    const nombreManual = document.getElementById('clienteManual').value.trim();  
+    const afiliadoManual = document.getElementById('afiliadoManual').value.trim();  
+    const importeManual = parseFloat(document.getElementById('importeManual').value.replace('$', '').replace(',', ''));  
+    
+    // Validación de los campos  
+    if (!nombreManual || !afiliadoManual || isNaN(importeManual)) {  
+      alert('Por favor, complete todos los campos correctamente.');  
+      return;  
+    }  
+    
+    // Agregar al array principal 'data' para almacenar la factura  
+    data.push({ nombre: nombreManual, afiliado: afiliadoManual, importe: importeManual });  
+    
+    // Agregar al array 'nuevosClientes' solo si el cliente no existe previamente  
+    if (!baseDatos.some(c => c.NOMBRE.toLowerCase() === nombreManual.toLowerCase()) &&  
+        !nuevosClientes.some(c => c.Cliente.toLowerCase() === nombreManual.toLowerCase())) {  
+      nuevosClientes.push({ Cliente: nombreManual, Afiliado: afiliadoManual });  
+    }  
+    
+    console.log('Datos manuales guardados:', data);  
+    console.log('Nuevos Clientes:', nuevosClientes);  
+    
+    actualizarTabla();  
+    
+    // Limpiar los campos del formulario para ingresar otro cliente  
+    formManual.reset();  
+    
+    // Focar nuevamente en el primer input del formulario manual  
+    document.getElementById('clienteManual').focus();  
+  });
 
     // Función para actualizar la tabla con los datos
-    function actualizarTabla() {
-        const tablaBody = document.getElementById('tabla-body');
-        tablaBody.innerHTML = ''; // Limpiar la tabla
-
-        // Iterar sobre 'data' desde el último hacia el primero
-        for (let i = data.length - 1; i >= 0; i--) {
-            const item = data[i];
-            const row = tablaBody.insertRow();
-
-            const cellNombre = row.insertCell(0);
-            const cellImporte = row.insertCell(1);
-            const cellAcciones = row.insertCell(2); // Celda para acciones
-
-            cellNombre.textContent = item.nombre;
-            cellImporte.textContent = '$' + item.importe.toFixed(2);
-
-            // Crear el botón de eliminación
-            const btnEliminar = document.createElement('button');
-            btnEliminar.classList.add('btn-eliminar');
-            btnEliminar.setAttribute('aria-label', 'Eliminar registro'); // Accesibilidad
-
-            // Crear la etiqueta <img> para el SVG
-            const imgEliminar = document.createElement('img');
-            imgEliminar.src = 'assets/delete-icon.svg'; // Ruta al archivo SVG
-            imgEliminar.alt = 'Eliminar';
-            imgEliminar.classList.add('icon-eliminar');
-
-            btnEliminar.appendChild(imgEliminar);
-
-            // Añadir evento al botón para eliminar la fila
-            btnEliminar.addEventListener('click', function() {
-                eliminarRegistro(item);
-            });
-
-            cellAcciones.appendChild(btnEliminar);
-        }
+function actualizarTabla() {
+    const tablaBody = document.getElementById('tabla-body');
+    tablaBody.innerHTML = ''; // Limpiar la tabla
+  
+    // Calcular el total de importes y actualizar el mensaje de total a cobrar
+    let totalImporte = data.reduce((sum, item) => sum + item.importe, 0);
+    let totalCobrar = totalImporte * 0.125;
+    document.getElementById('totalAmount').textContent = `Importe total a cobrar: $${totalCobrar.toFixed(2)}`;
+  
+    let count = data.length; // Contador que inicia con el total de facturas
+  
+    // Iterar sobre 'data' desde el último hacia el primero
+    for (let i = data.length - 1; i >= 0; i--) {
+      const item = data[i];
+      const row = tablaBody.insertRow();
+  
+      // Nueva celda para el número de factura
+      const cellCount = row.insertCell(0);
+      // Las demás celdas se desplazarán una posición a la derecha
+      const cellNombre = row.insertCell(1);
+      const cellImporte = row.insertCell(2);
+      const cellAcciones = row.insertCell(3); // Celda para el botón de eliminación
+  
+      cellCount.textContent = count;
+      count--;
+  
+      cellNombre.textContent = item.nombre;
+      cellImporte.textContent = '$' + item.importe.toFixed(2);
+  
+      // Crear el botón de eliminación
+      const btnEliminar = document.createElement('button');
+      btnEliminar.classList.add('btn-eliminar');
+      btnEliminar.setAttribute('aria-label', 'Eliminar registro'); // Accesibilidad
+  
+      // Crear la etiqueta <img> para el SVG del botón
+      const imgEliminar = document.createElement('img');
+      imgEliminar.src = 'assets/delete-icon.svg'; // Ruta al archivo SVG
+      imgEliminar.alt = 'Eliminar';
+      imgEliminar.classList.add('icon-eliminar');
+  
+      btnEliminar.appendChild(imgEliminar);
+  
+      // Establecer el evento para eliminar la factura
+      btnEliminar.addEventListener('click', function() {
+        eliminarRegistro(item);
+      });
+  
+      cellAcciones.appendChild(btnEliminar);
     }
+  }
 
     // Función para eliminar un registro del array 'data' y actualizar la tabla
     function eliminarRegistro(item) {
