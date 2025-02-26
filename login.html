@@ -1,0 +1,195 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Login - IASEP Farmacia</title>
+    <link rel="icon" type="image/x-icon" href="assets/favicon.ico">
+    <link rel="stylesheet" href="styles.css">
+    <!-- Estilos específicos para el login -->
+    <style>
+    /* Estilos para el modo oscuro en toda la página */
+    body.dark-mode {
+        background-color: #222;
+        color: #f0f0f0;
+    }
+    
+    body.dark-mode footer {
+        background-color: #333;
+        color: #f0f0f0;
+    }
+    
+    body.dark-mode footer a {
+        color: #4CAF50;
+    }
+    
+    body.dark-mode .header {
+        background-color: #333;
+    }
+    
+    .login-container {
+    max-width: 400px;
+    margin: 100px auto;
+    padding: 30px;
+    border-radius: 10px;
+    box-shadow: 0 0 20px rgba(0, 0, 0, 0.1);
+    background-color: #fff;
+    }
+    
+    .dark-mode .login-container {
+    background-color: #333;
+    color: #fff;
+    }
+    
+    .login-logo {
+    text-align: center;
+    margin-bottom: 30px;
+    }
+    
+    .login-logo img {
+    max-width: 150px;
+    }
+    
+    .login-form input {
+    width: 100%;
+    padding: 12px;
+    margin-bottom: 20px;
+    border: 1px solid #ddd;
+    border-radius: 5px;
+    font-size: 16px;
+    }
+    
+    /* Estilo para los inputs en modo oscuro */
+    .dark-mode .login-form input {
+        background-color: #444;
+        color: #fff;
+        border-color: #555;
+    }
+    
+    .login-form button {
+    width: 100%;
+    padding: 12px;
+    background-color: #4CAF50;
+    color: white;
+    border: none;
+    border-radius: 5px;
+    cursor: pointer;
+    font-size: 16px;
+    font-weight: bold;
+    }
+    
+    .login-form button:hover {
+    background-color: #45a049;
+    }
+    
+    .error-message {
+    color: #ff3333;
+    margin-bottom: 15px;
+    text-align: center;
+    display: none;
+    }
+    </style>
+    <!-- Agregar la biblioteca de Supabase -->
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+</head>
+<body>
+    <div class="header">
+    <!-- Sección derecha para el interruptor de cambio de tema -->
+    <div class="header-right">
+    <!-- Interruptor para cambiar de tema -->
+    <label class="switch">
+    <input type="checkbox" id="themeToggle">
+    <span class="slider"></span>
+    </label>
+    </div>
+    </div>
+
+    <div class="login-container">
+    <div class="login-logo">
+    <h1>IASEP Farmacia</h1>
+    <!-- Puedes agregar un logo aquí -->
+    <!-- <img src="assets/logo.png" alt="IASEP Logo"> -->
+    </div>
+    
+    <div id="errorMessage" class="error-message">
+    Usuario o contraseña incorrectos
+    </div>
+    
+    <form id="loginForm" class="login-form">
+    <input type="email" id="username" placeholder="Correo electrónico" required>
+    <input type="password" id="password" placeholder="Contraseña" required>
+    <button type="submit">Iniciar Sesión</button>
+    </form>
+    </div>
+
+    <footer>
+    <p>aolender | <a href="https://github.com/aolender1" target="_blank">GitHub</a></p>
+    </footer>
+    
+    <script>
+    // Script para manejar el cambio de tema
+    document.addEventListener('DOMContentLoaded', function() {
+    const themeToggle = document.getElementById('themeToggle');
+    
+    // Verificar si hay un tema guardado en localStorage
+    const savedTheme = localStorage.getItem('theme');
+    if (savedTheme === 'dark') {
+    document.body.classList.add('dark-mode');
+    themeToggle.checked = true;
+    }
+    
+    // Cambiar tema cuando se activa el interruptor
+    themeToggle.addEventListener('change', function() {
+    if (this.checked) {
+    document.body.classList.add('dark-mode');
+    localStorage.setItem('theme', 'dark');
+    } else {
+    document.body.classList.remove('dark-mode');
+    localStorage.setItem('theme', 'light');
+    }
+    });
+    
+    // Configuración de Supabase
+    const SUPABASE_URL = 'https://ovhenvckpzcjzrlpkanb.supabase.co';
+    const SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im92aGVudmNrcHpjanpybHBrYW5iIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NDA2MDQwNTYsImV4cCI6MjA1NjE4MDA1Nn0.L-RLxTg2cKiLK7lOwAq64uAAD_c2hSMw3GWih2Rdsiw';
+    // Corregido: Usar el objeto global de Supabase correctamente
+    const supabaseClient = window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
+    
+    // Manejar el envío del formulario de login
+    document.getElementById('loginForm').addEventListener('submit', async function(e) {
+    e.preventDefault();
+    
+    const email = document.getElementById('username').value;
+    const password = document.getElementById('password').value;
+    
+    try {
+    // Intentar iniciar sesión con Supabase
+    const { data, error } = await supabaseClient.auth.signInWithPassword({
+    email: email,
+    password: password
+    });
+    
+    if (error) {
+    throw error;
+    }
+    
+    // Si la autenticación es exitosa
+    console.log('Usuario autenticado:', data);
+    
+    // Guardar estado de login en sessionStorage
+    sessionStorage.setItem('isLoggedIn', 'true');
+    sessionStorage.setItem('user', JSON.stringify(data.user));
+    
+    // Redirigir a la página principal
+    window.location.href = 'index.html';
+    } catch (error) {
+    console.error('Error de autenticación:', error.message);
+    // Mostrar mensaje de error
+    document.getElementById('errorMessage').textContent = error.message || 'Usuario o contraseña incorrectos';
+    document.getElementById('errorMessage').style.display = 'block';
+    }
+    });
+    });
+    </script>
+</body>
+</html>

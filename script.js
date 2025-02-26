@@ -1,3 +1,14 @@
+// Verificar autenticación al inicio
+document.addEventListener('DOMContentLoaded', function() {
+    const isLoggedIn = sessionStorage.getItem('isLoggedIn');
+    if (!isLoggedIn) {
+        window.location.href = 'login.html';
+        return; // Detener la ejecución del resto del script
+    }
+    
+    // Continuar con el resto del código de inicialización
+});
+
 document.addEventListener("DOMContentLoaded", function() {
     const clienteInput = document.getElementById('cliente');
     const suggestionsContainer = document.getElementById('suggestions-container');
