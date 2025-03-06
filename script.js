@@ -332,7 +332,7 @@ function actualizarTabla() {
   
     // Calcular el total de importes y actualizar el mensaje de total a cobrar
     let totalImporte = data.reduce((sum, item) => sum + item.importe, 0);
-    let totalCobrar = totalImporte * 0.125;
+    let totalCobrar = (totalImporte * 100 / 75) * 0.125;
     document.getElementById('totalAmount').textContent = `Importe total a cobrar: $${totalCobrar.toFixed(2)}`;
   
     let count = data.length; // Contador que inicia con el total de facturas
