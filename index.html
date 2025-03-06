@@ -9,13 +9,17 @@
     <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.4/xlsx.full.min.js"></script>
     <!-- Script para verificar autenticación -->
     <script>
-        // Verificar si el usuario está autenticado
+        // Verificar autenticación al inicio
         document.addEventListener('DOMContentLoaded', function() {
             const isLoggedIn = sessionStorage.getItem('isLoggedIn');
+            const userEmail = sessionStorage.getItem('userEmail');
             if (!isLoggedIn) {
-                // Si no está autenticado, redirigir a la página de login
                 window.location.href = 'login.html';
+            } else if (userEmail) {
+                // Actualizar el texto del botón de cierre de sesión para incluir el email
+                document.getElementById('logoutBtn').textContent = `Cerrar Sesión de ${userEmail}`;
             }
+            // Continuar con el resto del código de inicialización
         });
     </script>
 </head>
@@ -129,6 +133,7 @@
         document.getElementById('logoutBtn').addEventListener('click', function() {
             // Eliminar el estado de login
             sessionStorage.removeItem('isLoggedIn');
+            sessionStorage.removeItem('userEmail');
             // Redirigir a la página de login
             window.location.href = 'login.html';
         });

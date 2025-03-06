@@ -1,11 +1,13 @@
 // Verificar autenticación al inicio
 document.addEventListener('DOMContentLoaded', function() {
     const isLoggedIn = sessionStorage.getItem('isLoggedIn');
+    const userEmail = sessionStorage.getItem('userEmail');
     if (!isLoggedIn) {
         window.location.href = 'login.html';
-        return; // Detener la ejecución del resto del script
-    }
-    
+    } else if (userEmail) {
+        // Actualizar el texto del botón de cierre de sesión para incluir el email
+        document.getElementById('logoutBtn').textContent = `Cerrar Sesión de ${userEmail}`;
+        }
     // Continuar con el resto del código de inicialización
 });
 
