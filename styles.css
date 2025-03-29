@@ -45,7 +45,7 @@ body {
     background-color: white;
     width: 100%;
     max-width: 100%;
-    margin: 80px 0 0; /* Ajusta el margen superior para no ocultar la cabecera */
+    margin: 100px 0 0;
     padding-bottom: 50px;
     display: flex;
     justify-content: space-between;
@@ -231,8 +231,10 @@ footer a:hover {
     margin: 10% auto; /* 10% desde arriba y centrado */
     padding: 20px;
     border: 1px solid #888;
-    width: 40%; /* Ancho del contenido */
+    width: 85%; /* Ancho base para pantallas medianas/pequeñas */
+    max-width: 600px; /* Limitar el ancho máximo en pantallas grandes */
     border-radius: 8px;
+    box-sizing: border-box; /* Asegurar que padding/border se incluyan en el width */
 }
 
 .close {
@@ -510,40 +512,149 @@ input:checked + .slider::after {
     height: 0px;
 }
 
-/* Estilos para los botones y el interruptor en modos responsive */
+/* Breakpoint para Tablets y pantallas pequeñas (existente) */
 @media (max-width: 768px) {
     .header {
         flex-direction: column;
         align-items: flex-start;
+        padding: 10px; /* Añadir padding general al header en modo columna */
+        position: relative; /* Cambiar a relative para que el contenido fluya debajo */
     }
-}
 
-@media (max-width: 768px) {
+    .header-left, .header-right {
+        width: 100%; /* Ocupar todo el ancho disponible */
+        display: flex;
+        flex-wrap: wrap; /* Permitir que los botones se envuelvan si no caben */
+        justify-content: flex-start; /* Alinear botones a la izquierda */
+        margin-bottom: 10px; /* Espacio entre sección izquierda y derecha */
+    }
+
+    .header-right {
+        justify-content: space-between; /* Espaciar toggle y botón logout */
+        margin-bottom: 0; /* Quitar margen inferior al último elemento */
+    }
+
+    /* Ajustar el contenedor principal porque el header ya no es fijo */
+    .container {
+        flex-direction: column; /* Apilar los contenedores */
+        align-items: center; /* Centrar los contenedores apilados */
+        margin-top: 20px; /* Reducir margen superior ya que el header no es fijo */
+    }
+
     .form-container, .table-container {
-        width: 100%;
+        width: 95%; /* Usar casi todo el ancho con un pequeño margen */
         padding: 0 10px;
+        margin-bottom: 20px; /* Añadir espacio entre form y table cuando están apilados */
     }
-}
 
-@media (max-width: 768px) {
+    .table-container {
+        margin-bottom: 0; /* Quitar margen inferior al último elemento */
+    }
+
     .input-grande {
-        font-size: 24px;
+        font-size: 24px; /* Tamaño reducido existente */
         padding: 10px;
+        width: 100%; /* Asegurar que ocupe el ancho del contenedor */
     }
     .boton-grande {
-        font-size: 24px;
-        padding: 15px 30px;
+        font-size: 18px; /* Reducir tamaño de fuente del botón principal */
+        padding: 12px 24px; /* Ajustar padding */
+        width: 100%; /* Hacer que el botón ocupe el ancho */
     }
     label {
-        font-size: 30px;
+        font-size: 24px; /* Reducir tamaño de label */
+    }
+
+    #tabla-datos {
+        font-size: 12px; /* Tamaño reducido existente */
+    }
+    #tabla-datos th, #tabla-datos td {
+        padding: 6px; /* Padding reducido existente */
+    }
+
+    /* Ajustar modal para pantallas más pequeñas */
+    .modal-content {
+        width: 90%; /* Hacer el modal un poco más ancho en tablets */
+        margin: 15% auto; /* Ajustar margen superior */
+    }
+
+    #formManual label {
+        font-size: 18px; /* Reducir tamaño de label en modal */
+    }
+
+    #formManual input {
+        font-size: 16px; /* Reducir tamaño de input en modal */
+        padding: 10px;
+    }
+
+    /* Ajustes para el login container */
+    .login-container {
+        width: 90%; /* Hacerlo más ancho en pantallas pequeñas */
+        margin: 50px auto; /* Reducir margen superior */
+        padding: 20px; /* Ajustar padding */
     }
 }
 
-@media (max-width: 768px) {
+/* Breakpoint adicional para Móviles (nuevo) */
+@media (max-width: 480px) {
+    .header-left .boton-secundario,
+    .header-left .boton-excel {
+        font-size: 14px; /* Reducir tamaño de fuente de botones del header */
+        padding: 8px 12px; /* Ajustar padding */
+    }
+    .header-right .boton-secundario {
+        font-size: 14px; /* Reducir tamaño de fuente de botones del header */
+        padding: 8px 12px; /* Ajustar padding */
+    }
+
+    .input-grande {
+        font-size: 18px; /* Reducir aún más el input principal */
+        padding: 8px;
+    }
+    label {
+        font-size: 20px; /* Reducir aún más el label */
+    }
+    .boton-grande {
+        font-size: 16px; /* Reducir aún más el botón principal */
+        padding: 10px 20px;
+    }
+
+    #totalAmount {
+        font-size: 18px; /* Reducir tamaño del texto de importe total */
+    }
+
     #tabla-datos {
-        font-size: 12px;
+        font-size: 11px; /* Reducir aún más la fuente de la tabla */
     }
     #tabla-datos th, #tabla-datos td {
-        padding: 6px;
+        padding: 4px; /* Reducir aún más el padding de la tabla */
+    }
+
+    /* Ajustes para el modal en móviles */
+    .modal-content {
+        width: 95%; /* Casi ancho completo */
+        padding: 15px;
+    }
+    #formManual label {
+        font-size: 16px;
+    }
+    #formManual input {
+        font-size: 14px;
+        padding: 8px;
+    }
+
+    /* Ajustes para el login container en móviles */
+    .login-container {
+        width: 95%;
+        margin: 30px auto; /* Menos margen superior */
+        padding: 15px;
+    }
+    .login-form input {
+        font-size: 14px; /* Reducir tamaño de fuente en login */
+        padding: 10px;
+    }
+    .login-form button {
+        font-size: 14px;
+        padding: 10px;
     }
 }
