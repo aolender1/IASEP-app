@@ -1,4 +1,59 @@
-/* Estilos Generales */
+/* ==================== VARIABLES ==================== */
+:root {
+    /* Colores - Tema Claro */
+    --color-primary: #644dff;
+    --color-primary-dark: #4836bb;
+    --color-primary-light: #654dff63;
+    --color-secondary: #007bff;
+    --color-background: #ffffff;
+    --color-text: #000000;
+    --color-border: #cccccc;
+    --color-header-bg: #f8f8f8;
+    --color-table-header: #f2f2f2;
+    --color-table-border: #dddddd;
+    --color-highlight: #007bff;
+    --color-highlight-text: #ffffff;
+    --color-excel: #307750;
+    --color-excel-hover: #469b61;
+    --color-delete: red;
+    --color-modal-bg: rgba(0, 0, 0, 0.5);
+    --color-modal-content: #fefefe;
+    --color-close: #aaaaaa;
+    --color-placeholder: #999999;
+    --color-switch-bg: #000000;
+    --color-switch-button: rgb(219, 198, 2);
+    
+    /* Colores - Tema Oscuro */
+    --dark-color-background: #333333;
+    --dark-color-container: #2c2c2c;
+    --dark-color-text: #ffffff;
+    --dark-color-border: #666666;
+    --dark-color-input: #555555;
+    --dark-color-button-bg: #444444;
+    --dark-color-delete: lightcoral;
+    --dark-color-suggestion-bg: #444444;
+    --dark-color-suggestion-hover: #555555;
+    
+    /* Tamaños y espaciados */
+    --spacing-xs: 5px;
+    --spacing-sm: 8px;
+    --spacing-md: 10px;
+    --spacing-lg: 15px;
+    --spacing-xl: 20px;
+    
+    /* Bordes y sombras */
+    --border-radius-sm: 6px;
+    --border-radius-md: 8px;
+    --border-radius-lg: 12px;
+    --box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+    
+    /* Transiciones */
+    --transition-fast: 0.1s ease;
+    --transition-normal: 0.3s;
+    --transition-slow: 0.4s;
+}
+
+/* ==================== ESTILOS GENERALES ==================== */
 html, body {
     height: 100%;
     margin: 0;
@@ -8,41 +63,41 @@ html, body {
 body {
     display: flex;
     flex-direction: column;
-    transition: background-color 0.3s, color 0.3s; /* Transición suave al cambiar tema */
+    background-color: var(--color-background);
+    color: var(--color-text);
+    transition: background-color var(--transition-normal), color var(--transition-normal);
 }
 
-/* Estilos para la cabecera */
+/* ==================== CABECERA ==================== */
 .header {
     width: 100%;
-    padding: 10px 20px;
+    padding: var(--spacing-md) var(--spacing-xl);
     display: flex;
-    justify-content: space-between; /* Espacia las secciones izquierda y derecha */
+    justify-content: space-between;
     align-items: center;
-    background-color: #f8f8f8; /* Color de fondo de la cabecera en modo claro */
-    position: fixed; /* Fija la cabecera en la parte superior */
+    background-color: var(--color-header-bg);
+    position: fixed;
     top: 0;
     left: 0;
-    z-index: 1000; /* Asegura que la cabecera esté por encima de otros elementos */
-    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1); /* Sombra para distinguir la cabecera */
+    z-index: 1000;
+    box-shadow: var(--box-shadow);
     box-sizing: border-box;
 }
 
-/* Sección izquierda de la cabecera */
 .header-left {
     display: flex;
-    gap: 10px; /* Espacio entre los botones */
+    gap: var(--spacing-md);
 }
 
-/* Sección derecha de la cabecera */
 .header-right {
     display: flex;
     align-items: center;
-    margin-left: auto; /* Empuja la sección derecha completamente a la derecha */
+    margin-left: auto;
 }
 
-/* Ajuste del contenedor principal para evitar superposición con la cabecera fija */
+/* ==================== CONTENEDOR PRINCIPAL ==================== */
 .container {
-    background-color: white;
+    background-color: var(--color-background);
     width: 100%;
     max-width: 100%;
     margin: 100px 0 0;
@@ -53,28 +108,27 @@ body {
     box-sizing: border-box;
 }
 
-/* Resto de los estilos existentes */
-
 .form-container {
     width: 70%;
-    padding: 0 20px;
+    padding: 0 var(--spacing-xl);
     box-sizing: border-box;
     text-align: center;
 }
 
 .table-container {
     width: 30%;
-    padding: 0 20px;
+    padding: 0 var(--spacing-xl);
     box-sizing: border-box;
 }
 
+/* ==================== FORMULARIOS ==================== */
 .input-grande {
     width: 90%;
-    padding: 15px;
+    padding: var(--spacing-lg);
     font-size: 44px;
-    margin-bottom: 20px;
-    border-radius: 8px;
-    border: 1px solid #ccc;
+    margin-bottom: var(--spacing-xl);
+    border-radius: var(--border-radius-md);
+    border: 1px solid var(--color-border);
     box-sizing: border-box;
 }
 
@@ -83,18 +137,19 @@ label {
     font-weight: bold;
 }
 
+/* Sugerencias */
 .suggestions-container {
     position: absolute;
-    width: 90%; /* Igual al ancho del input */
+    width: 90%;
     max-height: 400px;
     overflow-y: auto;
-    background-color: #fff;
-    border: 1px #ccc;
+    background-color: var(--color-background);
+    border: 1px var(--color-border);
     z-index: 1000;
 }
 
 .suggestion-item {
-    padding: 15px;
+    padding: var(--spacing-lg);
     font-size: 24px;
     cursor: pointer;
 }
@@ -103,174 +158,14 @@ label {
     background-color: #f0f0f0;
 }
 
-.boton-grande {
-    --😀: #644dff;
-    --😀😀: #4836bb;
-    --😀😀😀: #654dff63;
-    cursor: pointer;
-    width: 184px;
-    height: 48px;
-    align-items: center;
-    justify-content: center;
-    gap: 1rem;
-    font-size: 1.125em;
-    font-weight: 800;
-    letter-spacing: 2px;
-    color: #fff;
-    background: var(--😀);
-    border: 2px solid var(--😀😀);
-    border-radius: .75rem;
-    box-shadow: 0 8px 0 var(--😀😀);
-    transform: skew(-10deg);
-    transition: all .1s ease;
-    filter: drop-shadow(0 15px 20px var(--😀😀😀));
-  }
-
-  .boton-grande:active {
-    letter-spacing: 0px;
-    transform: skew(-10deg) translateY(8px);
-    box-shadow: 0 0 0 var(--😀😀😀);
-  }
-
-.boton-secundario {
-    padding: 10px 20px;
-    font-size: 24px;
-    border-radius: 6px;
-    border: 1px solid #007bff;
-    background-color: #fff;
-    color: #007bff;
-    cursor: pointer;
-    margin-top: 10px;
-    margin-right: 10px;
-}
-
-.boton-excel {
-    display: flex;
-    position: relative;
-    justify-content: center;
-    align-items: center;
-    background-color: #307750;
-    color: #fff;
-    border-style: none;
-    padding: 1em 2em;
-    border-radius: 0.5em;
-    overflow: hidden;
-    z-index: 1;
-    box-shadow: 4px 8px 10px -3px rgba(0, 0, 0, 0.356);
-    transition: all 250ms;
-  }
-  .boton-excel > svg {
-    margin-right: 1em;
-  }
-  .boton-excel::before {
-    content: "";
-    position: absolute;
-    height: 100%;
-    width: 0;
-    border-radius: 0.5em;
-    background-color: #469b61;
-    z-index: -1;
-    transition: all 350ms;
-  }
-  .boton-excel:hover::before {
-    width: 100%;
-  }  
-
-#tabla-datos {
-    width: 100%;
-    border-collapse: collapse;
-    font-size: 14px;
-}
-
-#tabla-datos th, #tabla-datos td {
-    border: 1px solid #ddd;
-    padding: 8px;
-    text-align: left;
-}
-
-#tabla-datos th {
-    background-color: #f2f2f2;
-}
-
 .highlighted {
-    background-color: #007bff; /* Color de fondo para la sugerencia resaltada */
-    color: #fff; /* Color de texto para la sugerencia resaltada */
+    background-color: var(--color-highlight);
+    color: var(--color-highlight-text);
 }
 
-footer {
-    background-color: white;
-    color: black;
-    text-align: center;
-    padding: 10px 0;
-}
-
-footer a {
-    color: black;
-    text-decoration: underline;
-}
-
-footer a:hover {
-    opacity: 0.8;
-}
-
-/* Estilos para el Modal */
-.modal {
-    display: none; /* Oculto por defecto */
-    position: fixed; /* Permanecer en su posición */
-    z-index: 1000; /* Por encima de otros elementos */
-    left: 0;
-    top: 0;
-    width: 100%; /* Ancho completo */
-    height: 100%; /* Altura completa */
-    overflow: auto; /* Habilitar scroll si es necesario */
-    background-color: rgba(0, 0, 0, 0.5); /* Fondo semi-transparente */
-}
-
-.modal-content {
-    background-color: #fefefe;
-    margin: 10% auto; /* 10% desde arriba y centrado */
-    padding: 20px;
-    border: 1px solid #888;
-    width: 85%; /* Ancho base para pantallas medianas/pequeñas */
-    max-width: 600px; /* Limitar el ancho máximo en pantallas grandes */
-    border-radius: 8px;
-    box-sizing: border-box; /* Asegurar que padding/border se incluyan en el width */
-}
-
-.close {
-    color: #aaa;
-    float: right;
-    font-size: 28px;
-    font-weight: bold;
-    cursor: pointer;
-}
-
-.close:hover,
-.close:focus {
-    color: black;
-    text-decoration: none;
-}
-
-#formManual label {
-    display: block;
-    margin-top: 10px;
-}
-
-#formManual input {
-    width: 100%;
-    padding: 8px;
-    margin-top: 5px;
-    box-sizing: border-box;
-}
-
-#formManual button {
-    margin-top: 15px;
-    width: 100%;
-}
-
-/* Estilos para mostrar el número del cliente */
+/* Número del cliente */
 .numero-cliente {
-    margin-top: 5px;
+    margin-top: var(--spacing-xs);
     font-size: 18px;
     color: #555;
     display: none;
@@ -280,162 +175,212 @@ footer a:hover {
     display: block;
 }
 
-/* Ajustes para modo oscuro */
-.dark-theme .numero-cliente {
-    color: #ccc;
+/* ==================== BOTONES ==================== */
+/* Botón principal */
+.boton-grande {
+    --btn-primary: var(--color-primary);
+    --btn-primary-dark: var(--color-primary-dark);
+    --btn-primary-light: var(--color-primary-light);
+    cursor: pointer;
+    width: 184px;
+    height: 48px;
+    align-items: center;
+    justify-content: center;
+    gap: 1rem;
+    font-size: 1.125em;
+    font-weight: 800;
+    letter-spacing: 2px;
+    color: var(--color-highlight-text);
+    background: var(--btn-primary);
+    border: 2px solid var(--btn-primary-dark);
+    border-radius: var(--border-radius-lg);
+    box-shadow: 0 8px 0 var(--btn-primary-dark);
+    transform: skew(-10deg);
+    transition: all var(--transition-fast);
+    filter: drop-shadow(0 15px 20px var(--btn-primary-light));
 }
 
-/* Estilos para el Modal en Modo Oscuro */
-.dark-theme .modal-content {
-    background-color: #2c2c2c; /* Fondo oscuro para el modal */
-    color: #ffffff; /* Texto claro en el modal */
+.boton-grande:active {
+    letter-spacing: 0px;
+    transform: skew(-10deg) translateY(8px);
+    box-shadow: 0 0 0 var(--btn-primary-light);
 }
 
-.dark-theme #formManual label {
-    color: #ffffff; /* Texto claro para los labels */
+/* Botón secundario */
+.boton-secundario {
+    padding: var(--spacing-md) var(--spacing-xl);
+    font-size: 24px;
+    border-radius: var(--border-radius-sm);
+    border: 1px solid var(--color-secondary);
+    background-color: var(--color-background);
+    color: var(--color-secondary);
+    cursor: pointer;
+    margin-top: var(--spacing-md);
+    margin-right: var(--spacing-md);
 }
 
-.dark-theme #formManual input {
-    background-color: #444444; /* Fondo oscuro para inputs */
-    color: #ffffff; /* Texto claro en inputs */
-    border: 1px solid #666666; /* Borde más claro */
+/* Botón Excel */
+.boton-excel {
+    display: flex;
+    position: relative;
+    justify-content: center;
+    align-items: center;
+    background-color: var(--color-excel);
+    color: var(--color-highlight-text);
+    border-style: none;
+    padding: 1em 2em;
+    border-radius: var(--border-radius-sm);
+    overflow: hidden;
+    z-index: 1;
+    box-shadow: 4px 8px 10px -3px rgba(0, 0, 0, 0.356);
+    transition: all 250ms;
 }
 
-/* Aumentar el tamaño de fuente de los inputs y labels del formulario manual */
-#formManual label {
-    font-size: 20px;
+.boton-excel > svg {
+    margin-right: 1em;
 }
 
-#formManual input {
-    font-size: 36px;
-    padding: 12px;
+.boton-excel::before {
+    content: "";
+    position: absolute;
+    height: 100%;
+    width: 0;
+    border-radius: var(--border-radius-sm);
+    background-color: var(--color-excel-hover);
+    z-index: -1;
+    transition: all 350ms;
 }
 
-#formManual input::placeholder {
-    color: #999999; /* Color gris claro para los placeholders */
-    opacity: 1; /* Asegura que el color sea el especificado */
+.boton-excel:hover::before {
+    width: 100%;
 }
 
-/* Estilos para el botón de eliminación */
+/* Botón eliminar */
 .btn-eliminar {
     background: none;
     border: none;
     cursor: pointer;
-    padding: 5px;
+    padding: var(--spacing-xs);
     display: flex;
     align-items: center;
     justify-content: center;
-    color: red; /* Color del ícono en modo claro */
-    transition: color 0.3s;
+    color: var(--color-delete);
+    transition: color var(--transition-normal);
 }
 
-/* Cambiar el color del ícono en modo oscuro */
-.dark-theme .btn-eliminar {
-    color: lightcoral; /* Color del ícono en modo oscuro */
-}
-
-/* Estilos para el icono SVG */
 .icon-eliminar {
-    width: 24px; /* Ajusta el tamaño según prefieras */
+    width: 24px;
     height: 24px;
-    transition: filter 0.3s;
+    transition: filter var(--transition-normal);
 }
 
-/* Efecto hover para el botón */
 .btn-eliminar:hover .icon-eliminar {
     filter: brightness(0.8);
 }
 
-/* Eliminar el outline al enfocar el botón */
 .btn-eliminar:focus {
     outline: none;
 }
 
-/* Estilos para el tema oscuro */
-body.dark-theme {
-    background-color: #333333; /* Fondo oscuro */
-    color: #ffffff; /* Texto claro */
-    transition: background-color 0.3s, color 0.3s; /* Transición suave */
+/* ==================== TABLA ==================== */
+#tabla-datos {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 14px;
 }
 
-.dark-theme .container {
-    background-color: #2c2c2c; /* Fondo del contenedor en modo oscuro */
+#tabla-datos th, #tabla-datos td {
+    border: 1px solid var(--color-table-border);
+    padding: var(--spacing-sm);
+    text-align: left;
 }
 
-/* Estilos para el contenedor de sugerencias en tema oscuro */
-.dark-theme .suggestions-container {
-    background-color: #444; /* Fondo oscuro para el contenedor */
-    border: 1px #666; /* Borde más claro para el contenedor */
+#tabla-datos th {
+    background-color: var(--color-table-header);
 }
 
-/* Estilos para los elementos de sugerencia en tema oscuro */
-.dark-theme .suggestion-item {
-    color: #fff; /* Color de texto blanco para las sugerencias */
+/* ==================== FOOTER ==================== */
+footer {
+    background-color: var(--color-background);
+    color: var(--color-text);
+    text-align: center;
+    padding: var(--spacing-md) 0;
 }
 
-.dark-theme .suggestion-item:hover {
-    background-color: #555; /* Fondo más claro al pasar el mouse */
+footer a {
+    color: var(--color-text);
+    text-decoration: underline;
 }
 
-.dark-theme .form-container {
-    background-color: #2c2c2c;
+footer a:hover {
+    opacity: 0.8;
 }
 
-.dark-theme .input-grande {
-    background-color: #555555;
-    color: #ffffff;
-    border-color: #666666;
+/* ==================== MODAL ==================== */
+.modal {
+    display: none;
+    position: fixed;
+    z-index: 1000;
+    left: 0;
+    top: 0;
+    width: 100%;
+    height: 100%;
+    overflow: auto;
+    background-color: var(--color-modal-bg);
 }
 
-.dark-theme .boton-secundario {
-    border-color: #0056b3;
-    color: #ffffff;
-    background-color: #444444;
+.modal-content {
+    background-color: var(--color-modal-content);
+    margin: 10% auto;
+    padding: var(--spacing-xl);
+    border: 1px solid #888;
+    width: 85%;
+    max-width: 600px;
+    border-radius: var(--border-radius-md);
+    box-sizing: border-box;
 }
 
-.dark-theme #tabla-datos th {
-    background-color: #2c2c2c;
-    color: #ffffff;
+.close {
+    color: var(--color-close);
+    float: right;
+    font-size: 28px;
+    font-weight: bold;
+    cursor: pointer;
 }
 
-.dark-theme #tabla-datos td {
-    border-color: #666666;
+.close:hover,
+.close:focus {
+    color: var(--color-text);
+    text-decoration: none;
 }
 
-.dark-theme .header {
-    background-color: #2c2c2c; /* Fondo oscuro para la cabecera */
-    color: #ffffff; /* Texto claro en la cabecera */
+/* Formulario manual */
+#formManual label {
+    display: block;
+    margin-top: var(--spacing-md);
+    font-size: 20px;
 }
 
-.dark-theme .header-left .boton-secundario {
-    background-color: #444444;
-    color: #ffffff;
-    border-color: #2c2c2c;
+#formManual input {
+    width: 100%;
+    padding: var(--spacing-sm);
+    margin-top: var(--spacing-xs);
+    box-sizing: border-box;
+    font-size: 36px;
+    padding: var(--spacing-md);
 }
 
-.dark-theme .header-right .switch .slider {
-    background-color: #000000; /* Color de fondo del slider en modo oscuro */
+#formManual input::placeholder {
+    color: var(--color-placeholder);
+    opacity: 1;
 }
 
-.dark-theme .header-right .switch .slider:before {
-    background-color: rgb(219, 198, 2); /* Color del botón del slider en modo oscuro */
+#formManual button {
+    margin-top: var(--spacing-lg);
+    width: 100%;
 }
 
-.dark-theme .header-right .switch .slider::after {
-    background-color: rgb(0, 0, 0); /* Color adicional para el slider en modo oscuro */
-}
-
-.dark-theme footer{
-    background-color: #2c2c2c;
-    color: #ffffff;
-}
-
-.dark-theme footer a{
-    background-color: #2c2c2c;
-    color: #ffffff;
-}
-
-/* El switch - la caja alrededor del deslizador */
+/* ==================== SWITCH TEMA ==================== */
 .switch {
     font-size: 17px;
     position: relative;
@@ -444,14 +389,12 @@ body.dark-theme {
     height: 2em;
 }
 
-/* Ocultar el checkbox HTML por defecto */
 .switch input {
     opacity: 0;
     width: 0;
     height: 0;
 }
 
-/* El deslizador */
 .slider {
     position: absolute;
     cursor: pointer;
@@ -459,12 +402,11 @@ body.dark-theme {
     left: 0;
     right: 0;
     bottom: 0;
-    background-color: rgb(0, 0, 0);
-    transition: .4s;
+    background-color: var(--color-switch-bg);
+    transition: var(--transition-slow);
     border-radius: 30px;
 }
 
-/* Antes del deslizador */
 .slider:before {
     position: absolute;
     content: "";
@@ -473,26 +415,10 @@ body.dark-theme {
     border-radius: 20px;
     left: 0.3em;
     bottom: 0.3em;
-    background-color: rgb(219, 198, 2);
-    transition: .4s;
+    background-color: var(--color-switch-button);
+    transition: var(--transition-slow);
 }
 
-/* Cambio de color cuando el checkbox está seleccionado */
-input:checked + .slider {
-    background-color: #000000;
-}
-
-/* Sombra al enfocar el slider */
-input:focus + .slider {
-    box-shadow: 0 0 1px #000000;
-}
-
-/* Transformación del deslizador cuando está seleccionado */
-input:checked + .slider:before {
-    transform: translateX(1.5em);
-}
-
-/* Elemento adicional del slider */
 .slider::after {
     width: 20px;
     height: 20px;
@@ -501,160 +427,283 @@ input:checked + .slider:before {
     border-radius: 50%;
     position: absolute;
     content: "";
-    background-color: rgb(0, 0, 0);
-    transition: ease 0.4s;
+    background-color: var(--color-switch-bg);
+    transition: ease var(--transition-slow);
 }
 
-/* Cambio de posición del elemento adicional cuando está seleccionado */
+input:checked + .slider {
+    background-color: var(--color-switch-bg);
+}
+
+input:focus + .slider {
+    box-shadow: 0 0 1px var(--color-switch-bg);
+}
+
+input:checked + .slider:before {
+    transform: translateX(1.5em);
+}
+
 input:checked + .slider::after {
     left: 80%;
     width: 0px;
     height: 0px;
 }
 
-/* Breakpoint para Tablets y pantallas pequeñas (existente) */
+/* ==================== TEMA OSCURO ==================== */
+body.dark-theme {
+    background-color: var(--dark-color-background);
+    color: var(--dark-color-text);
+}
+
+/* Contenedores */
+.dark-theme .container,
+.dark-theme .form-container {
+    background-color: var(--dark-color-container);
+}
+
+/* Header */
+.dark-theme .header {
+    background-color: var(--dark-color-container);
+    color: var(--dark-color-text);
+}
+
+.dark-theme .header-left .boton-secundario {
+    background-color: var(--dark-color-button-bg);
+    color: var(--dark-color-text);
+    border-color: var(--dark-color-container);
+}
+
+/* Inputs y formularios */
+.dark-theme .input-grande {
+    background-color: var(--dark-color-input);
+    color: var(--dark-color-text);
+    border-color: var(--dark-color-border);
+}
+
+.dark-theme .boton-secundario {
+    border-color: #0056b3;
+    color: var(--dark-color-text);
+    background-color: var(--dark-color-button-bg);
+}
+
+.dark-theme .numero-cliente {
+    color: #ccc;
+}
+
+/* Sugerencias */
+.dark-theme .suggestions-container {
+    background-color: var(--dark-color-suggestion-bg);
+    border: 1px var(--dark-color-border);
+}
+
+.dark-theme .suggestion-item {
+    color: var(--dark-color-text);
+}
+
+.dark-theme .suggestion-item:hover {
+    background-color: var(--dark-color-suggestion-hover);
+}
+
+/* Tabla */
+.dark-theme #tabla-datos th {
+    background-color: var(--dark-color-container);
+    color: var(--dark-color-text);
+}
+
+.dark-theme #tabla-datos td {
+    border-color: var(--dark-color-border);
+}
+
+/* Botones */
+.dark-theme .btn-eliminar {
+    color: var(--dark-color-delete);
+}
+
+/* Switch */
+.dark-theme .header-right .switch .slider {
+    background-color: var(--color-switch-bg);
+}
+
+.dark-theme .header-right .switch .slider:before {
+    background-color: var(--color-switch-button);
+}
+
+.dark-theme .header-right .switch .slider::after {
+    background-color: var(--color-switch-bg);
+}
+
+/* Modal */
+.dark-theme .modal-content {
+    background-color: var(--dark-color-container);
+    color: var(--dark-color-text);
+}
+
+.dark-theme #formManual label {
+    color: var(--dark-color-text);
+}
+
+.dark-theme #formManual input {
+    background-color: var(--dark-color-button-bg);
+    color: var(--dark-color-text);
+    border: 1px solid var(--dark-color-border);
+}
+
+/* Footer */
+.dark-theme footer {
+    background-color: var(--dark-color-container);
+    color: var(--dark-color-text);
+}
+
+.dark-theme footer a {
+    color: var(--dark-color-text);
+}
+
+/* ==================== RESPONSIVE ==================== */
+/* Tablets y pantallas pequeñas */
 @media (max-width: 768px) {
     .header {
         flex-direction: column;
         align-items: flex-start;
-        padding: 10px; /* Añadir padding general al header en modo columna */
-        position: relative; /* Cambiar a relative para que el contenido fluya debajo */
+        padding: var(--spacing-md);
+        position: relative;
     }
 
     .header-left, .header-right {
-        width: 100%; /* Ocupar todo el ancho disponible */
+        width: 100%;
         display: flex;
-        flex-wrap: wrap; /* Permitir que los botones se envuelvan si no caben */
-        justify-content: flex-start; /* Alinear botones a la izquierda */
-        margin-bottom: 10px; /* Espacio entre sección izquierda y derecha */
+        flex-wrap: wrap;
+        justify-content: flex-start;
+        margin-bottom: var(--spacing-md);
     }
 
     .header-right {
-        justify-content: space-between; /* Espaciar toggle y botón logout */
-        margin-bottom: 0; /* Quitar margen inferior al último elemento */
+        justify-content: space-between;
+        margin-bottom: 0;
     }
 
-    /* Ajustar el contenedor principal porque el header ya no es fijo */
     .container {
-        flex-direction: column; /* Apilar los contenedores */
-        align-items: center; /* Centrar los contenedores apilados */
-        margin-top: 20px; /* Reducir margen superior ya que el header no es fijo */
+        flex-direction: column;
+        align-items: center;
+        margin-top: var(--spacing-xl);
     }
 
     .form-container, .table-container {
-        width: 95%; /* Usar casi todo el ancho con un pequeño margen */
-        padding: 0 10px;
-        margin-bottom: 20px; /* Añadir espacio entre form y table cuando están apilados */
+        width: 95%;
+        padding: 0 var(--spacing-md);
+        margin-bottom: var(--spacing-xl);
     }
 
     .table-container {
-        margin-bottom: 0; /* Quitar margen inferior al último elemento */
+        margin-bottom: 0;
     }
 
     .input-grande {
-        font-size: 24px; /* Tamaño reducido existente */
-        padding: 10px;
-        width: 100%; /* Asegurar que ocupe el ancho del contenedor */
+        font-size: 24px;
+        padding: var(--spacing-md);
+        width: 100%;
     }
+
     .boton-grande {
-        font-size: 18px; /* Reducir tamaño de fuente del botón principal */
-        padding: 12px 24px; /* Ajustar padding */
-        width: 100%; /* Hacer que el botón ocupe el ancho */
+        font-size: 18px;
+        padding: 12px 24px;
+        width: 100%;
     }
+
     label {
-        font-size: 24px; /* Reducir tamaño de label */
+        font-size: 24px;
     }
 
     #tabla-datos {
-        font-size: 12px; /* Tamaño reducido existente */
-    }
-    #tabla-datos th, #tabla-datos td {
-        padding: 6px; /* Padding reducido existente */
+        font-size: 12px;
     }
 
-    /* Ajustar modal para pantallas más pequeñas */
+    #tabla-datos th, #tabla-datos td {
+        padding: 6px;
+    }
+
     .modal-content {
-        width: 90%; /* Hacer el modal un poco más ancho en tablets */
-        margin: 15% auto; /* Ajustar margen superior */
+        width: 90%;
+        margin: 15% auto;
     }
 
     #formManual label {
-        font-size: 18px; /* Reducir tamaño de label en modal */
+        font-size: 18px;
     }
 
     #formManual input {
-        font-size: 16px; /* Reducir tamaño de input en modal */
-        padding: 10px;
+        font-size: 16px;
+        padding: var(--spacing-md);
     }
 
-    /* Ajustes para el login container */
     .login-container {
-        width: 90%; /* Hacerlo más ancho en pantallas pequeñas */
-        margin: 50px auto; /* Reducir margen superior */
-        padding: 20px; /* Ajustar padding */
+        width: 90%;
+        margin: 50px auto;
+        padding: var(--spacing-xl);
     }
 }
 
-/* Breakpoint adicional para Móviles (nuevo) */
+/* Móviles */
 @media (max-width: 480px) {
     .header-left .boton-secundario,
-    .header-left .boton-excel {
-        font-size: 14px; /* Reducir tamaño de fuente de botones del header */
-        padding: 8px 12px; /* Ajustar padding */
-    }
+    .header-left .boton-excel,
     .header-right .boton-secundario {
-        font-size: 14px; /* Reducir tamaño de fuente de botones del header */
-        padding: 8px 12px; /* Ajustar padding */
+        font-size: 14px;
+        padding: var(--spacing-sm) var(--spacing-md);
     }
 
     .input-grande {
-        font-size: 18px; /* Reducir aún más el input principal */
-        padding: 8px;
+        font-size: 18px;
+        padding: var(--spacing-sm);
     }
+
     label {
-        font-size: 20px; /* Reducir aún más el label */
+        font-size: 20px;
     }
+
     .boton-grande {
-        font-size: 16px; /* Reducir aún más el botón principal */
-        padding: 10px 20px;
+        font-size: 16px;
+        padding: var(--spacing-md) var(--spacing-xl);
     }
 
     #totalAmount {
-        font-size: 18px; /* Reducir tamaño del texto de importe total */
+        font-size: 18px;
     }
 
     #tabla-datos {
-        font-size: 11px; /* Reducir aún más la fuente de la tabla */
-    }
-    #tabla-datos th, #tabla-datos td {
-        padding: 4px; /* Reducir aún más el padding de la tabla */
+        font-size: 11px;
     }
 
-    /* Ajustes para el modal en móviles */
-    .modal-content {
-        width: 95%; /* Casi ancho completo */
-        padding: 15px;
+    #tabla-datos th, #tabla-datos td {
+        padding: 4px;
     }
+
+    .modal-content {
+        width: 95%;
+        padding: var(--spacing-lg);
+    }
+
     #formManual label {
         font-size: 16px;
     }
+
     #formManual input {
         font-size: 14px;
-        padding: 8px;
+        padding: var(--spacing-sm);
     }
 
-    /* Ajustes para el login container en móviles */
     .login-container {
         width: 95%;
-        margin: 30px auto; /* Menos margen superior */
-        padding: 15px;
+        margin: 30px auto;
+        padding: var(--spacing-lg);
     }
+
     .login-form input {
-        font-size: 14px; /* Reducir tamaño de fuente en login */
-        padding: 10px;
+        font-size: 14px;
+        padding: var(--spacing-md);
     }
+
     .login-form button {
         font-size: 14px;
-        padding: 10px;
+        padding: var(--spacing-md);
     }
 }
