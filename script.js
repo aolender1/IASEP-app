@@ -1,17 +1,20 @@
 // Verificar autenticación al inicio
-document.addEventListener('DOMContentLoaded', function() {
+document.addEventListener('DOMContentLoaded', function () {
     const isLoggedIn = sessionStorage.getItem('isLoggedIn');
     const userEmail = sessionStorage.getItem('userEmail');
     if (!isLoggedIn) {
         window.location.href = 'login.html';
     } else if (userEmail) {
         // Actualizar el texto del botón de cierre de sesión para incluir el email
-        document.getElementById('logoutBtn').textContent = `Cerrar Sesión de ${userEmail}`;
+        const logoutBtn = document.getElementById('logoutBtn');
+        if (logoutBtn) {
+            // No need to update text, the new UI uses an icon
         }
+    }
     // Continuar con el resto del código de inicialización
 });
 
-document.addEventListener("DOMContentLoaded", function() {
+document.addEventListener("DOMContentLoaded", function () {
     const clienteInput = document.getElementById('cliente');
     const suggestionsContainer = document.getElementById('suggestions-container');
     const importeInput = document.getElementById('importe');
@@ -71,7 +74,7 @@ document.addEventListener("DOMContentLoaded", function() {
     }
 
     // Event listener para cambios en el input 'clienteInput'
-    clienteInput.addEventListener('input', function() {
+    clienteInput.addEventListener('input', function () {
         const value = this.value;
         currentIndex = -1; // Reiniciar el índice actual al cambiar la entrada
         if (value) {
@@ -83,7 +86,7 @@ document.addEventListener("DOMContentLoaded", function() {
     });
 
     // Cerrar sugerencias al hacer clic fuera
-    document.addEventListener('click', function(e) {
+    document.addEventListener('click', function (e) {
         if (!suggestionsContainer.contains(e.target) && e.target !== clienteInput) {
             suggestionsContainer.innerHTML = '';
             suggestionsContainer.style.display = 'none';
@@ -91,7 +94,7 @@ document.addEventListener("DOMContentLoaded", function() {
     });
 
     // Event listener para teclas en el input 'clienteInput'
-    clienteInput.addEventListener('keydown', function(event) {
+    clienteInput.addEventListener('keydown', function (event) {
         const suggestions = suggestionsContainer.querySelectorAll('.suggestion-item');
 
         if (event.key === 'ArrowDown') {
@@ -138,7 +141,7 @@ document.addEventListener("DOMContentLoaded", function() {
     });
 
     // Event listener para la tecla 'Enter' en el input 'clienteInput'
-    clienteInput.addEventListener('keypress', function(event) {
+    clienteInput.addEventListener('keypress', function (event) {
         if (event.key === 'Enter') {
             event.preventDefault();
             const inputValue = clienteInput.value.toLowerCase();
@@ -163,7 +166,7 @@ document.addEventListener("DOMContentLoaded", function() {
     });
 
     // Limpiar el div al hacer clic fuera
-    document.addEventListener('click', function(e) {
+    document.addEventListener('click', function (e) {
         if (!suggestionsContainer.contains(e.target) && e.target !== clienteInput) {
             suggestionsContainer.innerHTML = '';
             suggestionsContainer.style.display = 'none';
@@ -183,7 +186,7 @@ document.addEventListener("DOMContentLoaded", function() {
     }
 
     // Event listener para la tecla 'Enter' en el input 'importeInput'
-    importeInput.addEventListener('keypress', function(event) {
+    importeInput.addEventListener('keypress', function (event) {
         if (event.key === 'Enter') {
             event.preventDefault(); // Prevenir envío del formulario si lo hubiera
             guardarDatos();
@@ -194,7 +197,7 @@ document.addEventListener("DOMContentLoaded", function() {
     cargarButton.addEventListener('click', guardarDatos);
 
     // Event listener para el botón 'Crear Excel'
-    crearExcelButton.addEventListener('click', function() {
+    crearExcelButton.addEventListener('click', function () {
         if (data.length === 0) {
             alert('No hay datos para crear el Excel.');
             return;
@@ -203,33 +206,33 @@ document.addEventListener("DOMContentLoaded", function() {
     });
 
     // Event listener para el botón 'Subir Datos en Excel'
-    subirDatosExcelButton.addEventListener('click', function() {
+    subirDatosExcelButton.addEventListener('click', function () {
         fileInput.click(); // Abrir el diálogo de selección de archivo Excel
     });
 
     // Event listener para el botón 'Agregar Clientes Manualmente'
-    agregarManualButton.addEventListener('click', function() {
+    agregarManualButton.addEventListener('click', function () {
         modalManual.style.display = 'block';
         formManual.reset(); // Resetear el formulario
     });
 
     // Event listener para el cierre del modal (cuando se hace clic en la x o fuera del modal)
-    spanCerrar.addEventListener('click', function() {
+    spanCerrar.addEventListener('click', function () {
         modalManual.style.display = 'none';
     });
 
-    window.addEventListener('click', function(event) {
+    window.addEventListener('click', function (event) {
         if (event.target == modalManual) {
             modalManual.style.display = 'none';
         }
     });
 
     // Event listener para el cambio en el input de archivo
-    fileInput.addEventListener('change', function(event) {
+    fileInput.addEventListener('change', function (event) {
         const file = event.target.files[0]; // Obtener el primer archivo seleccionado
         if (file) {
             const reader = new FileReader();
-            reader.onload = function(e) {
+            reader.onload = function (e) {
                 const data = new Uint8Array(e.target.result);
                 const workbook = XLSX.read(data, { type: 'array' });
 
@@ -293,91 +296,108 @@ document.addEventListener("DOMContentLoaded", function() {
     }
 
     // Función para guardar los datos ingresados desde el formulario manual  
-formManual.addEventListener('submit', function(event) {  
-    event.preventDefault(); // Prevenir el envío por defecto  
-    
-    const nombreManual = document.getElementById('clienteManual').value.trim();  
-    const afiliadoManual = document.getElementById('afiliadoManual').value.trim();  
-    const importeManual = parseFloat(document.getElementById('importeManual').value.replace('$', '').replace(',', ''));  
-    
-    // Validación de los campos  
-    if (!nombreManual || !afiliadoManual || isNaN(importeManual)) {  
-      alert('Por favor, complete todos los campos correctamente.');  
-      return;  
-    }  
-    
-    // Agregar al array principal 'data' para almacenar la factura  
-    data.push({ nombre: nombreManual, afiliado: afiliadoManual, importe: importeManual });  
-    
-    // Agregar al array 'nuevosClientes' solo si el cliente no existe previamente  
-    if (!baseDatos.some(c => c.NOMBRE.toLowerCase() === nombreManual.toLowerCase()) &&  
-        !nuevosClientes.some(c => c.Cliente.toLowerCase() === nombreManual.toLowerCase())) {  
-      nuevosClientes.push({ Cliente: nombreManual, Afiliado: afiliadoManual });  
-    }  
-    
-    console.log('Datos manuales guardados:', data);  
-    console.log('Nuevos Clientes:', nuevosClientes);  
-    
-    actualizarTabla();  
-    
-    // Limpiar los campos del formulario para ingresar otro cliente  
-    formManual.reset();  
-    
-    // Focar nuevamente en el primer input del formulario manual  
-    document.getElementById('clienteManual').focus();  
-  });
+    formManual.addEventListener('submit', function (event) {
+        event.preventDefault(); // Prevenir el envío por defecto  
+
+        const nombreManual = document.getElementById('clienteManual').value.trim();
+        const afiliadoManual = document.getElementById('afiliadoManual').value.trim();
+        const importeManual = parseFloat(document.getElementById('importeManual').value.replace('$', '').replace(',', ''));
+
+        // Validación de los campos  
+        if (!nombreManual || !afiliadoManual || isNaN(importeManual)) {
+            alert('Por favor, complete todos los campos correctamente.');
+            return;
+        }
+
+        // Agregar al array principal 'data' para almacenar la factura  
+        data.push({ nombre: nombreManual, afiliado: afiliadoManual, importe: importeManual });
+
+        // Agregar al array 'nuevosClientes' solo si el cliente no existe previamente  
+        if (!baseDatos.some(c => c.NOMBRE.toLowerCase() === nombreManual.toLowerCase()) &&
+            !nuevosClientes.some(c => c.Cliente.toLowerCase() === nombreManual.toLowerCase())) {
+            nuevosClientes.push({ Cliente: nombreManual, Afiliado: afiliadoManual });
+        }
+
+        console.log('Datos manuales guardados:', data);
+        console.log('Nuevos Clientes:', nuevosClientes);
+
+        actualizarTabla();
+
+        // Limpiar los campos del formulario para ingresar otro cliente  
+        formManual.reset();
+
+        // Focar nuevamente en el primer input del formulario manual  
+        document.getElementById('clienteManual').focus();
+    });
 
     // Función para actualizar la tabla con los datos
-function actualizarTabla() {
-    const tablaBody = document.getElementById('tabla-body');
-    tablaBody.innerHTML = ''; // Limpiar la tabla
-  
-    // Calcular el total de importes y actualizar el mensaje de total a cobrar
-    let totalImporte = data.reduce((sum, item) => sum + item.importe, 0);
-    let totalCobrar = (totalImporte * 100 / 75) * 0.125;
-    document.getElementById('totalAmount').textContent = `Importe total a cobrar: $${totalCobrar.toFixed(2)}`;
-  
-    let count = data.length; // Contador que inicia con el total de facturas
-  
-    // Iterar sobre 'data' desde el último hacia el primero
-    for (let i = data.length - 1; i >= 0; i--) {
-      const item = data[i];
-      const row = tablaBody.insertRow();
-  
-      // Nueva celda para el número de factura
-      const cellCount = row.insertCell(0);
-      // Las demás celdas se desplazarán una posición a la derecha
-      const cellNombre = row.insertCell(1);
-      const cellImporte = row.insertCell(2);
-      const cellAcciones = row.insertCell(3); // Celda para el botón de eliminación
-  
-      cellCount.textContent = count;
-      count--;
-  
-      cellNombre.textContent = item.nombre;
-      cellImporte.textContent = '$' + item.importe.toFixed(2);
-  
-      // Crear el botón de eliminación
-      const btnEliminar = document.createElement('button');
-      btnEliminar.classList.add('btn-eliminar');
-      btnEliminar.setAttribute('aria-label', 'Eliminar registro'); // Accesibilidad
-  
-      // Crear la etiqueta <img> para el SVG del botón
-      const imgEliminar = document.createElement('img');
-      imgEliminar.src = 'assets/delete-icon.svg'; // Ruta al archivo SVG
-      imgEliminar.alt = 'Eliminar';
-      imgEliminar.classList.add('icon-eliminar');
-  
-      btnEliminar.appendChild(imgEliminar);
-  
-      // Establecer el evento para eliminar la factura
-      btnEliminar.addEventListener('click', function() {
-        eliminarRegistro(item);
-      });
-  
-      cellAcciones.appendChild(btnEliminar);
+    function actualizarTabla() {
+        const tablaBody = document.getElementById('tabla-body');
+        const emptyState = document.getElementById('emptyState');
+        const registrosCount = document.getElementById('registrosCount');
+        tablaBody.innerHTML = ''; // Limpiar la tabla
+
+        // Calcular el total de importes y actualizar el mensaje de total a cobrar
+        let totalImporte = data.reduce((sum, item) => sum + item.importe, 0);
+        let totalCobrar = (totalImporte * 100 / 75) * 0.125;
+
+        // Actualizar el nuevo elemento de total
+        const totalAmountValue = document.getElementById('totalAmountValue');
+        if (totalAmountValue) {
+            totalAmountValue.textContent = `$${totalCobrar.toFixed(2)}`;
+        }
+
+        // Actualizar contador de registros
+        if (registrosCount) {
+            registrosCount.textContent = `${data.length} Registro${data.length !== 1 ? 's' : ''}`;
+        }
+
+        // Mostrar u ocultar estado vacío
+        if (emptyState) {
+            emptyState.style.display = data.length === 0 ? 'flex' : 'none';
+        }
+
+        let count = data.length; // Contador que inicia con el total de facturas
+
+        // Iterar sobre 'data' desde el último hacia el primero
+        for (let i = data.length - 1; i >= 0; i--) {
+            const item = data[i];
+            const row = tablaBody.insertRow();
+
+            // Nueva celda para el número de factura
+            const cellCount = row.insertCell(0);
+            // Las demás celdas se desplazarán una posición a la derecha
+            const cellNombre = row.insertCell(1);
+            const cellImporte = row.insertCell(2);
+            const cellAcciones = row.insertCell(3); // Celda para el botón de eliminación
+
+            cellCount.textContent = count;
+            count--;
+
+            cellNombre.textContent = item.nombre;
+            cellImporte.textContent = '$' + item.importe.toFixed(2);
+
+            // Crear el botón de eliminación
+            const btnEliminar = document.createElement('button');
+            btnEliminar.classList.add('btn-eliminar');
+            btnEliminar.setAttribute('aria-label', 'Eliminar registro'); // Accesibilidad
+
+            // Crear SVG inline para el icono de eliminar
+            btnEliminar.innerHTML = `<svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="icon-eliminar">
+        <polyline points="3 6 5 6 21 6"></polyline>
+        <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path>
+        <line x1="10" y1="11" x2="10" y2="17"></line>
+        <line x1="14" y1="11" x2="14" y2="17"></line>
+      </svg>`;
+
+            // Establecer el evento para eliminar la factura
+            btnEliminar.addEventListener('click', function () {
+                eliminarRegistro(item);
+            });
+
+            cellAcciones.appendChild(btnEliminar);
+        }
     }
-  }
 
     // Función para eliminar un registro del array 'data' y actualizar la tabla
     function eliminarRegistro(item) {
@@ -488,17 +508,35 @@ function actualizarTabla() {
         // Guardar la preferencia del usuario
         const isDarkTheme = body.classList.contains('dark-theme');
         localStorage.setItem('darkTheme', isDarkTheme);
+
+        // Toggle icons visibility
+        if (themeToggle) {
+            const moonIcon = themeToggle.querySelector('.moon-icon');
+            const sunIcon = themeToggle.querySelector('.sun-icon');
+            if (moonIcon && sunIcon) {
+                moonIcon.style.display = isDarkTheme ? 'none' : 'block';
+                sunIcon.style.display = isDarkTheme ? 'block' : 'none';
+            }
+        }
     }
 
     // Aplicar el tema guardado cuando la página carga
     const isDarkTheme = localStorage.getItem('darkTheme') === 'true';
     if (isDarkTheme) {
         document.body.classList.add('dark-theme');
-        themeToggle.checked = true;
-    } else {
-        themeToggle.checked = false;
+        // Toggle icons for dark theme
+        if (themeToggle) {
+            const moonIcon = themeToggle.querySelector('.moon-icon');
+            const sunIcon = themeToggle.querySelector('.sun-icon');
+            if (moonIcon && sunIcon) {
+                moonIcon.style.display = 'none';
+                sunIcon.style.display = 'block';
+            }
+        }
     }
 
-    // Event listener para el interruptor de tema
-    themeToggle.addEventListener('change', toggleTheme);
+    // Event listener para el interruptor de tema (ahora es un botón)
+    if (themeToggle) {
+        themeToggle.addEventListener('click', toggleTheme);
+    }
 });
