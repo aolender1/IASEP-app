@@ -1,4 +1,4 @@
-<!DOCTYPE html>
+﻿<!DOCTYPE html>
 <html lang="es">
 
 <head>
@@ -8,9 +8,14 @@
     <link rel="icon" type="image/x-icon" href="assets/favicon.ico">
     <link rel="stylesheet" href="styles.css">
     <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.4/xlsx.full.min.js"></script>
-    <!-- Script para verificar autenticación -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.5.31/jspdf.plugin.autotable.min.js"></script>
+    <!-- Supabase -->
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    <script src="supabase-config.js"></script>
+    <!-- Script para verificar autenticacion -->
     <script>
-        // Verificar autenticación al inicio
+        // Verificar autenticacion al inicio
         document.addEventListener('DOMContentLoaded', function () {
             const isLoggedIn = sessionStorage.getItem('isLoggedIn');
             const userEmail = sessionStorage.getItem('userEmail');
@@ -32,7 +37,7 @@
 
 <body>
     <div class="header">
-        <!-- Sección izquierda en la cabecera -->
+        <!-- Seccion izquierda en la cabecera -->
         <div class="header-left">
             <button class="boton-excel" id="crearExcel">
                 <svg fill="#fff" xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 50 50">
@@ -63,16 +68,16 @@
             </button>
             <input type="file" id="fileInput" style="display: none;" accept=".xlsx, .xls">
         </div>
-        <!-- Sección derecha para el perfil de usuario y toggle de tema -->
+        <!-- Seccion derecha para el perfil de usuario y toggle de tema -->
         <div class="header-right">
             <!-- Perfil de usuario -->
             <div class="user-profile">
                 <div class="user-avatar" id="userInitials">AL</div>
                 <div class="user-info">
-                    <span class="user-info-label">Cerrar Sesión</span>
+                    <span class="user-info-label">Cerrar Sesion</span>
                     <span class="user-info-email" id="userEmail">usuario@email.com</span>
                 </div>
-                <button id="logoutBtn" class="logout-btn" title="Cerrar Sesión">
+                <button id="logoutBtn" class="logout-btn" title="Cerrar Sesion">
                     <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none"
                         stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
                         <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"></path>
@@ -81,7 +86,7 @@
                     </svg>
                 </button>
             </div>
-            <!-- Botón para cambiar de tema -->
+            <!-- Boton para cambiar de tema -->
             <button class="theme-toggle" id="themeToggle" title="Cambiar tema">
                 <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none"
                     stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"
@@ -164,7 +169,7 @@
                 <div class="total-label">IMPORTE TOTAL A COBRAR</div>
                 <div class="total-amount">
                     <span id="totalAmountValue">$0.00</span>
-                    <span class="total-currency">USD</span>
+                    <span class="total-currency">ARS</span>
                 </div>
             </div>
 
@@ -181,7 +186,7 @@
                                 <th>#</th>
                                 <th>CLIENTE</th>
                                 <th>IMPORTE</th>
-                                <th>ACCIÓN</th>
+                                <th>ACCION</th>
                             </tr>
                         </thead>
                         <tbody id="tabla-body">
@@ -216,7 +221,7 @@
                     required>
 
                 <label for="afiliadoManual">Afiliado:</label>
-                <input type="text" id="afiliadoManual" name="afiliadoManual" placeholder="Ingrese el número de afiliado"
+                <input type="text" id="afiliadoManual" name="afiliadoManual" placeholder="Ingrese el numero de afiliado"
                     required>
 
                 <label for="importeManual">Importe:</label>
@@ -240,13 +245,13 @@
     </footer>
 
     <script src="script.js"></script>
-    <!-- Script para manejar el cierre de sesión -->
+    <!-- Script para manejar el cierre de sesion -->
     <script>
         document.getElementById('logoutBtn').addEventListener('click', function () {
             // Eliminar el estado de login
             sessionStorage.removeItem('isLoggedIn');
             sessionStorage.removeItem('userEmail');
-            // Redirigir a la página de login
+            // Redirigir a la pagina de login
             window.location.href = 'login.html';
         });
     </script>

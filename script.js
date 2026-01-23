@@ -1,5 +1,5 @@
-// Verificar autenticación al inicio
-document.addEventListener('DOMContentLoaded', function () {
+﻿// Verificar autenticación al inicio y cargar datos de farmacia desde Supabase
+document.addEventListener('DOMContentLoaded', async function () {
     const isLoggedIn = sessionStorage.getItem('isLoggedIn');
     const userEmail = sessionStorage.getItem('userEmail');
     if (!isLoggedIn) {
@@ -10,6 +10,8 @@ document.addEventListener('DOMContentLoaded', function () {
         if (logoutBtn) {
             // No need to update text, the new UI uses an icon
         }
+        // Cargar datos de la farmacia desde Supabase
+        await cargarDatosFarmacia();
     }
     // Continuar con el resto del código de inicialización
 });
@@ -35,6 +37,55 @@ document.addEventListener("DOMContentLoaded", function () {
     const agregarManualButton = document.getElementById('agregarManual');
     const spanCerrar = document.getElementsByClassName('close')[0];
     const formManual = document.getElementById('formManual');
+
+    // ========== CREAR MODAL DE NOTIFICACI�N DIN�MICAMENTE ==========
+    function crearModalNotificacion() {
+        const modalHTML = `
+            <div id="modalNotificacion" class="modal-notificacion">
+                <div class="modal-notificacion-content">
+                    <div class="modal-notificacion-icon" id="modalNotificacionIcon">
+                        <svg xmlns="http://www.w3.org/2000/svg" width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="icon-success">
+                            <path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"></path>
+                            <polyline points="22 4 12 14.01 9 11.01"></polyline>
+                        </svg>
+                        <svg xmlns="http://www.w3.org/2000/svg" width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="icon-error" style="display: none;">
+                            <circle cx="12" cy="12" r="10"></circle>
+                            <line x1="15" y1="9" x2="9" y2="15"></line>
+                            <line x1="9" y1="9" x2="15" y2="15"></line>
+                        </svg>
+                    </div>
+                    <h3 id="modalNotificacionTitulo">Exito!</h3>
+                    <p id="modalNotificacionMensaje">Los datos se han cargado correctamente.</p>
+                    <button class="boton-grande" id="modalNotificacionBtn">Aceptar</button>
+                </div>
+            </div>
+        `;
+        document.body.insertAdjacentHTML('beforeend', modalHTML);
+        document.getElementById('modalNotificacionBtn').addEventListener('click', cerrarModalNotificacion);
+    }
+    crearModalNotificacion();
+
+    function mostrarNotificacion(titulo, mensaje, tipo) {
+        tipo = tipo || 'success';
+        const modal = document.getElementById('modalNotificacion');
+        const iconSuccess = modal.querySelector('.icon-success');
+        const iconError = modal.querySelector('.icon-error');
+        document.getElementById('modalNotificacionTitulo').textContent = titulo;
+        document.getElementById('modalNotificacionMensaje').textContent = mensaje;
+        if (tipo === 'success') {
+            iconSuccess.style.display = 'block';
+            iconError.style.display = 'none';
+        } else {
+            iconSuccess.style.display = 'none';
+            iconError.style.display = 'block';
+        }
+        modal.classList.add('show');
+    }
+
+    function cerrarModalNotificacion() {
+        document.getElementById('modalNotificacion').classList.remove('show');
+    }
+    // ================================================================
 
     // Función para cargar clientes desde la hoja "base-de-datos" de Excel
     function cargarClientesDesdeExcel(clientesData) {
@@ -239,7 +290,7 @@ document.addEventListener("DOMContentLoaded", function () {
                 // Obtener la hoja "base-de-datos"
                 const sheetName = "base-de-datos";
                 if (!workbook.Sheets[sheetName]) {
-                    alert(`La hoja "${sheetName}" no fue encontrada en el archivo Excel.`);
+                    mostrarNotificacion('Error', 'La hoja base-de-datos no fue encontrada en el archivo Excel.', 'error');
                     return;
                 }
 
@@ -248,12 +299,12 @@ document.addEventListener("DOMContentLoaded", function () {
 
                 // Verificar que las columnas existen
                 if (!jsonData.length || !jsonData[0].ID || !jsonData[0].NOMBRE || !jsonData[0].NUMERO) {
-                    alert(`La hoja "${sheetName}" debe contener las columnas ID, NOMBRE y NUMERO.`);
+                    mostrarNotificacion('Error', 'La hoja base-de-datos debe contener las columnas ID, NOMBRE y NUMERO.', 'error');
                     return;
                 }
 
                 cargarClientesDesdeExcel(jsonData);
-                alert('Datos cargados correctamente desde Excel.');
+                mostrarNotificacion('Exito!', 'Datos cargados correctamente desde Excel.', 'success');
             };
             reader.readAsArrayBuffer(file); // Leer el contenido del archivo como ArrayBuffer
         }
@@ -468,6 +519,40 @@ document.addEventListener("DOMContentLoaded", function () {
             XLSX.utils.sheet_add_aoa(hojaNuevosClientes, [["Cliente", "Afiliado"]], { origin: "A1" });
         }
 
+        // ========== DATOS PARA EL PDF ==========
+        // Obtener datos de la farmacia desde Supabase (cargados al inicio)
+        const farmaciaInfo = getFarmaciaInfo() || {
+            nombre: "FARMACIA - DATOS NO CONFIGURADOS",
+            ubicacion: "Por favor configure sus datos en Supabase"
+        };
+
+        // Preparar datos del reporte con columnas calculadas
+        const datosReporte = datosOrdenados.map((item, index) => {
+            const importeTotal = item.importe * 100 / 75;
+            const cargoAfiliado = item.importe; // 75% - el importe original
+            const cargoFarmacia = importeTotal * 0.125; // 12.5%
+            const cargoObraSocial = importeTotal * 0.125; // 12.5%
+
+            return {
+                ORDEN: index + 1,
+                "APELLIDO Y NOMBRE": item.nombre,
+                "NUMERO DE AFILIADO": item.afiliado,
+                "IMPORTE TOTAL": importeTotal,
+                "CARGO DEL AFILIADO 75%": cargoAfiliado,
+                "A CARGO DE LA FARMACIA 12,5%": cargoFarmacia,
+                "A CARGO DE LA OBRA SOCIAL 12,5%": cargoObraSocial
+            };
+        });
+
+        // Calcular totales
+        const totales = datosReporte.reduce((acc, item) => {
+            acc.importeTotal += item["IMPORTE TOTAL"];
+            acc.cargoAfiliado += item["CARGO DEL AFILIADO 75%"];
+            acc.cargoFarmacia += item["A CARGO DE LA FARMACIA 12,5%"];
+            acc.cargoObraSocial += item["A CARGO DE LA OBRA SOCIAL 12,5%"];
+            return acc;
+        }, { importeTotal: 0, cargoAfiliado: 0, cargoFarmacia: 0, cargoObraSocial: 0 });
+
         // Crear un nuevo workbook y agregar las hojas
         const workbook = XLSX.utils.book_new();
         XLSX.utils.book_append_sheet(workbook, hojaBaseDatos, "base-de-datos");
@@ -475,6 +560,9 @@ document.addEventListener("DOMContentLoaded", function () {
         if (hojaNuevosClientes) {
             XLSX.utils.book_append_sheet(workbook, hojaNuevosClientes, "Nuevos Clientes");
         }
+
+        // Generar nombre de archivo con formato IASEP-yyyy-mm-MONTH.xlsx
+        const nombreArchivo = generarNombreArchivo('xlsx');
 
         // Escribir el workbook a una cadena binaria
         const excelBinary = XLSX.write(workbook, { bookType: 'xlsx', type: 'binary' });
@@ -485,8 +573,175 @@ document.addEventListener("DOMContentLoaded", function () {
         // Crear un enlace para descargar el archivo
         const link = document.createElement("a");
         link.href = window.URL.createObjectURL(blob);
-        link.download = "datos.xlsx";
+        link.download = nombreArchivo;
         link.click();
+
+        // También generar el PDF
+        crearPDF(datosReporte, totales, farmaciaInfo);
+    }
+
+    // Función para generar el nombre del archivo con formato IASEP-yyyy-mm-MONTH.ext
+    function generarNombreArchivo(extension) {
+        const now = new Date();
+        const year = now.getFullYear();
+        const month = String(now.getMonth() + 1).padStart(2, '0');
+
+        const mesesEspanol = [
+            'ENERO', 'FEBRERO', 'MARZO', 'ABRIL', 'MAYO', 'JUNIO',
+            'JULIO', 'AGOSTO', 'SEPTIEMBRE', 'OCTUBRE', 'NOVIEMBRE', 'DICIEMBRE'
+        ];
+        const monthName = mesesEspanol[now.getMonth()];
+
+        return "IASEP-" + year + "-" + month + "-" + monthName + "." + extension;
+    }
+
+    // Función para crear el PDF con logos
+    async function crearPDF(datosReporte, totales, farmaciaInfo) {
+        const { jsPDF } = window.jspdf;
+        const doc = new jsPDF('landscape', 'mm', 'a4');
+
+        // ============ CONFIGURACIÓN DE LOGOS (MODIFICAR AQUÍ) ============
+        // Formato: posX, posY, ancho, alto (todos en mm)
+        // LOGO IZQUIERDO (farmacia)
+        const logoLeftX = 10;      // Posición X
+        const logoLeftY = 5;       // Posición Y
+        const logoLeftWidth = 50;  // Ancho - MODIFICAR ESTE VALOR
+        const logoLeftHeight = 50; // Alto - MODIFICAR ESTE VALOR
+
+        // LOGO DERECHO (IASEP)
+        const logoRightX = 220;    // Posición X
+        const logoRightY = 5;      // Posición Y
+        const logoRightWidth = 75; // Ancho - MODIFICAR ESTE VALOR
+        const logoRightHeight = 50;// Alto - MODIFICAR ESTE VALOR
+        // ==================================================================
+
+        // Cargar imágenes como base64
+        const imgLeftBase64 = await cargarImagenComoBase64('assets/iasep_img_left.png');
+        const imgRightBase64 = await cargarImagenComoBase64('assets/iasep_img_right.png');
+
+        // Agregar logo izquierdo
+        if (imgLeftBase64) {
+            doc.addImage(imgLeftBase64, 'PNG', logoLeftX, logoLeftY, logoLeftWidth, logoLeftHeight);
+        }
+
+        // Agregar logo derecho
+        if (imgRightBase64) {
+            doc.addImage(imgRightBase64, 'PNG', logoRightX, logoRightY, logoRightWidth, logoRightHeight);
+        }
+
+        // Encabezado con información de la farmacia
+        doc.setFontSize(16);
+        doc.setFont('helvetica', 'bold');
+        doc.text(farmaciaInfo.nombre, 148, 20, { align: 'center' });
+        doc.setFontSize(12);
+        doc.setFont('helvetica', 'normal');
+        doc.text(farmaciaInfo.ubicacion, 148, 28, { align: 'center' });
+
+        // Título del reporte
+        doc.setFontSize(14);
+        doc.setFont('helvetica', 'bold');
+        doc.text('CARATULA DE PRESENTACION DE RECETAS', 148, 42, { align: 'center' });
+
+        // Preparar datos para la tabla
+        const tableData = datosReporte.map(item => [
+            item.ORDEN,
+            item["APELLIDO Y NOMBRE"],
+            item["NUMERO DE AFILIADO"],
+            formatearMoneda(item["IMPORTE TOTAL"]),
+            formatearMoneda(item["CARGO DEL AFILIADO 75%"]),
+            formatearMoneda(item["A CARGO DE LA FARMACIA 12,5%"]),
+            formatearMoneda(item["A CARGO DE LA OBRA SOCIAL 12,5%"])
+        ]);
+
+        // Agregar fila de totales
+        tableData.push([
+            '',
+            '',
+            'Totales',
+            formatearMoneda(totales.importeTotal),
+            formatearMoneda(totales.cargoAfiliado),
+            formatearMoneda(totales.cargoFarmacia),
+            formatearMoneda(totales.cargoObraSocial)
+        ]);
+
+        // Crear tabla
+        doc.autoTable({
+            startY: 60, // MODIFICAR ESTE VALOR para mover la tabla más abajo
+            head: [[
+                'ORDEN',
+                'APELLIDO Y NOMBRE',
+                'NUMERO DE AFILIADO',
+                'IMPORTE TOTAL',
+                'CARGO DEL AFILIADO 75%',
+                'A CARGO DE LA FARMACIA 12,5%',
+                'A CARGO DE LA OBRA SOCIAL 12,5%'
+            ]],
+            body: tableData,
+            theme: 'grid',
+            styles: {
+                fontSize: 10, // MODIFICAR ESTE VALOR para cambiar tamaño de fuente
+                cellPadding: 2
+            },
+            headStyles: {
+                fillColor: [70, 130, 180],
+                textColor: 255,
+                fontStyle: 'bold',
+                halign: 'center'
+            },
+            columnStyles: {
+                // MODIFICAR cellWidth para ajustar ancho de cada columna
+                0: { halign: 'center', cellWidth: 15 },  // ORDEN
+                1: { cellWidth: 75 },                     // APELLIDO Y NOMBRE
+                2: { halign: 'center', cellWidth: 40 },   // NUMERO DE AFILIADO
+                3: { halign: 'right', cellWidth: 35 },    // IMPORTE TOTAL
+                4: { halign: 'right', cellWidth: 35 },    // CARGO DEL AFILIADO
+                5: { halign: 'right', cellWidth: 35 },    // A CARGO DE LA FARMACIA
+                6: { halign: 'right', cellWidth: 35 }     // A CARGO DE LA OBRA SOCIAL
+            },
+            didParseCell: function (data) {
+                // Estilo especial para la fila de totales
+                if (data.row.index === tableData.length - 1) {
+                    data.cell.styles.fontStyle = 'bold';
+                    data.cell.styles.fillColor = [240, 240, 240];
+                }
+            }
+        });
+
+        // Guardar PDF
+        const nombreArchivoPDF = generarNombreArchivo('pdf');
+        doc.save(nombreArchivoPDF);
+    }
+
+    // Función para cargar imagen como base64
+    function cargarImagenComoBase64(url) {
+        return new Promise((resolve) => {
+            const img = new Image();
+            img.crossOrigin = 'Anonymous';
+            img.onload = function () {
+                const canvas = document.createElement('canvas');
+                canvas.width = img.width;
+                canvas.height = img.height;
+                const ctx = canvas.getContext('2d');
+                ctx.drawImage(img, 0, 0);
+                try {
+                    const dataURL = canvas.toDataURL('image/png');
+                    resolve(dataURL);
+                } catch (e) {
+                    console.error('Error al convertir imagen:', e);
+                    resolve(null);
+                }
+            };
+            img.onerror = function () {
+                console.error('Error al cargar imagen:', url);
+                resolve(null);
+            };
+            img.src = url;
+        });
+    }
+
+    // Función para formatear moneda
+    function formatearMoneda(valor) {
+        return '$ ' + valor.toLocaleString('es-AR', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
     }
 
     // Función para convertir una cadena a ArrayBuffer

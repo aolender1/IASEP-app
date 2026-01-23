@@ -898,3 +898,84 @@ body.dark-theme {
     display: none;
     font-size: 14px;
 }
+/* ==================== MODAL DE NOTIFICACIÓN ==================== */
+.modal-notificacion {
+    display: none;
+    position: fixed;
+    z-index: 2000;
+    left: 0;
+    top: 0;
+    width: 100%;
+    height: 100%;
+    background-color: var(--color-modal-bg);
+    backdrop-filter: blur(4px);
+    animation: fadeIn 0.2s ease;
+}
+
+.modal-notificacion.show {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.modal-notificacion-content {
+    background-color: var(--color-modal-content);
+    padding: var(--spacing-2xl);
+    border-radius: var(--border-radius-lg);
+    box-shadow: var(--box-shadow-lg);
+    text-align: center;
+    max-width: 400px;
+    width: 90%;
+    animation: slideIn 0.3s ease;
+}
+
+.modal-notificacion-icon {
+    margin-bottom: var(--spacing-lg);
+}
+
+.modal-notificacion-icon .icon-success {
+    color: var(--color-excel);
+}
+
+.modal-notificacion-icon .icon-error {
+    color: var(--color-delete);
+}
+
+.modal-notificacion-content h3 {
+    font-size: 22px;
+    font-weight: 600;
+    color: var(--color-text);
+    margin-bottom: var(--spacing-md);
+}
+
+.modal-notificacion-content p {
+    font-size: 14px;
+    color: var(--color-text-secondary);
+    margin-bottom: var(--spacing-xl);
+    line-height: 1.6;
+}
+
+.modal-notificacion-content .boton-grande {
+    max-width: 200px;
+    margin: 0 auto;
+}
+
+@keyframes fadeIn {
+    from { opacity: 0; }
+    to { opacity: 1; }
+}
+
+@keyframes slideIn {
+    from { 
+        opacity: 0;
+        transform: translateY(-20px) scale(0.95);
+    }
+    to { 
+        opacity: 1;
+        transform: translateY(0) scale(1);
+    }
+}
+
+.dark-theme .modal-notificacion-content {
+    background-color: var(--color-surface);
+}
