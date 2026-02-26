@@ -26,6 +26,412 @@ document.addEventListener("DOMContentLoaded", function () {
     const fileInput = document.getElementById('fileInput');
     const themeToggle = document.getElementById('themeToggle'); // Interruptor de tema
     const mostrarNumeroCliente = document.getElementById('mostrar-numero-cliente');
+    const btnDictado = document.getElementById('btnDictado'); // Botón de dictado
+    const btnDictadoManual = document.getElementById('btnDictadoManual'); // Botón de dictado manual
+
+    // --- VARIABLES Y LÓGICA DE DICTADO POR VOZ ---
+    let dictationActive = false;
+    let dictationSource = 'MAIN'; // 'MAIN' o 'MANUAL'
+    let dictationState = 'INACTIVO'; // CLIENTE, IMPORTE, MANUAL_CLIENTE, MANUAL_AFILIADO, MANUAL_IMPORTE
+    let dictationFilteredClientes = [];
+    let recognition = null;
+
+    if ('webkitSpeechRecognition' in window || 'SpeechRecognition' in window) {
+        const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+        recognition = new SpeechRecognition();
+        recognition.continuous = true;
+        recognition.interimResults = false;
+        recognition.lang = 'es-AR';
+
+        recognition.onstart = function () {
+            dictationActive = true;
+            if (dictationSource === 'MAIN') {
+                dictationState = 'CLIENTE';
+                if (!baseDatos || baseDatos.length === 0) {
+                    mostrarNotificacion('Advertencia', 'Por favor, cargue la base de Excel antes de usar el dictado o no encontrará los clientes.', 'error');
+                }
+                dictationFilteredClientes = baseDatos.length > 0 ? baseDatos : [];
+                if (btnDictado) {
+                    btnDictado.style.backgroundColor = '#ff4757';
+                    btnDictado.style.color = '#ffffff';
+                    btnDictado.style.borderColor = '#ff4757';
+                    const offIcon = btnDictado.querySelector('.mic-off');
+                    const onIcon = btnDictado.querySelector('.mic-on');
+                    if (offIcon) offIcon.style.display = 'none';
+                    if (onIcon) onIcon.style.display = 'block';
+                }
+                mostrarNotificacion('Dictado Activado', 'Diga el APELLIDO y NOMBRE del cliente.', 'success');
+            } else if (dictationSource === 'MANUAL') {
+                dictationState = 'MANUAL_CLIENTE';
+                if (btnDictadoManual) {
+                    btnDictadoManual.style.backgroundColor = '#ff4757';
+                    btnDictadoManual.style.color = '#ffffff';
+                    btnDictadoManual.style.borderColor = '#ff4757';
+                    const offIcon = btnDictadoManual.querySelector('.mic-off');
+                    const onIcon = btnDictadoManual.querySelector('.mic-on');
+                    if (offIcon) offIcon.style.display = 'none';
+                    if (onIcon) onIcon.style.display = 'block';
+                }
+                mostrarNotificacion('Dictado Manual', 'Diga el APELLIDO y NOMBRE del cliente nuevo.', 'success');
+            }
+        };
+
+        recognition.onend = function () {
+            if (dictationActive) {
+                try {
+                    recognition.start();
+                } catch (e) {
+                    apagarDictado();
+                }
+            } else {
+                apagarDictado();
+            }
+        };
+
+        recognition.onerror = function (event) {
+            console.error('Error dictado:', event.error);
+            if (event.error === 'not-allowed') {
+                mostrarNotificacion('Error', 'Debe dar permisos de micrófono al navegador para usar esta función.', 'error');
+                dictationActive = false;
+                apagarDictado();
+            }
+        };
+
+        recognition.onresult = function (event) {
+            const current = event.resultIndex;
+            let transcript = event.results[current][0].transcript.toLowerCase().trim();
+            console.log("Dictado Transcripción:", transcript);
+            procesarDictado(transcript);
+        };
+    }
+
+    function apagarDictado() {
+        dictationActive = false;
+        dictationState = 'INACTIVO';
+        dictationFilteredClientes = [];
+        if (btnDictado) {
+            btnDictado.style.backgroundColor = '';
+            btnDictado.style.color = '';
+            btnDictado.style.borderColor = '';
+            const offIcon = btnDictado.querySelector('.mic-off');
+            const onIcon = btnDictado.querySelector('.mic-on');
+            if (offIcon) offIcon.style.display = 'block';
+            if (onIcon) onIcon.style.display = 'none';
+        }
+        if (btnDictadoManual) {
+            btnDictadoManual.style.backgroundColor = '';
+            btnDictadoManual.style.color = '';
+            btnDictadoManual.style.borderColor = '';
+            const offIcon = btnDictadoManual.querySelector('.mic-off');
+            const onIcon = btnDictadoManual.querySelector('.mic-on');
+            if (offIcon) offIcon.style.display = 'block';
+            if (onIcon) onIcon.style.display = 'none';
+        }
+        if (recognition) {
+            try { recognition.stop(); } catch (e) { }
+        }
+    }
+
+    if (btnDictado) {
+        btnDictado.addEventListener('click', function (e) {
+            e.preventDefault();
+            if (!recognition) {
+                mostrarNotificacion('Error', 'Su navegador no soporta el dictado por voz. Recomendamos usar Google Chrome o Microsoft Edge.', 'error');
+                return;
+            }
+            if (dictationActive && dictationSource === 'MAIN') {
+                apagarDictado();
+            } else {
+                dictationSource = 'MAIN';
+                try {
+                    recognition.start();
+                } catch (e) {
+                    console.error('Error al iniciar dictado', e);
+                }
+            }
+        });
+    }
+
+    if (btnDictadoManual) {
+        btnDictadoManual.addEventListener('click', function (e) {
+            e.preventDefault();
+            if (!recognition) {
+                mostrarNotificacion('Error', 'Su navegador no soporta el dictado por voz.', 'error');
+                return;
+            }
+            if (dictationActive && dictationSource === 'MANUAL') {
+                apagarDictado();
+            } else {
+                dictationSource = 'MANUAL';
+                try {
+                    recognition.start();
+                } catch (e) {
+                    console.error('Error al iniciar dictado manual', e);
+                }
+            }
+        });
+    }
+
+    function normalizeForSearch(text) {
+        if (!text) return '';
+        // Algoritmo de normalización fonética simplificado para español
+        return text.toString().toUpperCase()
+            .normalize("NFD").replace(/[\u0300-\u036f]/g, "") // Quitar acentos
+            .replace(/H/g, '') // Quitar H muda
+            .replace(/V/g, 'B') // V suena = B
+            .replace(/Z|S/g, 'C') // Z, S suenan = C (simplificación fonética)
+            .replace(/K|Q/g, 'C') // K, Q suenan = C
+            .replace(/Y|LL/g, 'I') // Y, LL suenan = I
+            .replace(/J/g, 'G') // J suena = G (simplif)
+            .replace(/W/g, 'GU') // W suena = GU
+            .replace(/(.)\1+/g, '$1') // Letras dobles repetidas reducirlas a una sola
+            .trim();
+    }
+
+    function procesarDictado(transcript) {
+        if (transcript.includes("cancelar") || transcript.includes("detener") || transcript.includes("parar dictado")) {
+            apagarDictado();
+            mostrarNotificacion('Dictado', 'Dictado desactivado.', 'success');
+            return;
+        }
+
+        switch (dictationState) {
+            case 'CLIENTE':
+                procesarTranscripcionCliente(transcript);
+                break;
+            case 'IMPORTE':
+                procesarTranscripcionImporte(transcript);
+                break;
+            case 'MANUAL_CLIENTE':
+                procesarTranscripcionManualCliente(transcript);
+                break;
+            case 'MANUAL_AFILIADO':
+                procesarTranscripcionManualAfiliado(transcript);
+                break;
+            case 'MANUAL_IMPORTE':
+                procesarTranscripcionManualImporte(transcript);
+                break;
+        }
+    }
+
+    function procesarTranscripcionManualCliente(transcript) {
+        document.getElementById('clienteManual').value = transcript.toUpperCase();
+        dictationState = 'MANUAL_AFILIADO';
+        document.getElementById('afiliadoManual').focus();
+        mostrarNotificacion('Cliente Capturado', `${transcript.toUpperCase()}\n\nDiga el número de afiliado (ej: 2 guion 0 6...).`, 'success');
+    }
+
+    function procesarTranscripcionManualAfiliado(transcript) {
+        let nums = transcript.replace(/guion|guión|guían/g, '-').replace(/ cero/g, ' 0').replace(/^cero /, '0 ').replace(/ /g, ' ');
+        const mapNumeros = {
+            'cero': '0', 'uno': '1', 'dos': '2', 'tres': '3', 'cuatro': '4', 'cinco': '5',
+            'seis': '6', 'siete': '7', 'ocho': '8', 'nueve': '9', 'diez': '10', 'once': '11',
+            'doce': '12', 'trece': '13', 'catorce': '14', 'quince': '15', 'dieciseis': '16',
+            'dieciséis': '16', 'diecisiete': '17', 'dieciocho': '18', 'diecinueve': '19',
+            'veinte': '20', 'veintiuno': '21', 'veintidos': '22', 'veintidós': '22',
+            'veintitres': '23', 'veintitrés': '23', 'veinticuatro': '24', 'veinticinco': '25',
+            'veintiseis': '26', 'veintiséis': '26', 'veintisiete': '27', 'veintiocho': '28',
+            'veintinueve': '29', 'treinta': '30', 'cuarenta': '40', 'cincuenta': '50',
+            'sesenta': '60', 'setenta': '70', 'ochenta': '80', 'noventa': '90'
+        };
+        for (let key in mapNumeros) {
+            let regex = new RegExp('\\b' + key + '\\b', 'gi');
+            nums = nums.replace(regex, mapNumeros[key]);
+        }
+        nums = nums.replace(/[^0-9\-]/g, '');
+
+        if (nums) {
+            // Verificar si tal vez dijeron números incompletos
+            const inputAfil = document.getElementById('afiliadoManual');
+            let currentVal = inputAfil.value;
+            // Solo si agregamos a lo existente o lo sobreescribimos. 
+            // Como este es continuo, puede que diga "dos guion cero seis" en un evento 
+            // y luego "uno seis cero" en el próximo evento si no cambió de estado.
+            // Para mantenerlo sencillo: se acumula hasta escuchar "importe", pero si 
+            // detectamos un número grande, pasamos automático a importe o si dice una palabra clave
+            // Mejor lo acumulamos manualmente:
+            inputAfil.value = currentVal ? currentVal + nums : nums;
+
+            // Evaluamos una heurística para pasar a importe: si la longitud total es >= 10 o dice "importe"
+            if (inputAfil.value.length >= 12 || transcript.includes("importe") || transcript.includes("factura")) {
+                dictationState = 'MANUAL_IMPORTE';
+                document.getElementById('importeManual').focus();
+                mostrarNotificacion('Afiliado Capturado', `${inputAfil.value}\n\nDiga el importe y luego "Cargar".`, 'success');
+            } else {
+                mostrarNotificacion('Capturando Afiliado', `Detectado: ${inputAfil.value}\n\nSiga dictando el número, o diga "Importe" para continuar.`, 'success');
+            }
+        } else if (transcript.includes("importe") || transcript.includes("factura")) {
+            dictationState = 'MANUAL_IMPORTE';
+            document.getElementById('importeManual').focus();
+            mostrarNotificacion('Pasando a Importe', `Diga el importe y luego "Cargar".`, 'success');
+        } else {
+            mostrarNotificacion('Afiliado', 'No se entendió el número. Diga el número de afiliado con guiones.', 'error');
+        }
+    }
+
+    function procesarTranscripcionManualImporte(transcript) {
+        let hasCargar = false;
+        let tClean = transcript;
+
+        if (tClean.includes("cargar") || tClean.includes("carga")) {
+            hasCargar = true;
+            tClean = tClean.replace(/cargar/g, "").replace(/carga/g, "");
+        }
+
+        // Interpretar decimales orales
+        tClean = tClean.replace(/ con /g, '.').replace(/ coma /g, '.').replace(/,/g, '.');
+        tClean = tClean.replace(/ pesos/g, '');
+
+        let digitsAndDots = tClean.replace(/[^0-9.]/g, '');
+
+        if (digitsAndDots) {
+            let parts = digitsAndDots.split('.');
+            if (parts.length > 2) {
+                let decimal = parts.pop();
+                digitsAndDots = parts.join('') + '.' + decimal;
+            }
+            document.getElementById('importeManual').value = digitsAndDots;
+        }
+
+        if (hasCargar) {
+            const cliente = document.getElementById('clienteManual').value.trim();
+            const afiliado = document.getElementById('afiliadoManual').value.trim();
+            const importe = document.getElementById('importeManual').value.trim();
+            if (cliente !== '' && afiliado !== '' && importe !== '') {
+                // Submit el formManual
+                document.getElementById('formManual').dispatchEvent(new Event('submit', { cancelable: true, bubbles: true }));
+                if (dictationActive) {
+                    dictationState = 'MANUAL_CLIENTE';
+                    mostrarNotificacion('Registro Exitoso', 'Datos guardados.\n\nDiga el nombre del próximo cliente.', 'success');
+                }
+            } else {
+                mostrarNotificacion('Aviso', 'Faltan campos por completar.', 'error');
+            }
+        } else if (digitsAndDots) {
+            mostrarNotificacion('Monto', `Si es correcto diga "CARGAR".`, 'success');
+        }
+    }
+
+    function procesarTranscripcionCliente(transcript) {
+        if (!baseDatos || baseDatos.length === 0) {
+            mostrarNotificacion('Advertencia', 'Cargue la base de datos de Excel primero.', 'error');
+            return;
+        }
+
+        const parts = transcript.split(' ').filter(p => p.length > 2); // Evitar filtros por sílabas cortas
+        let currentFilter = dictationFilteredClientes.length > 0 ? dictationFilteredClientes : baseDatos;
+
+        for (let part of parts) {
+            const normalizedPart = normalizeForSearch(part);
+            const subFilter = currentFilter.filter(c => normalizeForSearch(c.NOMBRE).includes(normalizedPart));
+            if (subFilter.length > 0) {
+                currentFilter = subFilter; // Afinar la búsqueda
+            }
+        }
+
+        if (currentFilter.length > 0) {
+            dictationFilteredClientes = currentFilter;
+
+            if (parts.length > 0) {
+                clienteInput.value = transcript.toUpperCase();
+                showSuggestionsForVoice(dictationFilteredClientes);
+            }
+
+            if (dictationFilteredClientes.length === 1) {
+                const selected = dictationFilteredClientes[0];
+                clienteInput.value = selected.NOMBRE;
+                mostrarNumeroCliente.textContent = `Número: ${selected.NUMERO}`;
+                mostrarNumeroCliente.classList.add('visible');
+                suggestionsContainer.style.display = 'none';
+
+                dictationState = 'IMPORTE';
+                importeInput.focus();
+
+                // Extraer posible número que se dijo en la misma oración, ej: "elguero teresa treinta mil"
+                let posibleImporte = Array.from(transcript.matchAll(/\d+/g)).join('');
+                if (posibleImporte) {
+                    // Si dijo números, procesarlos de inmediato
+                    procesarTranscripcionImporte(transcript);
+                } else {
+                    mostrarNotificacion('Cliente Seleccionado', `${selected.NOMBRE}\n\nDiga el importe...`, 'success');
+                }
+            } else {
+                mostrarNotificacion('Filtrando', `Quedan ${dictationFilteredClientes.length} coincidencias. Diga el nombre u otro apellido...`, 'success');
+            }
+        } else {
+            mostrarNotificacion('Dictado', 'No se encontró en base de datos. Diga otro nombre.', 'error');
+            dictationFilteredClientes = baseDatos; // Reiniciar filtro
+            clienteInput.value = '';
+        }
+    }
+
+    function showSuggestionsForVoice(clientesList) {
+        suggestionsContainer.innerHTML = '';
+        clientesList.forEach(cliente => {
+            const suggestionItem = document.createElement('div');
+            suggestionItem.classList.add('suggestion-item');
+            suggestionItem.textContent = cliente.NOMBRE;
+            suggestionItem.addEventListener('click', (event) => {
+                event.stopPropagation();
+                clienteInput.value = cliente.NOMBRE;
+                suggestionsContainer.innerHTML = '';
+                suggestionsContainer.style.display = 'none';
+                mostrarNumeroCliente.textContent = `Número: ${cliente.NUMERO}`;
+                mostrarNumeroCliente.classList.add('visible');
+                importeInput.focus();
+                if (dictationActive) {
+                    dictationState = 'IMPORTE';
+                    mostrarNotificacion('Cliente Seleccionado', `${cliente.NOMBRE}\n\nDiga el importe...`, 'success');
+                }
+            });
+            suggestionsContainer.appendChild(suggestionItem);
+        });
+        if (clientesList.length > 0) {
+            suggestionsContainer.style.display = 'block';
+        }
+    }
+
+    function procesarTranscripcionImporte(transcript) {
+        let hasCargar = false;
+        let tClean = transcript;
+
+        if (tClean.includes("cargar") || tClean.includes("carga")) {
+            hasCargar = true;
+            tClean = tClean.replace(/cargar/g, "").replace(/carga/g, "");
+        }
+
+        // Interpretar decimales orales
+        tClean = tClean.replace(/ con /g, '.').replace(/ coma /g, '.').replace(/,/g, '.');
+        tClean = tClean.replace(/ pesos/g, '');
+
+        let digitsAndDots = tClean.replace(/[^0-9.]/g, '');
+
+        if (digitsAndDots) {
+            // Arreglar separadores de miles dictados como punto
+            let parts = digitsAndDots.split('.');
+            if (parts.length > 2) {
+                let decimal = parts.pop();
+                digitsAndDots = parts.join('') + '.' + decimal;
+            }
+            importeInput.value = digitsAndDots;
+        }
+
+        if (hasCargar) {
+            if (clienteInput.value.trim() !== '' && importeInput.value.trim() !== '') {
+                guardarDatos();
+                if (dictationActive) {
+                    dictationState = 'CLIENTE';
+                    dictationFilteredClientes = baseDatos;
+                    mostrarNotificacion('Registro Exitoso', 'Datos guardados.\n\nDiga el nombre del próximo cliente.', 'success');
+                }
+            } else {
+                mostrarNotificacion('Aviso', 'Falta el nombre o el importe.', 'error');
+            }
+        } else if (digitsAndDots) {
+            mostrarNotificacion('Monto', `Si es correcto diga "CARGAR".`, 'success');
+        }
+    }
+    // --- FIN VARIABLES Y LÓGICA DE DICTADO POR VOZ ---
 
     const data = []; // Array para almacenar los datos ingresados (Deposito)
     let baseDatos = []; // Array para almacenar los datos de la base de datos
@@ -183,7 +589,7 @@ document.addEventListener("DOMContentLoaded", function () {
                     mostrarNumeroCliente.classList.add('visible');
                     importeInput.focus();
                 } else {
-                    alert('No se encontró ningún nombre coincidente en la lista.');
+                    mostrarNotificacion('Aviso', 'No se encontró ningún nombre coincidente en la lista.', 'error');
                     mostrarNumeroCliente.textContent = '';
                     mostrarNumeroCliente.classList.remove('visible');
                 }
@@ -250,7 +656,7 @@ document.addEventListener("DOMContentLoaded", function () {
     // Event listener para el botón 'Crear Excel'
     crearExcelButton.addEventListener('click', function () {
         if (data.length === 0) {
-            alert('No hay datos para crear el Excel.');
+            mostrarNotificacion('Aviso', 'No hay datos para crear el Excel.', 'error');
             return;
         }
         crearExcel();
@@ -316,14 +722,14 @@ document.addEventListener("DOMContentLoaded", function () {
         const importe = parseFloat(importeInput.value.replace('$', '').replace(',', '')); // Convertir a float
 
         if (!nombre) {
-            alert('Por favor ingrese un nombre válido.');
+            mostrarNotificacion('Aviso', 'Por favor ingrese un nombre válido.', 'error');
             return;
         }
 
         // Buscar el número de afiliado correspondiente al nombre
         const clienteEncontrado = baseDatos.find(cliente => cliente.NOMBRE.toLowerCase() === nombre.toLowerCase());
         if (!clienteEncontrado) {
-            alert('Cliente no encontrado en la lista de afiliados.');
+            mostrarNotificacion('Aviso', 'Cliente no encontrado en la lista de afiliados.', 'error');
             return;
         }
 
@@ -342,7 +748,7 @@ document.addEventListener("DOMContentLoaded", function () {
             clienteInput.focus();
         } else {
             console.log('Validación fallida');
-            alert('Por favor ingrese un nombre y un importe válido.');
+            mostrarNotificacion('Aviso', 'Por favor ingrese un nombre y un importe válido.', 'error');
         }
     }
 
@@ -356,7 +762,7 @@ document.addEventListener("DOMContentLoaded", function () {
 
         // Validación de los campos  
         if (!nombreManual || !afiliadoManual || isNaN(importeManual)) {
-            alert('Por favor, complete todos los campos correctamente.');
+            mostrarNotificacion('Aviso', 'Por favor, complete todos los campos correctamente.', 'error');
             return;
         }
 
