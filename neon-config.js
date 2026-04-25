@@ -1,6 +1,6 @@
 // Configuración de Neon
 const NEON_AUTH_URL = 'https://ep-withered-forest-ac7q5w95.neonauth.sa-east-1.aws.neon.tech/neondb/auth';
-const NEON_DATA_URL = 'https://wandering-dream-60363098.sa-east-1.aws.neon.tech/v1/projects/wandering-dream-60363098/branches/production/databases/neondb/';
+const NEON_DATA_URL = 'https://ep-withered-forest-ac7q5w95.apirest.sa-east-1.aws.neon.tech/neondb/rest/v1/';
 
 // Variable global para almacenar los datos de la farmacia
 let farmaciaInfoGlobal = null;
