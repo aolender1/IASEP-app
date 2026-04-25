@@ -29,9 +29,26 @@ async function neonLogin(email, password) {
 
         const data = await response.json();
         
-        // Guardar el token para futuras peticiones a la Data API
-        if (data.token) {
-            sessionStorage.setItem('neonToken', data.token);
+        // Intentar obtener el token de los headers primero
+        let jwtToken = response.headers.get('set-auth-jwt') || response.headers.get('x-auth-jwt');
+        
+        // Si no está en los headers, lo pedimos explícitamente a get-session
+        if (!jwtToken) {
+            try {
+                const sessionResponse = await fetch(`${NEON_AUTH_URL}/get-session`, {
+                    method: 'GET',
+                    credentials: 'include'
+                });
+                jwtToken = sessionResponse.headers.get('set-auth-jwt') || sessionResponse.headers.get('x-auth-jwt');
+            } catch (e) {
+                console.error('Error al intentar obtener JWT:', e);
+            }
+        }
+
+        if (jwtToken) {
+            sessionStorage.setItem('neonToken', jwtToken);
+        } else {
+            console.warn('No se pudo obtener el token JWT de Neon Auth');
         }
         
         return data;
