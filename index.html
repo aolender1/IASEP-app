@@ -1,4 +1,4 @@
-﻿<!DOCTYPE html>
+<!DOCTYPE html>
 <html lang="es">
 
 <head>
@@ -10,26 +10,34 @@
     <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.4/xlsx.full.min.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.5.31/jspdf.plugin.autotable.min.js"></script>
-    <!-- Supabase -->
-    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
-    <script src="supabase-config.js"></script>
+    <!-- Neon -->
+    <script src="neon-config.js"></script>
     <!-- Script para verificar autenticacion -->
     <script>
         // Verificar autenticacion al inicio
-        document.addEventListener('DOMContentLoaded', function () {
+        document.addEventListener('DOMContentLoaded', async function () {
             const isLoggedIn = sessionStorage.getItem('isLoggedIn');
             const userEmail = sessionStorage.getItem('userEmail');
-            if (!isLoggedIn) {
+            const token = sessionStorage.getItem('neonToken');
+
+            if (!isLoggedIn || !token) {
                 window.location.href = 'login.html';
-            } else if (userEmail) {
+                return;
+            }
+
+            if (userEmail) {
                 // Actualizar el email del usuario
                 const emailDisplay = document.getElementById('userEmail');
                 if (emailDisplay) {
                     emailDisplay.textContent = userEmail;
                     // Generar iniciales para el avatar
                     const initials = userEmail.substring(0, 2).toUpperCase();
-                    document.getElementById('userInitials').textContent = initials;
+                    const userInitialsEl = document.getElementById('userInitials');
+                    if (userInitialsEl) userInitialsEl.textContent = initials;
                 }
+                
+                // Cargar datos de la farmacia desde Neon
+                await cargarDatosFarmacia();
             }
         });
     </script>
@@ -299,6 +307,8 @@
             // Eliminar el estado de login
             sessionStorage.removeItem('isLoggedIn');
             sessionStorage.removeItem('userEmail');
+            sessionStorage.removeItem('neonToken');
+            sessionStorage.removeItem('user');
             // Redirigir a la pagina de login
             window.location.href = 'login.html';
         });

@@ -1,19 +1,11 @@
-﻿// Verificar autenticación al inicio y cargar datos de farmacia desde Supabase
+// Cargar datos de la farmacia desde Neon al iniciar
 document.addEventListener('DOMContentLoaded', async function () {
     const isLoggedIn = sessionStorage.getItem('isLoggedIn');
     const userEmail = sessionStorage.getItem('userEmail');
-    if (!isLoggedIn) {
-        window.location.href = 'login.html';
-    } else if (userEmail) {
-        // Actualizar el texto del botón de cierre de sesión para incluir el email
-        const logoutBtn = document.getElementById('logoutBtn');
-        if (logoutBtn) {
-            // No need to update text, the new UI uses an icon
-        }
-        // Cargar datos de la farmacia desde Supabase
+    if (isLoggedIn && userEmail) {
+        // Los datos se cargan usando la función global de neon-config.js
         await cargarDatosFarmacia();
     }
-    // Continuar con el resto del código de inicialización
 });
 
 document.addEventListener("DOMContentLoaded", function () {
@@ -926,10 +918,10 @@ document.addEventListener("DOMContentLoaded", function () {
         }
 
         // ========== DATOS PARA EL PDF ==========
-        // Obtener datos de la farmacia desde Supabase (cargados al inicio)
+        // Obtener datos de la farmacia desde Neon (cargados al inicio)
         const farmaciaInfo = getFarmaciaInfo() || {
             nombre: "FARMACIA - DATOS NO CONFIGURADOS",
-            ubicacion: "Por favor configure sus datos en Supabase"
+            ubicacion: "Por favor configure sus datos en Neon"
         };
 
         // Preparar datos del reporte con columnas calculadas

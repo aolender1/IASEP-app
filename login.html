@@ -34,8 +34,8 @@
             padding: 80px 20px 20px;
         }
     </style>
-    <!-- Agregar la biblioteca de Supabase -->
-    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    <!-- Configuración de Neon -->
+    <script src="neon-config.js"></script>
 </head>
 
 <body>
@@ -122,12 +122,6 @@
             // Event listener para el botón de tema
             themeToggle.addEventListener('click', toggleTheme);
 
-            // Configuración de Supabase
-            const SUPABASE_URL = 'https://ovhenvckpzcjzrlpkanb.supabase.co';
-            const SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im92aGVudmNrcHpjanpybHBrYW5iIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NDA2MDQwNTYsImV4cCI6MjA1NjE4MDA1Nn0.L-RLxTg2cKiLK7lOwAq64uAAD_c2hSMw3GWih2Rdsiw';
-            // Corregido: Usar el objeto global de Supabase correctamente
-            const supabaseClient = window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
-
             // Manejar el envío del formulario de login
             document.getElementById('loginForm').addEventListener('submit', async function (e) {
                 e.preventDefault();
@@ -136,18 +130,11 @@
                 const password = document.getElementById('password').value;
 
                 try {
-                    // Intentar iniciar sesión con Supabase
-                    const { data, error } = await supabaseClient.auth.signInWithPassword({
-                        email: email,
-                        password: password
-                    });
-
-                    if (error) {
-                        throw error;
-                    }
+                    // Intentar iniciar sesión con Neon
+                    const data = await neonLogin(email, password);
 
                     // Si la autenticación es exitosa
-                    console.log('Usuario autenticado:', data);
+                    console.log('Usuario autenticado en Neon:', data);
 
                     // Guardar estado de login en sessionStorage
                     sessionStorage.setItem('isLoggedIn', 'true');
