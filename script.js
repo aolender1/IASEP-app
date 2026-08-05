@@ -10,21 +10,23 @@ document.addEventListener('DOMContentLoaded', async function () {
 
 document.addEventListener("DOMContentLoaded", function () {
     const clienteInput = document.getElementById('cliente');
+    const afiliadoInput = document.getElementById('afiliado');
     const suggestionsContainer = document.getElementById('suggestions-container');
+    const suggestionsContainerAfiliado = document.getElementById('suggestions-container-afiliado');
     const importeInput = document.getElementById('importe');
     const cargarButton = document.getElementById('cargar');
     const crearExcelButton = document.getElementById('crearExcel');
     const subirDatosExcelButton = document.getElementById('subirDatosExcel'); // Nuevo botón
     const fileInput = document.getElementById('fileInput');
     const themeToggle = document.getElementById('themeToggle'); // Interruptor de tema
-    const mostrarNumeroCliente = document.getElementById('mostrar-numero-cliente');
-    const btnDictado = document.getElementById('btnDictado'); // Botón de dictado
+    const btnDictado = document.getElementById('btnDictado'); // Botón de dictado cliente
+    const btnDictadoAfiliado = document.getElementById('btnDictadoAfiliado'); // Botón de dictado afiliado
     const btnDictadoManual = document.getElementById('btnDictadoManual'); // Botón de dictado manual
 
     // --- VARIABLES Y LÓGICA DE DICTADO POR VOZ ---
     let dictationActive = false;
-    let dictationSource = 'MAIN'; // 'MAIN' o 'MANUAL'
-    let dictationState = 'INACTIVO'; // CLIENTE, IMPORTE, MANUAL_CLIENTE, MANUAL_AFILIADO, MANUAL_IMPORTE
+    let dictationSource = 'MAIN'; // 'MAIN', 'MAIN_AFILIADO' o 'MANUAL'
+    let dictationState = 'INACTIVO'; // CLIENTE, AFILIADO, IMPORTE, MANUAL_CLIENTE, MANUAL_AFILIADO, MANUAL_IMPORTE
     let dictationFilteredClientes = [];
     let recognition = null;
 
@@ -53,6 +55,21 @@ document.addEventListener("DOMContentLoaded", function () {
                     if (onIcon) onIcon.style.display = 'block';
                 }
                 mostrarNotificacion('Dictado Activado', 'Diga el APELLIDO y NOMBRE del cliente.', 'success');
+            } else if (dictationSource === 'MAIN_AFILIADO') {
+                dictationState = 'AFILIADO';
+                if (!baseDatos || baseDatos.length === 0) {
+                    mostrarNotificacion('Advertencia', 'Por favor, cargue la base de Excel antes de usar el dictado.', 'error');
+                }
+                if (btnDictadoAfiliado) {
+                    btnDictadoAfiliado.style.backgroundColor = '#ff4757';
+                    btnDictadoAfiliado.style.color = '#ffffff';
+                    btnDictadoAfiliado.style.borderColor = '#ff4757';
+                    const offIcon = btnDictadoAfiliado.querySelector('.mic-off');
+                    const onIcon = btnDictadoAfiliado.querySelector('.mic-on');
+                    if (offIcon) offIcon.style.display = 'none';
+                    if (onIcon) onIcon.style.display = 'block';
+                }
+                mostrarNotificacion('Dictado por N° Afiliado', 'Diga el NÚMERO DE AFILIADO (ej: uno guion cero ocho dos...).', 'success');
             } else if (dictationSource === 'MANUAL') {
                 dictationState = 'MANUAL_CLIENTE';
                 if (btnDictadoManual) {
@@ -110,6 +127,15 @@ document.addEventListener("DOMContentLoaded", function () {
             if (offIcon) offIcon.style.display = 'block';
             if (onIcon) onIcon.style.display = 'none';
         }
+        if (btnDictadoAfiliado) {
+            btnDictadoAfiliado.style.backgroundColor = '';
+            btnDictadoAfiliado.style.color = '';
+            btnDictadoAfiliado.style.borderColor = '';
+            const offIcon = btnDictadoAfiliado.querySelector('.mic-off');
+            const onIcon = btnDictadoAfiliado.querySelector('.mic-on');
+            if (offIcon) offIcon.style.display = 'block';
+            if (onIcon) onIcon.style.display = 'none';
+        }
         if (btnDictadoManual) {
             btnDictadoManual.style.backgroundColor = '';
             btnDictadoManual.style.color = '';
@@ -139,6 +165,26 @@ document.addEventListener("DOMContentLoaded", function () {
                     recognition.start();
                 } catch (e) {
                     console.error('Error al iniciar dictado', e);
+                }
+            }
+        });
+    }
+
+    if (btnDictadoAfiliado) {
+        btnDictadoAfiliado.addEventListener('click', function (e) {
+            e.preventDefault();
+            if (!recognition) {
+                mostrarNotificacion('Error', 'Su navegador no soporta el dictado por voz.', 'error');
+                return;
+            }
+            if (dictationActive && dictationSource === 'MAIN_AFILIADO') {
+                apagarDictado();
+            } else {
+                dictationSource = 'MAIN_AFILIADO';
+                try {
+                    recognition.start();
+                } catch (e) {
+                    console.error('Error al iniciar dictado afiliado', e);
                 }
             }
         });
@@ -180,6 +226,49 @@ document.addEventListener("DOMContentLoaded", function () {
             .trim();
     }
 
+    function parseAndMatchAffiliateNumber(transcript) {
+        let text = transcript.toLowerCase();
+        text = text.replace(/guion|guión|barran|dash/g, '-');
+
+        const mapNumeros = {
+            'cero': '0', 'uno': '1', 'un': '1', 'una': '1', 'dos': '2', 'tres': '3', 'cuatro': '4', 'cinco': '5',
+            'seis': '6', 'siete': '7', 'ocho': '8', 'nueve': '9', 'diez': '10', 'once': '11',
+            'doce': '12', 'trece': '13', 'catorce': '14', 'quince': '15', 'dieciseis': '16',
+            'dieciséis': '16', 'diecisiete': '17', 'dieciocho': '18', 'diecinueve': '19',
+            'veinte': '20', 'veintiuno': '21', 'veintidos': '22', 'veintidós': '22',
+            'veintitres': '23', 'veintitrés': '23', 'veinticuatro': '24', 'veinticinco': '25',
+            'veintiseis': '26', 'veintiséis': '26', 'veintisiete': '27', 'veintiocho': '28',
+            'veintinueve': '29', 'treinta': '30', 'cuarenta': '40', 'cincuenta': '50',
+            'sesenta': '60', 'setenta': '70', 'ochenta': '80', 'noventa': '90'
+        };
+
+        for (let key in mapNumeros) {
+            let regex = new RegExp('\\b' + key + '\\b', 'gi');
+            text = text.replace(regex, mapNumeros[key]);
+        }
+
+        let digits = text.replace(/[^0-9]/g, '');
+
+        let formatted = '';
+        if (digits.length === 11) {
+            formatted = `${digits[0]}-${digits.substring(1, 9)}-${digits.substring(9, 11)}`;
+        } else if (text.includes('-')) {
+            formatted = text.replace(/[^0-9\-]/g, '');
+        }
+
+        let client = null;
+        if (baseDatos && baseDatos.length > 0) {
+            if (formatted) {
+                client = baseDatos.find(c => c.NUMERO === formatted);
+            }
+            if (!client && digits) {
+                client = baseDatos.find(c => c.NUMERO.replace(/[^0-9]/g, '') === digits);
+            }
+        }
+
+        return { formatted, digits, client };
+    }
+
     function procesarDictado(transcript) {
         if (transcript.includes("cancelar") || transcript.includes("detener") || transcript.includes("parar dictado")) {
             apagarDictado();
@@ -190,6 +279,9 @@ document.addEventListener("DOMContentLoaded", function () {
         switch (dictationState) {
             case 'CLIENTE':
                 procesarTranscripcionCliente(transcript);
+                break;
+            case 'AFILIADO':
+                procesarTranscripcionAfiliado(transcript);
                 break;
             case 'IMPORTE':
                 procesarTranscripcionImporte(transcript);
@@ -332,8 +424,7 @@ document.addEventListener("DOMContentLoaded", function () {
             if (dictationFilteredClientes.length === 1) {
                 const selected = dictationFilteredClientes[0];
                 clienteInput.value = selected.NOMBRE;
-                mostrarNumeroCliente.textContent = `Número: ${selected.NUMERO}`;
-                mostrarNumeroCliente.classList.add('visible');
+                if (afiliadoInput) afiliadoInput.value = selected.NUMERO;
                 suggestionsContainer.style.display = 'none';
 
                 dictationState = 'IMPORTE';
@@ -345,7 +436,7 @@ document.addEventListener("DOMContentLoaded", function () {
                     // Si dijo números, procesarlos de inmediato
                     procesarTranscripcionImporte(transcript);
                 } else {
-                    mostrarNotificacion('Cliente Seleccionado', `${selected.NOMBRE}\n\nDiga el importe...`, 'success');
+                    mostrarNotificacion('Cliente Seleccionado', `${selected.NOMBRE}\nAfiliado: ${selected.NUMERO}\n\nDiga el importe...`, 'success');
                 }
             } else {
                 mostrarNotificacion('Filtrando', `Quedan ${dictationFilteredClientes.length} coincidencias. Diga el nombre u otro apellido...`, 'success');
@@ -354,6 +445,29 @@ document.addEventListener("DOMContentLoaded", function () {
             mostrarNotificacion('Dictado', 'No se encontró en base de datos. Diga otro nombre.', 'error');
             dictationFilteredClientes = baseDatos; // Reiniciar filtro
             clienteInput.value = '';
+        }
+    }
+
+    function procesarTranscripcionAfiliado(transcript) {
+        if (!baseDatos || baseDatos.length === 0) {
+            mostrarNotificacion('Advertencia', 'Cargue la base de datos de Excel primero.', 'error');
+            return;
+        }
+
+        const { formatted, digits, client } = parseAndMatchAffiliateNumber(transcript);
+
+        if (client) {
+            if (afiliadoInput) afiliadoInput.value = client.NUMERO;
+            if (clienteInput) clienteInput.value = client.NOMBRE;
+            dictationState = 'IMPORTE';
+            importeInput.focus();
+            mostrarNotificacion('Cliente Seleccionado', `${client.NOMBRE}\nAfiliado: ${client.NUMERO}\n\nDiga el importe...`, 'success');
+        } else if (formatted || digits) {
+            const valToSet = formatted || digits;
+            if (afiliadoInput) afiliadoInput.value = valToSet;
+            mostrarNotificacion('Buscando Afiliado', `Número dictado: ${valToSet}. No se encontró coincidencia en la base de datos.`, 'error');
+        } else {
+            mostrarNotificacion('Dictado', 'No se reconocieron números. Vuelva a intentar dictar el número de afiliado.', 'error');
         }
     }
 
@@ -366,14 +480,13 @@ document.addEventListener("DOMContentLoaded", function () {
             suggestionItem.addEventListener('click', (event) => {
                 event.stopPropagation();
                 clienteInput.value = cliente.NOMBRE;
+                if (afiliadoInput) afiliadoInput.value = cliente.NUMERO;
                 suggestionsContainer.innerHTML = '';
                 suggestionsContainer.style.display = 'none';
-                mostrarNumeroCliente.textContent = `Número: ${cliente.NUMERO}`;
-                mostrarNumeroCliente.classList.add('visible');
                 importeInput.focus();
                 if (dictationActive) {
                     dictationState = 'IMPORTE';
-                    mostrarNotificacion('Cliente Seleccionado', `${cliente.NOMBRE}\n\nDiga el importe...`, 'success');
+                    mostrarNotificacion('Cliente Seleccionado', `${cliente.NOMBRE}\nAfiliado: ${cliente.NUMERO}\n\nDiga el importe...`, 'success');
                 }
             });
             suggestionsContainer.appendChild(suggestionItem);
@@ -409,15 +522,18 @@ document.addEventListener("DOMContentLoaded", function () {
         }
 
         if (hasCargar) {
-            if (clienteInput.value.trim() !== '' && importeInput.value.trim() !== '') {
+            const hasClienteOrAfiliado = (clienteInput && clienteInput.value.trim() !== '') || (afiliadoInput && afiliadoInput.value.trim() !== '');
+            const hasImporte = importeInput && importeInput.value.trim() !== '';
+
+            if (hasClienteOrAfiliado && hasImporte) {
                 guardarDatos();
                 if (dictationActive) {
                     dictationState = 'CLIENTE';
                     dictationFilteredClientes = baseDatos;
-                    mostrarNotificacion('Registro Exitoso', 'Datos guardados.\n\nDiga el nombre del próximo cliente.', 'success');
+                    mostrarNotificacion('Registro Exitoso', 'Datos guardados.\n\nDiga el nombre del próximo cliente o número de afiliado.', 'success');
                 }
             } else {
-                mostrarNotificacion('Aviso', 'Falta el nombre o el importe.', 'error');
+                mostrarNotificacion('Aviso', 'Falta el nombre/afiliado o el importe.', 'error');
             }
         } else if (digitsAndDots) {
             mostrarNotificacion('Monto', `Si es correcto diga "CARGAR".`, 'success');
@@ -492,24 +608,34 @@ document.addEventListener("DOMContentLoaded", function () {
         console.log("Carga de clientes completada desde Excel:", baseDatos);
     }
 
-    // Función para mostrar sugerencias
+    let currentIndexAfiliado = -1;
+
+    // Función para mostrar sugerencias por Nombre
     function showSuggestions(value) {
         suggestionsContainer.innerHTML = '';
-        const filteredClientes = baseDatos.filter(cliente =>
-            cliente.NOMBRE.toLowerCase().includes(value.toLowerCase())
-        );
+        if (!value || !baseDatos) {
+            suggestionsContainer.style.display = 'none';
+            return;
+        }
+
+        const query = value.toString().toLowerCase();
+        const filteredClientes = baseDatos.filter(cliente => {
+            if (!cliente || cliente.NOMBRE === undefined || cliente.NOMBRE === null) return false;
+            return cliente.NOMBRE.toString().toLowerCase().includes(query);
+        });
 
         filteredClientes.forEach(cliente => {
             const suggestionItem = document.createElement('div');
             suggestionItem.classList.add('suggestion-item');
-            suggestionItem.textContent = cliente.NOMBRE;
+            const nomStr = cliente.NOMBRE.toString();
+            const numStr = (cliente.NUMERO || '').toString();
+            suggestionItem.textContent = nomStr;
             suggestionItem.addEventListener('click', (event) => {
                 event.stopPropagation();
-                clienteInput.value = cliente.NOMBRE;
+                clienteInput.value = nomStr;
+                if (afiliadoInput) afiliadoInput.value = numStr;
                 suggestionsContainer.innerHTML = '';
                 suggestionsContainer.style.display = 'none';
-                mostrarNumeroCliente.textContent = `Número: ${cliente.NUMERO}`;
-                mostrarNumeroCliente.classList.add('visible');
                 importeInput.focus();
             });
             suggestionsContainer.appendChild(suggestionItem);
@@ -522,113 +648,225 @@ document.addEventListener("DOMContentLoaded", function () {
         }
     }
 
+    // Función para mostrar sugerencias por Número de Afiliado
+    function showSuggestionsAfiliado(value) {
+        if (!suggestionsContainerAfiliado) return;
+        suggestionsContainerAfiliado.innerHTML = '';
+        if (!value || !baseDatos) {
+            suggestionsContainerAfiliado.style.display = 'none';
+            return;
+        }
+
+        const query = value.toString().toLowerCase();
+        const cleanVal = query.replace(/[^0-9]/g, '');
+
+        const filteredClientes = baseDatos.filter(cliente => {
+            if (!cliente || cliente.NUMERO === undefined || cliente.NUMERO === null) return false;
+            const numStr = cliente.NUMERO.toString().toLowerCase();
+            const cleanNum = numStr.replace(/[^0-9]/g, '');
+            const nomStr = (cliente.NOMBRE || '').toString().toLowerCase();
+
+            return numStr.includes(query) || (cleanVal.length > 0 && cleanNum.includes(cleanVal)) || nomStr.includes(query);
+        });
+
+        filteredClientes.forEach(cliente => {
+            const suggestionItem = document.createElement('div');
+            suggestionItem.classList.add('suggestion-item');
+            const numStr = cliente.NUMERO.toString();
+            const nomStr = (cliente.NOMBRE || '').toString();
+            suggestionItem.textContent = `${numStr} — ${nomStr}`;
+            suggestionItem.addEventListener('click', (event) => {
+                event.stopPropagation();
+                afiliadoInput.value = numStr;
+                clienteInput.value = nomStr;
+                suggestionsContainerAfiliado.innerHTML = '';
+                suggestionsContainerAfiliado.style.display = 'none';
+                importeInput.focus();
+            });
+            suggestionsContainerAfiliado.appendChild(suggestionItem);
+        });
+
+        if (filteredClientes.length > 0) {
+            suggestionsContainerAfiliado.style.display = 'block';
+        } else {
+            suggestionsContainerAfiliado.style.display = 'none';
+        }
+    }
+
     // Event listener para cambios en el input 'clienteInput'
     clienteInput.addEventListener('input', function () {
         const value = this.value;
         currentIndex = -1; // Reiniciar el índice actual al cambiar la entrada
-        if (value) {
-            showSuggestions(value);
+        if (value && value.trim()) {
+            showSuggestions(value.trim());
         } else {
             suggestionsContainer.innerHTML = '';
             suggestionsContainer.style.display = 'none';
+            if (afiliadoInput) afiliadoInput.value = '';
         }
     });
 
-    // Cerrar sugerencias al hacer clic fuera
-    document.addEventListener('click', function (e) {
-        if (!suggestionsContainer.contains(e.target) && e.target !== clienteInput) {
-            suggestionsContainer.innerHTML = '';
-            suggestionsContainer.style.display = 'none';
+    clienteInput.addEventListener('focus', function () {
+        const value = this.value;
+        if (value && value.trim()) {
+            showSuggestions(value.trim());
         }
     });
+
+    clienteInput.addEventListener('change', function () {
+        const inputValue = this.value.trim();
+        if (inputValue && baseDatos.length > 0) {
+            const match = baseDatos.find(c => c.NOMBRE && c.NOMBRE.toString().toLowerCase() === inputValue.toLowerCase()) ||
+                baseDatos.find(c => c.NOMBRE && c.NOMBRE.toString().toLowerCase().includes(inputValue.toLowerCase()));
+            if (match) {
+                clienteInput.value = match.NOMBRE.toString();
+                if (afiliadoInput) afiliadoInput.value = (match.NUMERO || '').toString();
+            }
+        }
+    });
+
+    // Event listener para cambios en el input 'afiliadoInput'
+    if (afiliadoInput) {
+        afiliadoInput.addEventListener('input', function () {
+            const value = this.value;
+            currentIndexAfiliado = -1;
+            if (value && value.trim()) {
+                showSuggestionsAfiliado(value.trim());
+            } else {
+                if (suggestionsContainerAfiliado) {
+                    suggestionsContainerAfiliado.innerHTML = '';
+                    suggestionsContainerAfiliado.style.display = 'none';
+                }
+                clienteInput.value = '';
+            }
+        });
+
+        afiliadoInput.addEventListener('focus', function () {
+            const value = this.value;
+            if (value && value.trim()) {
+                showSuggestionsAfiliado(value.trim());
+            }
+        });
+
+        afiliadoInput.addEventListener('change', function () {
+            const inputValue = this.value.trim();
+            if (inputValue && baseDatos.length > 0) {
+                const cleanVal = inputValue.replace(/[^0-9]/g, '');
+                const match = baseDatos.find(c => c.NUMERO && c.NUMERO.toString() === inputValue) ||
+                    baseDatos.find(c => cleanVal && c.NUMERO && c.NUMERO.toString().replace(/[^0-9]/g, '') === cleanVal) ||
+                    baseDatos.find(c => cleanVal && c.NUMERO && c.NUMERO.toString().replace(/[^0-9]/g, '').startsWith(cleanVal)) ||
+                    baseDatos.find(c => c.NUMERO && c.NUMERO.toString().toLowerCase().includes(inputValue.toLowerCase()));
+                if (match) {
+                    afiliadoInput.value = match.NUMERO.toString();
+                    clienteInput.value = (match.NOMBRE || '').toString();
+                }
+            }
+        });
+
+        afiliadoInput.addEventListener('keydown', function (event) {
+            const suggestions = suggestionsContainerAfiliado ? suggestionsContainerAfiliado.querySelectorAll('.suggestion-item') : [];
+
+            if (event.key === 'ArrowDown') {
+                event.preventDefault();
+                if (suggestions.length > 0) {
+                    currentIndexAfiliado = (currentIndexAfiliado + 1) % suggestions.length;
+                    highlightSuggestion(suggestions, currentIndexAfiliado);
+                }
+            } else if (event.key === 'ArrowUp') {
+                event.preventDefault();
+                if (suggestions.length > 0) {
+                    currentIndexAfiliado = (currentIndexAfiliado - 1 + suggestions.length) % suggestions.length;
+                    highlightSuggestion(suggestions, currentIndexAfiliado);
+                }
+            } else if (event.key === 'Enter') {
+                event.preventDefault();
+                if (currentIndexAfiliado >= 0 && currentIndexAfiliado < suggestions.length) {
+                    suggestions[currentIndexAfiliado].click();
+                } else {
+                    const inputValue = afiliadoInput.value.trim();
+                    const cleanVal = inputValue.replace(/[^0-9]/g, '');
+                    const match = baseDatos.find(cliente => {
+                        if (!cliente || cliente.NUMERO === undefined || cliente.NUMERO === null) return false;
+                        const numStr = cliente.NUMERO.toString();
+                        const cleanNum = numStr.replace(/[^0-9]/g, '');
+                        return numStr.toLowerCase().includes(inputValue.toLowerCase()) ||
+                            (cleanVal && cleanNum === cleanVal) ||
+                            (cleanVal && cleanNum.startsWith(cleanVal));
+                    });
+
+                    if (match) {
+                        afiliadoInput.value = match.NUMERO.toString();
+                        clienteInput.value = (match.NOMBRE || '').toString();
+                        if (suggestionsContainerAfiliado) {
+                            suggestionsContainerAfiliado.innerHTML = '';
+                            suggestionsContainerAfiliado.style.display = 'none';
+                        }
+                        importeInput.focus();
+                    } else if (inputValue) {
+                        mostrarNotificacion('Aviso', 'No se encontró ningún número de afiliado coincidente en la lista.', 'error');
+                    }
+                }
+            }
+        });
+    }
 
     // Event listener para teclas en el input 'clienteInput'
     clienteInput.addEventListener('keydown', function (event) {
         const suggestions = suggestionsContainer.querySelectorAll('.suggestion-item');
 
         if (event.key === 'ArrowDown') {
-            event.preventDefault(); // Prevenir scroll por defecto
-            currentIndex = (currentIndex + 1) % suggestions.length; // Mover hacia abajo en la lista
-            highlightSuggestion(suggestions);
+            event.preventDefault();
+            if (suggestions.length > 0) {
+                currentIndex = (currentIndex + 1) % suggestions.length;
+                highlightSuggestion(suggestions, currentIndex);
+            }
         } else if (event.key === 'ArrowUp') {
-            event.preventDefault(); // Prevenir scroll por defecto
-            currentIndex = (currentIndex - 1 + suggestions.length) % suggestions.length; // Mover hacia arriba en la lista
-            highlightSuggestion(suggestions);
+            event.preventDefault();
+            if (suggestions.length > 0) {
+                currentIndex = (currentIndex - 1 + suggestions.length) % suggestions.length;
+                highlightSuggestion(suggestions, currentIndex);
+            }
         } else if (event.key === 'Enter') {
-            event.preventDefault(); // Prevenir envío del formulario
+            event.preventDefault();
             if (currentIndex >= 0 && currentIndex < suggestions.length) {
-                clienteInput.value = suggestions[currentIndex].textContent;
-                suggestionsContainer.innerHTML = '';
-                suggestionsContainer.style.display = 'none';
-                const clienteSeleccionado = baseDatos.find(c => c.NOMBRE === suggestions[currentIndex].textContent);
-                if (clienteSeleccionado) {
-                    mostrarNumeroCliente.textContent = `Número: ${clienteSeleccionado.NUMERO}`;
-                    mostrarNumeroCliente.classList.add('visible');
-                }
-                importeInput.focus();
+                suggestions[currentIndex].click();
             } else {
-                const inputValue = clienteInput.value.toLowerCase();
+                const inputValue = clienteInput.value.trim().toLowerCase();
                 const filteredClientes = baseDatos.filter(cliente =>
-                    cliente.NOMBRE.toLowerCase().includes(inputValue)
+                    cliente && cliente.NOMBRE && cliente.NOMBRE.toString().toLowerCase().includes(inputValue)
                 );
 
                 if (filteredClientes.length > 0) {
-                    clienteInput.value = filteredClientes[0].NOMBRE;
+                    clienteInput.value = filteredClientes[0].NOMBRE.toString();
+                    if (afiliadoInput) afiliadoInput.value = (filteredClientes[0].NUMERO || '').toString();
                     suggestionsContainer.innerHTML = '';
                     suggestionsContainer.style.display = 'none';
-                    const primerCliente = filteredClientes[0];
-                    mostrarNumeroCliente.textContent = `Número: ${primerCliente.NUMERO}`;
-                    mostrarNumeroCliente.classList.add('visible');
                     importeInput.focus();
-                } else {
+                } else if (inputValue) {
                     mostrarNotificacion('Aviso', 'No se encontró ningún nombre coincidente en la lista.', 'error');
-                    mostrarNumeroCliente.textContent = '';
-                    mostrarNumeroCliente.classList.remove('visible');
                 }
             }
         }
     });
 
-    // Event listener para la tecla 'Enter' en el input 'clienteInput'
-    clienteInput.addEventListener('keypress', function (event) {
-        if (event.key === 'Enter') {
-            event.preventDefault();
-            const inputValue = clienteInput.value.toLowerCase();
-            const filteredClientes = baseDatos.filter(cliente =>
-                cliente.NOMBRE.toLowerCase().includes(inputValue)
-            );
-
-            if (filteredClientes.length > 0) {
-                clienteInput.value = filteredClientes[0].NOMBRE;
-                suggestionsContainer.innerHTML = '';
-                suggestionsContainer.style.display = 'none';
-                const primerCliente = filteredClientes[0];
-                mostrarNumeroCliente.textContent = `Número: ${primerCliente.NUMERO}`;
-                mostrarNumeroCliente.classList.add('visible');
-                importeInput.focus();
-            } else {
-                alert('No se encontró ningún nombre coincidente en la lista.');
-                mostrarNumeroCliente.textContent = '';
-                mostrarNumeroCliente.classList.remove('visible');
-            }
-        }
-    });
-
-    // Limpiar el div al hacer clic fuera
+    // Limpiar los divs de sugerencias al hacer clic fuera
     document.addEventListener('click', function (e) {
-        if (!suggestionsContainer.contains(e.target) && e.target !== clienteInput) {
+        if (suggestionsContainer && !suggestionsContainer.contains(e.target) && e.target !== clienteInput) {
             suggestionsContainer.innerHTML = '';
             suggestionsContainer.style.display = 'none';
-            mostrarNumeroCliente.textContent = '';
-            mostrarNumeroCliente.classList.remove('visible');
+        }
+        if (suggestionsContainerAfiliado && !suggestionsContainerAfiliado.contains(e.target) && e.target !== afiliadoInput) {
+            suggestionsContainerAfiliado.innerHTML = '';
+            suggestionsContainerAfiliado.style.display = 'none';
         }
     });
 
     // Función para resaltar la sugerencia actual
-    function highlightSuggestion(suggestions) {
+    function highlightSuggestion(suggestions, idx) {
+        const targetIdx = typeof idx === 'number' ? idx : currentIndex;
         suggestions.forEach((suggestion, index) => {
             suggestion.classList.remove('highlighted'); // Remover resalto de todas las sugerencias
-            if (index === currentIndex) {
+            if (index === targetIdx) {
                 suggestion.classList.add('highlighted'); // Resaltar la sugerencia actual
             }
         });
@@ -710,38 +948,59 @@ document.addEventListener("DOMContentLoaded", function () {
 
     // Función para guardar los datos ingresados desde el formulario principal
     function guardarDatos() {
-        const nombre = clienteInput.value.trim();
-        const importe = parseFloat(importeInput.value.replace('$', '').replace(',', '')); // Convertir a float
+        const nombre = clienteInput ? clienteInput.value.trim() : '';
+        const afiliadoVal = afiliadoInput ? afiliadoInput.value.trim() : '';
+        const rawImporte = importeInput ? importeInput.value.replace('$', '').replace(',', '.').trim() : '';
+        const importe = parseFloat(rawImporte);
 
-        if (!nombre) {
-            mostrarNotificacion('Aviso', 'Por favor ingrese un nombre válido.', 'error');
+        if (!nombre && !afiliadoVal) {
+            mostrarNotificacion('Aviso', 'Por favor ingrese el nombre del cliente o el número de afiliado.', 'error');
             return;
         }
 
-        // Buscar el número de afiliado correspondiente al nombre
-        const clienteEncontrado = baseDatos.find(cliente => cliente.NOMBRE.toLowerCase() === nombre.toLowerCase());
-        if (!clienteEncontrado) {
-            mostrarNotificacion('Aviso', 'Cliente no encontrado en la lista de afiliados.', 'error');
+        // Buscar cliente en la base de datos por número o por nombre
+        let clienteEncontrado = null;
+        if (baseDatos && baseDatos.length > 0) {
+            if (afiliadoVal) {
+                const cleanAfil = afiliadoVal.replace(/[^0-9]/g, '');
+                clienteEncontrado = baseDatos.find(c => {
+                    if (!c || c.NUMERO === undefined || c.NUMERO === null) return false;
+                    const numStr = c.NUMERO.toString();
+                    const cleanNum = numStr.replace(/[^0-9]/g, '');
+                    return numStr === afiliadoVal || (cleanAfil && cleanNum === cleanAfil);
+                });
+            }
+            if (!clienteEncontrado && nombre) {
+                clienteEncontrado = baseDatos.find(c => {
+                    if (!c || c.NOMBRE === undefined || c.NOMBRE === null) return false;
+                    return c.NOMBRE.toString().toLowerCase() === nombre.toLowerCase();
+                });
+            }
+        }
+
+        const finalNombre = clienteEncontrado ? clienteEncontrado.NOMBRE.toString() : nombre;
+        const finalAfiliado = clienteEncontrado ? clienteEncontrado.NUMERO.toString() : afiliadoVal;
+
+        if (!finalNombre) {
+            mostrarNotificacion('Aviso', 'Por favor ingrese el nombre del cliente.', 'error');
             return;
         }
 
-        const afiliado = clienteEncontrado.NUMERO;
-
-        console.log('Nombre:', nombre, 'Afiliado:', afiliado, 'Importe:', importe);
-
-        if (nombre && !isNaN(importe)) {
-            data.push({ nombre, afiliado, importe });
-            console.log('Datos guardados:', data);
-            actualizarTabla();
-            // Limpiar los inputs después de guardar
-            clienteInput.value = '';
-            importeInput.value = '';
-            // Focar nuevamente en el input 'cliente'
-            clienteInput.focus();
-        } else {
-            console.log('Validación fallida');
-            mostrarNotificacion('Aviso', 'Por favor ingrese un nombre y un importe válido.', 'error');
+        if (isNaN(importe) || importe <= 0) {
+            mostrarNotificacion('Aviso', 'Por favor ingrese un importe válido.', 'error');
+            return;
         }
+
+        data.push({ nombre: finalNombre, afiliado: finalAfiliado, importe });
+        console.log('Datos guardados:', data);
+        actualizarTabla();
+
+        // Limpiar los inputs después de guardar
+        clienteInput.value = '';
+        if (afiliadoInput) afiliadoInput.value = '';
+        importeInput.value = '';
+        clienteInput.focus();
+        mostrarNotificacion('Éxito!', 'Registro guardado correctamente.', 'success');
     }
 
     // Función para guardar los datos ingresados desde el formulario manual  
