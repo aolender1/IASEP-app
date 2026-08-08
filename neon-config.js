@@ -89,9 +89,25 @@ async function obtenerDatosFarmacia(email) {
             return data[0];
         }
         
+        // Si es la cuenta demo y aún no se agregó la fila en Neon DB, retornar datos demo predeterminados
+        if (email === 'demo@farmacia.com' || email === 'demo@iasep.com') {
+            return {
+                email: email,
+                nombre: "FARMACIA DEMO - DE PRUEBA IASEP",
+                ubicacion: "(Formosa - Capital) Cel: 3704000000"
+            };
+        }
+
         return null;
     } catch (error) {
         console.error('Error en obtenerDatosFarmacia:', error);
+        if (email === 'demo@farmacia.com' || email === 'demo@iasep.com') {
+            return {
+                email: email,
+                nombre: "FARMACIA DEMO - DE PRUEBA IASEP",
+                ubicacion: "(Formosa - Capital) Cel: 3704000000"
+            };
+        }
         return null;
     }
 }
@@ -109,8 +125,8 @@ async function cargarDatosFarmacia() {
             console.warn('No se pudieron cargar los datos de la farmacia para:', email);
             // Fallback a datos por defecto
             farmaciaInfoGlobal = {
-                nombre: "FARMACIA - DATOS NO CONFIGURADOS",
-                ubicacion: "Por favor configure sus datos en Neon"
+                nombre: "FARMACIA DEMO - DE PRUEBA IASEP",
+                ubicacion: "(Formosa - Capital) Cel: 3704000000"
             };
         }
     }
