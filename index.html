@@ -3,22 +3,38 @@
 
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>IASEP Farmacia</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>IASEP Farmacia — Gestión y Carga</title>
+    <!-- PWA Manifest & Meta -->
+    <link rel="manifest" href="manifest.json">
+    <meta name="theme-color" content="#0f172a">
+    <link rel="apple-touch-icon" href="assets/icon.svg">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
     <link rel="icon" type="image/x-icon" href="assets/favicon.ico">
     <link rel="stylesheet" href="styles.css">
+    <!-- Librerías externas -->
     <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.4/xlsx.full.min.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.5.31/jspdf.plugin.autotable.min.js"></script>
-    <!-- Neon -->
+    <script src="https://cdn.jsdelivr.net/npm/jsqr@1.4.0/dist/jsQR.min.js"></script>
+    <!-- Neon y Scanner IA -->
     <script src="neon-config.js"></script>
+    <script src="scanner-service.js"></script>
+    <!-- Registro Service Worker PWA -->
+    <script>
+        if ('serviceWorker' in navigator) {
+            window.addEventListener('load', () => {
+                navigator.serviceWorker.register('./sw.js').catch(err => console.log('SW reg error:', err));
+            });
+        }
+    </script>
     <!-- Script para verificar autenticacion -->
     <script>
-        // Verificar autenticacion al inicio
         document.addEventListener('DOMContentLoaded', async function () {
-            const isLoggedIn = sessionStorage.getItem('isLoggedIn');
-            const userEmail = sessionStorage.getItem('userEmail');
-            const token = sessionStorage.getItem('neonToken');
+            const isLoggedIn = sessionStorage.getItem('isLoggedIn') || localStorage.getItem('isLoggedIn');
+            const userEmail = sessionStorage.getItem('userEmail') || localStorage.getItem('userEmail');
+            const token = getAuthToken();
 
             if (!isLoggedIn || !token) {
                 window.location.href = 'login.html';
@@ -26,17 +42,13 @@
             }
 
             if (userEmail) {
-                // Actualizar el email del usuario
                 const emailDisplay = document.getElementById('userEmail');
                 if (emailDisplay) {
                     emailDisplay.textContent = userEmail;
-                    // Generar iniciales para el avatar
                     const initials = userEmail.substring(0, 2).toUpperCase();
                     const userInitialsEl = document.getElementById('userInitials');
                     if (userInitialsEl) userInitialsEl.textContent = initials;
                 }
-                
-                // Cargar datos de la farmacia desde Neon
                 await cargarDatosFarmacia();
             }
         });
@@ -47,6 +59,24 @@
     <div class="header">
         <!-- Seccion izquierda en la cabecera -->
         <div class="header-left">
+            <!-- Botón Destacado: Escáner IA y QR -->
+            <button class="boton-scanner" id="btnAbrirScanner" title="Captura Asistida con Cámara Móvil, IA y QR AFIP">
+                <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none"
+                    stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                    <path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"></path>
+                    <circle cx="12" cy="13" r="4"></circle>
+                </svg>
+                <span>Escáner IA / QR</span>
+                <span class="scanner-badge-pill">Móvil</span>
+            </button>
+
+            <!-- Selector de Lote Activo (Neon DB) -->
+            <div class="lote-selector-box" title="Lote de Facturación Activo">
+                <span class="lote-label">Lote:</span>
+                <select id="selectLote" class="lote-select"></select>
+                <button id="btnNuevoLote" class="boton-mini" title="Crear nuevo lote">+</button>
+            </div>
+
             <button class="boton-excel" id="crearExcel">
                 <svg fill="#fff" xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 50 50">
                     <path
@@ -78,6 +108,14 @@
         </div>
         <!-- Seccion derecha para el perfil de usuario y toggle de tema -->
         <div class="header-right">
+            <!-- Botón Configuración Gemini -->
+            <button id="btnAbrirConfigGemini" class="theme-toggle" title="Configurar API Key Gemini y Modelos">
+                <svg xmlns="http://www.w3.org/2000/svg" width="19" height="19" viewBox="0 0 24 24" fill="none"
+                    stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                    <circle cx="12" cy="12" r="3"></circle>
+                    <path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"></path>
+                </svg>
+            </button>
             <!-- Perfil de usuario -->
             <div class="user-profile">
                 <div class="user-avatar" id="userInitials">AL</div>
@@ -241,14 +279,15 @@
                     <h3 class="card-title">Detalle de Clientes</h3>
                     <span class="card-badge" id="registrosCount">0 Registros</span>
                 </div>
-                <div class="card-body" style="padding: 0;">
-                    <table id="tabla-datos">
+                <div class="card-body" style=                    <table id="tabla-datos">
                         <thead>
                             <tr>
                                 <th>#</th>
                                 <th>CLIENTE</th>
+                                <th>AFILIADO</th>
                                 <th>IMPORTE</th>
-                                <th>ACCION</th>
+                                <th>CARGADO POR</th>
+                                <th>ACCIÓN</th>
                             </tr>
                         </thead>
                         <tbody id="tabla-body">
@@ -298,7 +337,6 @@
                             <line x1="12" y1="19" x2="12" y2="23"></line>
                             <line x1="8" y1="23" x2="16" y2="23"></line>
                         </svg>
-                        </svg>
                     </button>
                     <span class="close" style="float: none;">&times;</span>
                 </div>
@@ -327,6 +365,262 @@
         </div>
     </div>
 
+    <!-- ==================== MODAL ESCÁNER IA Y QR (PWA MÓVIL) ==================== -->
+    <div id="modalScanner" class="modal modal-scanner-overlay">
+        <div class="modal-scanner-container">
+            <!-- Barra Superior del Asistente -->
+            <div class="scanner-header">
+                <div class="scanner-title-box">
+                    <span class="scanner-live-dot"></span>
+                    <h2 class="scanner-title">Escáner IA & QR</h2>
+                    <span class="scanner-lote-tag" id="scannerLoteIndicador">Lote: Activo</span>
+                </div>
+                <button class="scanner-close-btn" id="btnCerrarScanner" title="Cerrar Escáner">&times;</button>
+            </div>
+
+            <!-- Indicador de Pasos / Wizard -->
+            <div class="scanner-stepper">
+                <div class="step-pill active" id="stepPill1">
+                    <span class="step-num">1</span>
+                    <span class="step-text">Receta</span>
+                </div>
+                <div class="step-divider"></div>
+                <div class="step-pill" id="stepPill2">
+                    <span class="step-num">2</span>
+                    <span class="step-text">Ticket</span>
+                </div>
+                <div class="step-divider"></div>
+                <div class="step-pill" id="stepPill3">
+                    <span class="step-num">3</span>
+                    <span class="step-text">Confirmar</span>
+                </div>
+            </div>
+
+            <!-- PASO 1: Captura de Receta -->
+            <div class="scanner-step-view" id="stepView1">
+                <div class="camera-viewport-box">
+                    <video id="videoReceta" autoplay playsinline muted></video>
+                    <!-- Guía de encuadre para la receta -->
+                    <div class="camera-overlay-frame recipe-frame">
+                        <div class="frame-corner tl"></div>
+                        <div class="frame-corner tr"></div>
+                        <div class="frame-corner bl"></div>
+                        <div class="frame-corner br"></div>
+                        <div class="frame-guide-text">Encuadra Nombre y Carnet (arriba)</div>
+                    </div>
+                    <!-- Spinner de Procesamiento con IA -->
+                    <div class="ai-processing-overlay" id="aiProcessingReceta" style="display: none;">
+                        <div class="ai-spinner"></div>
+                        <span class="ai-processing-title" id="aiModelStatusReceta">Analizando con Gemini...</span>
+                        <span class="ai-processing-sub">Extrayendo Nombre y N° Carnet impreso</span>
+                    </div>
+                </div>
+
+                <!-- Botones de captura -->
+                <div class="scanner-actions-bar" id="actionsBarReceta">
+                    <input type="file" id="fileInputReceta" accept="image/*" capture="environment" style="display: none;">
+                    <button type="button" class="btn-scan-action primary" id="btnCapturarReceta">
+                        <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                            <circle cx="12" cy="12" r="10"></circle>
+                            <circle cx="12" cy="12" r="3"></circle>
+                        </svg>
+                        <span>TOMAR FOTO</span>
+                    </button>
+                    <button type="button" class="btn-scan-action secondary" id="btnSubirFotoReceta" title="Subir desde galería o archivo">
+                        <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                            <rect x="3" y="3" width="18" height="18" rx="2" ry="2"></rect>
+                            <circle cx="8.5" cy="8.5" r="1.5"></circle>
+                            <polyline points="21 15 16 10 5 21"></polyline>
+                        </svg>
+                        <span>Galería</span>
+                    </button>
+                </div>
+
+                <!-- Tarjeta de Resultados Paso 1 (Editable) -->
+                <div class="scanner-card-result" id="cardResultReceta" style="display: none;">
+                    <div class="result-header">
+                        <span class="result-badge-ai" id="badgeAiModeloReceta">🤖 Gemini</span>
+                        <span class="result-badge-padron" id="badgePadronReceta">Verificando...</span>
+                    </div>
+                    <div class="form-group-compact">
+                        <label>APELLIDO Y NOMBRE:</label>
+                        <input type="text" id="inputScanNombre" class="input-scanner-edit" placeholder="Nombre completo">
+                    </div>
+                    <div class="form-group-compact">
+                        <label>NÚMERO DE CARNET:</label>
+                        <input type="text" id="inputScanAfiliado" class="input-scanner-edit" placeholder="3-XXXXXXXX-00">
+                    </div>
+                    <div class="result-actions-row">
+                        <button type="button" class="btn-mini-action" id="btnReintentarReceta">⟲ Volver a sacar</button>
+                        <button type="button" class="btn-next-action" id="btnAvanzarTicket">Paso 2: Ticket ➔</button>
+                    </div>
+                </div>
+            </div>
+
+            <!-- PASO 2: Captura de Ticket (Lector QR AFIP + Fallback Foto) -->
+            <div class="scanner-step-view" id="stepView2" style="display: none;">
+                <div class="camera-viewport-box">
+                    <video id="videoTicket" autoplay playsinline muted></video>
+                    <!-- Guía de encuadre para QR / Ticket -->
+                    <div class="camera-overlay-frame ticket-frame" id="ticketQrReticle">
+                        <div class="qr-scan-line"></div>
+                        <div class="frame-guide-text">Apunta al código QR AFIP al pie del ticket</div>
+                    </div>
+                    <!-- Spinner de Procesamiento con IA (si se saca foto al total) -->
+                    <div class="ai-processing-overlay" id="aiProcessingTicket" style="display: none;">
+                        <div class="ai-spinner"></div>
+                        <span class="ai-processing-title">Leyendo Total con Gemini...</span>
+                    </div>
+                </div>
+
+                <!-- Barra de estado del QR -->
+                <div class="qr-live-status-bar" id="qrStatusIndicator">
+                    <span class="qr-pulse-dot"></span>
+                    <span id="qrStatusText">Buscando QR de AFIP... (0 peticiones IA)</span>
+                </div>
+
+                <!-- Acciones del Ticket -->
+                <div class="scanner-actions-bar">
+                    <input type="file" id="fileInputTicket" accept="image/*" capture="environment" style="display: none;">
+                    <button type="button" class="btn-scan-action secondary" id="btnCapturarTicketTotal" title="Si el ticket no tiene QR, tomar foto al Total">
+                        <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                            <path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"></path>
+                            <circle cx="12" cy="13" r="4"></circle>
+                        </svg>
+                        <span>Foto a TOTAL</span>
+                    </button>
+                    <button type="button" class="btn-scan-action secondary" id="btnSubirFotoTicket">
+                        📁 Galería
+                    </button>
+                </div>
+
+                <!-- Tarjeta de Resultados Paso 2 (Editable) -->
+                <div class="scanner-card-result" id="cardResultTicket" style="display: none;">
+                    <div class="result-header">
+                        <span class="result-badge-ai" id="badgeOrigenImporte">QR AFIP</span>
+                        <span class="result-badge-success">✓ Importe Detectado</span>
+                    </div>
+                    <div class="form-group-compact">
+                        <label>IMPORTE TOTAL DEL TICKET ($):</label>
+                        <input type="number" step="0.01" id="inputScanImporte" class="input-scanner-edit input-importe-destacado" placeholder="0.00">
+                    </div>
+                    <div class="result-actions-row">
+                        <button type="button" class="btn-mini-action" id="btnVolverAReceta">⬅ Volver a Receta</button>
+                        <button type="button" class="btn-next-action" id="btnAvanzarConfirmacion">Paso 3: Confirmar ➔</button>
+                    </div>
+                </div>
+            </div>
+
+            <!-- PASO 3: Confirmación Final y Guardado Rápido -->
+            <div class="scanner-step-view" id="stepView3" style="display: none;">
+                <div class="confirm-summary-card">
+                    <div class="summary-item-header">
+                        <span class="summary-tag">Resumen de Comprobante</span>
+                        <span class="summary-lote-badge" id="confirmLoteNombre">Lote Activo</span>
+                    </div>
+                    <div class="summary-row">
+                        <span class="summary-label">Afiliado:</span>
+                        <span class="summary-val-highlight" id="confirmNombre">ALMIRON ANTONIO ADRIAN</span>
+                    </div>
+                    <div class="summary-row">
+                        <span class="summary-label">Carnet N°:</span>
+                        <span class="summary-val" id="confirmAfiliado">3-24651376-00</span>
+                    </div>
+                    <div class="summary-row summary-row-total">
+                        <span class="summary-label">Total Ticket:</span>
+                        <span class="summary-val-price" id="confirmImporte">$0.00</span>
+                    </div>
+
+                    <!-- Desglose de Liquidación Obra Social -->
+                    <div class="liquidacion-breakdown">
+                        <div class="breakdown-item">
+                            <span>A cargo Afiliado (75%):</span>
+                            <strong id="confirmCargoAfiliado">$0.00</strong>
+                        </div>
+                        <div class="breakdown-item">
+                            <span>Farmacia (12.5%):</span>
+                            <strong id="confirmCargoFarmacia">$0.00</strong>
+                        </div>
+                        <div class="breakdown-item">
+                            <span>Obra Social (12.5%):</span>
+                            <strong id="confirmCargoOS">$0.00</strong>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Botón Grande de Guardar y Pasar al Siguiente -->
+                <div class="confirm-actions-box">
+                    <button type="button" class="btn-guardar-siguiente" id="btnGuardarYSiguiente">
+                        <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+                            <polyline points="20 6 9 17 4 12"></polyline>
+                        </svg>
+                        <span>GUARDAR Y SIGUIENTE RECETA</span>
+                    </button>
+                    <div class="confirm-sub-buttons">
+                        <button type="button" class="btn-secondary-flat" id="btnEditarDesdeConfirmacion">Modificar Datos</button>
+                        <button type="button" class="btn-secondary-flat" id="btnFinalizarScanner">Terminar Carga</button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- ==================== MODAL DE CONFIGURACIÓN GEMINI IA ==================== -->
+    <div id="modalGeminiConfig" class="modal">
+        <div class="modal-content" style="max-width: 520px;">
+            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px;">
+                <h2 style="margin-bottom: 0;">Configuración de IA (Gemini)</h2>
+                <span class="close" id="btnCerrarConfigGemini">&times;</span>
+            </div>
+            <div style="margin-bottom: 16px; font-size: 14px; color: var(--color-text-secondary); line-height: 1.5;">
+                Ingresa tu clave de API de <strong>Google AI Studio</strong> para habilitar la extracción visual de recetas y tickets.
+                <a href="https://aistudio.google.com/app/apikey" target="_blank" style="color: var(--color-primary); font-weight: 600; text-decoration: underline;">
+                    Obtener clave gratis aquí ↗
+                </a>
+            </div>
+            <form id="formGeminiConfig">
+                <label for="cfgGeminiApiKey">API Key de Google Gemini:</label>
+                <input type="password" id="cfgGeminiApiKey" placeholder="AIzaSy..." style="margin-bottom: 12px;" required>
+
+                <label for="cfgGeminiModel">Modelo de Inteligencia Artificial:</label>
+                <select id="cfgGeminiModel" class="input-grande" style="margin-bottom: 16px; padding: 10px; width: 100%; border-radius: var(--border-radius-sm); border: 1px solid var(--color-border); background: var(--color-surface); color: var(--color-text);">
+                    <option value="gemini-3.5-flash-lite">Gemini 3.5 Flash Lite (Recomendado - 500 RPD / 15 RPM)</option>
+                    <option value="gemini-3.1-flash-lite">Gemini 3.1 Flash Lite (500 RPD / 15 RPM)</option>
+                    <option value="gemini-3.8-flash">Gemini 3.8 Flash</option>
+                    <option value="gemini-3.7-flash">Gemini 3.7 Flash</option>
+                    <option value="gemini-3.6-flash">Gemini 3.6 Flash</option>
+                    <option value="gemini-2.5-flash-lite">Gemini 2.5 Flash Lite</option>
+                    <option value="gemini-2.0-flash">Gemini 2.0 Flash</option>
+                </select>
+
+                <label for="cfgDispositivoNombre">Identificador de este Dispositivo / Operador (opcional):</label>
+                <input type="text" id="cfgDispositivoNombre" placeholder="Ej: Celular 1, Mostrador, María..." style="margin-bottom: 16px;">
+
+                <div id="cfgTestStatus" style="display: none; padding: 10px; border-radius: 6px; font-size: 13px; margin-bottom: 16px;"></div>
+
+                <div style="display: flex; gap: 10px; justify-content: flex-end;">
+                    <button type="button" id="btnProbarKeyGemini" class="boton-secundario" style="margin-top: 0;">Probar Conexión</button>
+                    <button type="submit" class="boton-excel" style="margin-top: 0; background-color: var(--color-primary);">Guardar</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- ==================== MODAL DE NUEVO LOTE ==================== -->
+    <div id="modalNuevoLote" class="modal">
+        <div class="modal-content" style="max-width: 420px;">
+            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px;">
+                <h2 style="margin-bottom: 0;">Crear Nuevo Lote</h2>
+                <span class="close" id="btnCerrarNuevoLote">&times;</span>
+            </div>
+            <form id="formNuevoLote">
+                <label for="inputNombreLote">Nombre del Lote / Período:</label>
+                <input type="text" id="inputNombreLote" placeholder="Ej: Septiembre 2026" required>
+                <button type="submit" class="boton-grande" style="margin-top: 15px;">Crear Lote</button>
+            </form>
+        </div>
+    </div>
+
     <footer>
         <p>aolender | <a href="https://github.com/aolender1" target="_blank">GitHub</a></p>
     </footer>
@@ -335,11 +629,17 @@
     <!-- Script para manejar el cierre de sesion -->
     <script>
         document.getElementById('logoutBtn').addEventListener('click', function () {
-            // Eliminar el estado de login
+            // Eliminar el estado de login en ambos almacenamientos
             sessionStorage.removeItem('isLoggedIn');
             sessionStorage.removeItem('userEmail');
             sessionStorage.removeItem('neonToken');
             sessionStorage.removeItem('user');
+
+            localStorage.removeItem('isLoggedIn');
+            localStorage.removeItem('userEmail');
+            localStorage.removeItem('neonToken');
+            localStorage.removeItem('user');
+
             // Redirigir a la pagina de login
             window.location.href = 'login.html';
         });

@@ -1,9 +1,8 @@
 // Cargar datos de la farmacia desde Neon al iniciar
 document.addEventListener('DOMContentLoaded', async function () {
-    const isLoggedIn = sessionStorage.getItem('isLoggedIn');
-    const userEmail = sessionStorage.getItem('userEmail');
+    const isLoggedIn = sessionStorage.getItem('isLoggedIn') || localStorage.getItem('isLoggedIn');
+    const userEmail = sessionStorage.getItem('userEmail') || localStorage.getItem('userEmail');
     if (isLoggedIn && userEmail) {
-        // Los datos se cargan usando la función global de neon-config.js
         await cargarDatosFarmacia();
     }
 });
@@ -947,7 +946,7 @@ document.addEventListener("DOMContentLoaded", function () {
     });
 
     // Función para guardar los datos ingresados desde el formulario principal
-    function guardarDatos() {
+    async function guardarDatos() {
         const nombre = clienteInput ? clienteInput.value.trim() : '';
         const afiliadoVal = afiliadoInput ? afiliadoInput.value.trim() : '';
         const rawImporte = importeInput ? importeInput.value.replace('$', '').replace(',', '.').trim() : '';
@@ -991,7 +990,41 @@ document.addEventListener("DOMContentLoaded", function () {
             return;
         }
 
-        data.push({ nombre: finalNombre, afiliado: finalAfiliado, importe });
+        // Guardar en Neon DB si hay lote activo
+        let guardado = null;
+        const loteActivo = getLoteActivo();
+        const email = obtenerEmailUsuario();
+        const operador = obtenerNombreOperador();
+
+        if (loteActivo && loteActivo.id) {
+            try {
+                guardado = await guardarRegistroEnNeon({
+                    lote_id: loteActivo.id,
+                    farmacia_email: email,
+                    nombre: finalNombre,
+                    afiliado: finalAfiliado,
+                    importe: importe,
+                    cargado_por: operador
+                });
+            } catch (err) {
+                console.warn('No se pudo guardar en Neon, guardando local:', err);
+            }
+        }
+
+        data.push({
+            id: guardado ? guardado.id : undefined,
+            nombre: finalNombre,
+            afiliado: finalAfiliado,
+            importe,
+            cargado_por: operador
+        });
+
+        // Si es cliente nuevo que no estaba en baseDatos, registrarlo
+        if (!baseDatos.some(c => c.NOMBRE && c.NOMBRE.toLowerCase() === finalNombre.toLowerCase()) &&
+            !nuevosClientes.some(c => c.Cliente.toLowerCase() === finalNombre.toLowerCase())) {
+            nuevosClientes.push({ Cliente: finalNombre, Afiliado: finalAfiliado });
+        }
+
         console.log('Datos guardados:', data);
         actualizarTabla();
 
@@ -1004,38 +1037,55 @@ document.addEventListener("DOMContentLoaded", function () {
     }
 
     // Función para guardar los datos ingresados desde el formulario manual  
-    formManual.addEventListener('submit', function (event) {
-        event.preventDefault(); // Prevenir el envío por defecto  
+    formManual.addEventListener('submit', async function (event) {
+        event.preventDefault();
 
         const nombreManual = document.getElementById('clienteManual').value.trim();
         const afiliadoManual = document.getElementById('afiliadoManual').value.trim();
         const importeManual = parseFloat(document.getElementById('importeManual').value.replace('$', '').replace(',', ''));
 
-        // Validación de los campos  
         if (!nombreManual || !afiliadoManual || isNaN(importeManual)) {
             mostrarNotificacion('Aviso', 'Por favor, complete todos los campos correctamente.', 'error');
             return;
         }
 
-        // Agregar al array principal 'data' para almacenar la factura  
-        data.push({ nombre: nombreManual, afiliado: afiliadoManual, importe: importeManual });
+        let guardado = null;
+        const loteActivo = getLoteActivo();
+        const email = obtenerEmailUsuario();
+        const operador = obtenerNombreOperador();
 
-        // Agregar al array 'nuevosClientes' solo si el cliente no existe previamente  
-        if (!baseDatos.some(c => c.NOMBRE.toLowerCase() === nombreManual.toLowerCase()) &&
+        if (loteActivo && loteActivo.id) {
+            try {
+                guardado = await guardarRegistroEnNeon({
+                    lote_id: loteActivo.id,
+                    farmacia_email: email,
+                    nombre: nombreManual,
+                    afiliado: afiliadoManual,
+                    importe: importeManual,
+                    cargado_por: operador
+                });
+            } catch (err) {
+                console.warn('No se pudo guardar en Neon:', err);
+            }
+        }
+
+        data.push({
+            id: guardado ? guardado.id : undefined,
+            nombre: nombreManual,
+            afiliado: afiliadoManual,
+            importe: importeManual,
+            cargado_por: operador
+        });
+
+        if (!baseDatos.some(c => c.NOMBRE && c.NOMBRE.toLowerCase() === nombreManual.toLowerCase()) &&
             !nuevosClientes.some(c => c.Cliente.toLowerCase() === nombreManual.toLowerCase())) {
             nuevosClientes.push({ Cliente: nombreManual, Afiliado: afiliadoManual });
         }
 
-        console.log('Datos manuales guardados:', data);
-        console.log('Nuevos Clientes:', nuevosClientes);
-
         actualizarTabla();
-
-        // Limpiar los campos del formulario para ingresar otro cliente  
         formManual.reset();
-
-        // Focar nuevamente en el primer input del formulario manual  
         document.getElementById('clienteManual').focus();
+        mostrarNotificacion('Éxito!', 'Cliente nuevo guardado correctamente.', 'success');
     });
 
     // Función para actualizar la tabla con los datos
@@ -1043,62 +1093,59 @@ document.addEventListener("DOMContentLoaded", function () {
         const tablaBody = document.getElementById('tabla-body');
         const emptyState = document.getElementById('emptyState');
         const registrosCount = document.getElementById('registrosCount');
-        tablaBody.innerHTML = ''; // Limpiar la tabla
+        tablaBody.innerHTML = '';
 
-        // Calcular el total de importes y actualizar el mensaje de total a cobrar
         let totalImporte = data.reduce((sum, item) => sum + item.importe, 0);
         let totalCobrar = (totalImporte * 100 / 75) * 0.125;
 
-        // Actualizar el nuevo elemento de total
         const totalAmountValue = document.getElementById('totalAmountValue');
         if (totalAmountValue) {
             totalAmountValue.textContent = `$${totalCobrar.toFixed(2)}`;
         }
 
-        // Actualizar contador de registros
         if (registrosCount) {
             registrosCount.textContent = `${data.length} Registro${data.length !== 1 ? 's' : ''}`;
         }
 
-        // Mostrar u ocultar estado vacío
         if (emptyState) {
             emptyState.style.display = data.length === 0 ? 'flex' : 'none';
         }
 
-        let count = data.length; // Contador que inicia con el total de facturas
+        let count = data.length;
 
-        // Iterar sobre 'data' desde el último hacia el primero
         for (let i = data.length - 1; i >= 0; i--) {
             const item = data[i];
             const row = tablaBody.insertRow();
 
-            // Nueva celda para el número de factura
             const cellCount = row.insertCell(0);
-            // Las demás celdas se desplazarán una posición a la derecha
             const cellNombre = row.insertCell(1);
-            const cellImporte = row.insertCell(2);
-            const cellAcciones = row.insertCell(3); // Celda para el botón de eliminación
+            const cellAfiliado = row.insertCell(2);
+            const cellImporte = row.insertCell(3);
+            const cellCargadoPor = row.insertCell(4);
+            const cellAcciones = row.insertCell(5);
 
             cellCount.textContent = count;
             count--;
 
             cellNombre.textContent = item.nombre;
+            cellAfiliado.textContent = item.afiliado || '-';
             cellImporte.textContent = '$' + item.importe.toFixed(2);
 
-            // Crear el botón de eliminación
+            // Mostrar el usuario que cargó el comprobante
+            const usuarioAlias = item.cargado_por ? item.cargado_por.split('@')[0] : 'Manual';
+            cellCargadoPor.innerHTML = `<span style="font-size: 11px; font-weight: 600; padding: 2px 6px; border-radius: 4px; background: var(--color-primary-light); color: var(--color-primary);">${usuarioAlias}</span>`;
+
+            // Botón eliminar
             const btnEliminar = document.createElement('button');
             btnEliminar.classList.add('btn-eliminar');
-            btnEliminar.setAttribute('aria-label', 'Eliminar registro'); // Accesibilidad
-
-            // Crear SVG inline para el icono de eliminar
+            btnEliminar.setAttribute('aria-label', 'Eliminar registro');
             btnEliminar.innerHTML = `<svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="icon-eliminar">
-        <polyline points="3 6 5 6 21 6"></polyline>
-        <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path>
-        <line x1="10" y1="11" x2="10" y2="17"></line>
-        <line x1="14" y1="11" x2="14" y2="17"></line>
-      </svg>`;
+                <polyline points="3 6 5 6 21 6"></polyline>
+                <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path>
+                <line x1="10" y1="11" x2="10" y2="17"></line>
+                <line x1="14" y1="11" x2="14" y2="17"></line>
+            </svg>`;
 
-            // Establecer el evento para eliminar la factura
             btnEliminar.addEventListener('click', function () {
                 eliminarRegistro(item);
             });
@@ -1107,22 +1154,28 @@ document.addEventListener("DOMContentLoaded", function () {
         }
     }
 
-    // Función para eliminar un registro del array 'data' y actualizar la tabla
-    function eliminarRegistro(item) {
+    // Función para eliminar un registro del array 'data' y de Neon DB
+    async function eliminarRegistro(item) {
         const index = data.indexOf(item);
         if (index > -1) {
-            // Confirmación antes de eliminar
-            const confirmacion = confirm('¿Estás seguro de que deseas eliminar este registro?');
+            const confirmacion = confirm(`¿Estás seguro de que deseas eliminar el registro de ${item.nombre}?`);
             if (confirmacion) {
-                data.splice(index, 1); // Eliminar el elemento del array
+                if (item.id) {
+                    try {
+                        await eliminarRegistroDeNeon(item.id);
+                    } catch (err) {
+                        console.warn('Error al eliminar de Neon:', err);
+                    }
+                }
+                data.splice(index, 1);
 
-                // Si el cliente está en 'nuevosClientes', eliminarlo de ahí también
                 const indexNuevo = nuevosClientes.findIndex(c => c.Cliente === item.nombre && c.Afiliado === item.afiliado);
                 if (indexNuevo > -1) {
                     nuevosClientes.splice(indexNuevo, 1);
                 }
 
-                actualizarTabla(); // Actualizar la tabla
+                actualizarTabla();
+                mostrarNotificacion('Eliminado', 'Registro eliminado.', 'success');
             }
         }
     }
@@ -1450,5 +1503,686 @@ document.addEventListener("DOMContentLoaded", function () {
     // Event listener para el interruptor de tema (ahora es un botón)
     if (themeToggle) {
         themeToggle.addEventListener('click', toggleTheme);
+    }
+
+    // =========================================================================
+    // GESTIÓN DE LOTES EN NEON DB
+    // =========================================================================
+    const selectLote = document.getElementById('selectLote');
+    const btnNuevoLote = document.getElementById('btnNuevoLote');
+    const modalNuevoLote = document.getElementById('modalNuevoLote');
+    const btnCerrarNuevoLote = document.getElementById('btnCerrarNuevoLote');
+    const formNuevoLote = document.getElementById('formNuevoLote');
+
+    async function cargarLotesDropdown() {
+        if (!selectLote) return;
+        const email = obtenerEmailUsuario();
+        const lotes = await obtenerLotesFarmacia(email);
+        selectLote.innerHTML = '';
+
+        if (!lotes || lotes.length === 0) {
+            const loteActivo = await obtenerLoteActivoOInicial(email);
+            const opt = document.createElement('option');
+            opt.value = loteActivo.id;
+            opt.textContent = loteActivo.nombre;
+            selectLote.appendChild(opt);
+            return loteActivo;
+        }
+
+        const loteActivo = await obtenerLoteActivoOInicial(email);
+        lotes.forEach(l => {
+            const opt = document.createElement('option');
+            opt.value = l.id;
+            opt.textContent = l.nombre;
+            if (loteActivo && l.id === loteActivo.id) {
+                opt.selected = true;
+            }
+            selectLote.appendChild(opt);
+        });
+
+        const indicador = document.getElementById('scannerLoteIndicador');
+        if (indicador && loteActivo) {
+            indicador.textContent = `Lote: ${loteActivo.nombre}`;
+        }
+        const confirmLote = document.getElementById('confirmLoteNombre');
+        if (confirmLote && loteActivo) {
+            confirmLote.textContent = loteActivo.nombre;
+        }
+
+        return loteActivo;
+    }
+
+    async function cargarRegistrosDeLoteActivo() {
+        const lote = getLoteActivo();
+        if (!lote || !lote.id) return;
+
+        try {
+            const regs = await obtenerRegistrosLote(lote.id);
+            data.length = 0;
+            regs.forEach(r => {
+                data.push({
+                    id: r.id,
+                    nombre: r.nombre,
+                    afiliado: r.afiliado,
+                    importe: parseFloat(r.importe),
+                    cargado_por: r.cargado_por
+                });
+            });
+            actualizarTabla();
+        } catch (e) {
+            console.warn('Error al sincronizar registros de Neon:', e);
+        }
+    }
+
+    if (btnNuevoLote) {
+        btnNuevoLote.addEventListener('click', () => {
+            if (modalNuevoLote) {
+                modalNuevoLote.style.display = 'block';
+                const inp = document.getElementById('inputNombreLote');
+                if (inp) inp.focus();
+            }
+        });
+    }
+
+    if (btnCerrarNuevoLote) {
+        btnCerrarNuevoLote.addEventListener('click', () => {
+            if (modalNuevoLote) modalNuevoLote.style.display = 'none';
+        });
+    }
+
+    if (formNuevoLote) {
+        formNuevoLote.addEventListener('submit', async (e) => {
+            e.preventDefault();
+            const input = document.getElementById('inputNombreLote');
+            const nombre = input ? input.value.trim() : '';
+            if (!nombre) return;
+
+            try {
+                const email = obtenerEmailUsuario();
+                const nuevo = await crearLoteEnNeon(nombre, email);
+                setLoteActivo(nuevo);
+                await cargarLotesDropdown();
+                await cargarRegistrosDeLoteActivo();
+                if (modalNuevoLote) modalNuevoLote.style.display = 'none';
+                formNuevoLote.reset();
+                mostrarNotificacion('Lote Creado', `Se activó el lote "${nombre}".`, 'success');
+            } catch (err) {
+                mostrarNotificacion('Error', 'No se pudo crear el lote: ' + err.message, 'error');
+            }
+        });
+    }
+
+    if (selectLote) {
+        selectLote.addEventListener('change', async () => {
+            const selId = selectLote.value;
+            const email = obtenerEmailUsuario();
+            const lotes = await obtenerLotesFarmacia(email);
+            const found = lotes.find(l => l.id == selId);
+            if (found) {
+                setLoteActivo(found);
+                const indicador = document.getElementById('scannerLoteIndicador');
+                if (indicador) indicador.textContent = `Lote: ${found.nombre}`;
+                const confirmLote = document.getElementById('confirmLoteNombre');
+                if (confirmLote) confirmLote.textContent = found.nombre;
+                await cargarRegistrosDeLoteActivo();
+                mostrarNotificacion('Lote Cambiado', `Ahora viendo "${found.nombre}".`, 'success');
+            }
+        });
+    }
+
+    // Inicializar lotes al cargar
+    cargarLotesDropdown().then(() => {
+        cargarRegistrosDeLoteActivo();
+    });
+
+    // Sincronización automática suave cada 15 segundos para trabajo multi-dispositivo
+    setInterval(() => {
+        if (!document.hidden && (!modalScanner || modalScanner.style.display !== 'block')) {
+            cargarRegistrosDeLoteActivo();
+        }
+    }, 15000);
+
+    // =========================================================================
+    // CONFIGURACIÓN DE GEMINI IA
+    // =========================================================================
+    const btnAbrirConfigGemini = document.getElementById('btnAbrirConfigGemini');
+    const modalGeminiConfig = document.getElementById('modalGeminiConfig');
+    const btnCerrarConfigGemini = document.getElementById('btnCerrarConfigGemini');
+    const formGeminiConfig = document.getElementById('formGeminiConfig');
+    const cfgGeminiApiKey = document.getElementById('cfgGeminiApiKey');
+    const cfgGeminiModel = document.getElementById('cfgGeminiModel');
+    const cfgDispositivoNombre = document.getElementById('cfgDispositivoNombre');
+    const btnProbarKeyGemini = document.getElementById('btnProbarKeyGemini');
+    const cfgTestStatus = document.getElementById('cfgTestStatus');
+
+    if (btnAbrirConfigGemini) {
+        btnAbrirConfigGemini.addEventListener('click', () => {
+            if (cfgGeminiApiKey) cfgGeminiApiKey.value = ScannerService.getApiKey();
+            if (cfgGeminiModel) cfgGeminiModel.value = ScannerService.getSelectedModel();
+            if (cfgDispositivoNombre) cfgDispositivoNombre.value = localStorage.getItem('nombre_dispositivo') || '';
+            if (cfgTestStatus) cfgTestStatus.style.display = 'none';
+            if (modalGeminiConfig) modalGeminiConfig.style.display = 'block';
+        });
+    }
+
+    if (btnCerrarConfigGemini) {
+        btnCerrarConfigGemini.addEventListener('click', () => {
+            if (modalGeminiConfig) modalGeminiConfig.style.display = 'none';
+        });
+    }
+
+    if (btnProbarKeyGemini) {
+        btnProbarKeyGemini.addEventListener('click', async () => {
+            const key = cfgGeminiApiKey.value.trim();
+            const model = cfgGeminiModel.value;
+            if (!key) {
+                cfgTestStatus.style.display = 'block';
+                cfgTestStatus.style.background = 'rgba(239, 68, 68, 0.15)';
+                cfgTestStatus.style.color = 'var(--color-delete)';
+                cfgTestStatus.textContent = 'Por favor ingresa la clave de API primero.';
+                return;
+            }
+
+            btnProbarKeyGemini.disabled = true;
+            btnProbarKeyGemini.textContent = 'Probando...';
+            cfgTestStatus.style.display = 'block';
+            cfgTestStatus.style.background = 'rgba(99, 102, 241, 0.15)';
+            cfgTestStatus.style.color = 'var(--color-primary)';
+            cfgTestStatus.textContent = 'Conectando con Google AI Studio...';
+
+            const testRes = await ScannerService.testApiKey(key, model);
+            btnProbarKeyGemini.disabled = false;
+            btnProbarKeyGemini.textContent = 'Probar Conexión';
+
+            if (testRes.success) {
+                cfgTestStatus.style.background = 'rgba(16, 185, 129, 0.15)';
+                cfgTestStatus.style.color = '#10b981';
+                cfgTestStatus.textContent = testRes.message;
+            } else {
+                cfgTestStatus.style.background = 'rgba(239, 68, 68, 0.15)';
+                cfgTestStatus.style.color = 'var(--color-delete)';
+                cfgTestStatus.textContent = 'Error: ' + testRes.message;
+            }
+        });
+    }
+
+    if (formGeminiConfig) {
+        formGeminiConfig.addEventListener('submit', (e) => {
+            e.preventDefault();
+            const key = cfgGeminiApiKey.value.trim();
+            const model = cfgGeminiModel.value;
+            ScannerService.setApiKey(key);
+            ScannerService.setSelectedModel(model);
+
+            if (cfgDispositivoNombre) {
+                const disp = cfgDispositivoNombre.value.trim();
+                if (disp) {
+                    localStorage.setItem('nombre_dispositivo', disp);
+                } else {
+                    localStorage.removeItem('nombre_dispositivo');
+                }
+            }
+
+            if (modalGeminiConfig) modalGeminiConfig.style.display = 'none';
+            mostrarNotificacion('Configuración Guardada', `Configuración actualizada con éxito.`, 'success');
+        });
+    }
+
+    // =========================================================================
+    // LÓGICA DEL ASISTENTE DE ESCÁNER (IA + QR AFIP) - PWA MÓVIL
+    // =========================================================================
+    const btnAbrirScanner = document.getElementById('btnAbrirScanner');
+    const modalScanner = document.getElementById('modalScanner');
+    const btnCerrarScanner = document.getElementById('btnCerrarScanner');
+
+    const stepPill1 = document.getElementById('stepPill1');
+    const stepPill2 = document.getElementById('stepPill2');
+    const stepPill3 = document.getElementById('stepPill3');
+    const stepView1 = document.getElementById('stepView1');
+    const stepView2 = document.getElementById('stepView2');
+    const stepView3 = document.getElementById('stepView3');
+
+    // Paso 1
+    const videoReceta = document.getElementById('videoReceta');
+    const btnCapturarReceta = document.getElementById('btnCapturarReceta');
+    const btnSubirFotoReceta = document.getElementById('btnSubirFotoReceta');
+    const fileInputReceta = document.getElementById('fileInputReceta');
+    const aiProcessingReceta = document.getElementById('aiProcessingReceta');
+    const aiModelStatusReceta = document.getElementById('aiModelStatusReceta');
+    const cardResultReceta = document.getElementById('cardResultReceta');
+    const inputScanNombre = document.getElementById('inputScanNombre');
+    const inputScanAfiliado = document.getElementById('inputScanAfiliado');
+    const badgePadronReceta = document.getElementById('badgePadronReceta');
+    const badgeAiModeloReceta = document.getElementById('badgeAiModeloReceta');
+    const btnReintentarReceta = document.getElementById('btnReintentarReceta');
+    const btnAvanzarTicket = document.getElementById('btnAvanzarTicket');
+
+    // Paso 2
+    const videoTicket = document.getElementById('videoTicket');
+    const btnCapturarTicketTotal = document.getElementById('btnCapturarTicketTotal');
+    const btnSubirFotoTicket = document.getElementById('btnSubirFotoTicket');
+    const fileInputTicket = document.getElementById('fileInputTicket');
+    const aiProcessingTicket = document.getElementById('aiProcessingTicket');
+    const qrStatusIndicator = document.getElementById('qrStatusIndicator');
+    const qrStatusText = document.getElementById('qrStatusText');
+    const cardResultTicket = document.getElementById('cardResultTicket');
+    const badgeOrigenImporte = document.getElementById('badgeOrigenImporte');
+    const inputScanImporte = document.getElementById('inputScanImporte');
+    const btnVolverAReceta = document.getElementById('btnVolverAReceta');
+    const btnAvanzarConfirmacion = document.getElementById('btnAvanzarConfirmacion');
+
+    // Paso 3
+    const confirmNombre = document.getElementById('confirmNombre');
+    const confirmAfiliado = document.getElementById('confirmAfiliado');
+    const confirmImporte = document.getElementById('confirmImporte');
+    const confirmCargoAfiliado = document.getElementById('confirmCargoAfiliado');
+    const confirmCargoFarmacia = document.getElementById('confirmCargoFarmacia');
+    const confirmCargoOS = document.getElementById('confirmCargoOS');
+    const btnGuardarYSiguiente = document.getElementById('btnGuardarYSiguiente');
+    const btnEditarDesdeConfirmacion = document.getElementById('btnEditarDesdeConfirmacion');
+    const btnFinalizarScanner = document.getElementById('btnFinalizarScanner');
+
+    let currentScannerStep = 1;
+    let qrScanInterval = null;
+
+    function irAPaso(paso) {
+        currentScannerStep = paso;
+
+        stepPill1.classList.remove('active', 'done');
+        stepPill2.classList.remove('active', 'done');
+        stepPill3.classList.remove('active', 'done');
+
+        if (paso === 1) {
+            stepPill1.classList.add('active');
+            stepView1.style.display = 'flex';
+            stepView2.style.display = 'none';
+            stepView3.style.display = 'none';
+            detenerEscaneoQrTicket();
+        } else if (paso === 2) {
+            stepPill1.classList.add('done');
+            stepPill2.classList.add('active');
+            stepView1.style.display = 'none';
+            stepView2.style.display = 'flex';
+            stepView3.style.display = 'none';
+            iniciarEscaneoQrTicket();
+        } else if (paso === 3) {
+            stepPill1.classList.add('done');
+            stepPill2.classList.add('done');
+            stepPill3.classList.add('active');
+            stepView1.style.display = 'none';
+            stepView2.style.display = 'none';
+            stepView3.style.display = 'flex';
+            detenerEscaneoQrTicket();
+            ScannerService.stopCamera(videoTicket);
+        }
+    }
+
+    if (btnAbrirScanner) {
+        btnAbrirScanner.addEventListener('click', async () => {
+            if (!ScannerService.getApiKey()) {
+                mostrarNotificacion('Configura tu API Key', 'Por favor ingresa tu API Key de Google Gemini en el botón de Configuración ⚙️ antes de escanear.', 'error');
+                if (modalGeminiConfig) modalGeminiConfig.style.display = 'block';
+                return;
+            }
+
+            modalScanner.style.display = 'block';
+            cardResultReceta.style.display = 'none';
+            cardResultTicket.style.display = 'none';
+            inputScanNombre.value = '';
+            inputScanAfiliado.value = '';
+            inputScanImporte.value = '';
+
+            irAPaso(1);
+            try {
+                await ScannerService.startCamera(videoReceta);
+            } catch (err) {
+                mostrarNotificacion('Cámara', err.message, 'error');
+            }
+        });
+    }
+
+    if (btnCerrarScanner) {
+        btnCerrarScanner.addEventListener('click', cerrarModalScanner);
+    }
+    if (btnFinalizarScanner) {
+        btnFinalizarScanner.addEventListener('click', cerrarModalScanner);
+    }
+
+    function cerrarModalScanner() {
+        detenerEscaneoQrTicket();
+        ScannerService.stopCamera(videoReceta);
+        ScannerService.stopCamera(videoTicket);
+        if (modalScanner) modalScanner.style.display = 'none';
+        cargarRegistrosDeLoteActivo();
+    }
+
+    // --- PASO 1: Receta ---
+    if (btnCapturarReceta) {
+        btnCapturarReceta.addEventListener('click', async () => {
+            aiProcessingReceta.style.display = 'flex';
+            aiModelStatusReceta.textContent = `Analizando con ${ScannerService.getSelectedModel()}...`;
+            try {
+                const res = await ScannerService.extractRecipeData(videoReceta);
+                aiProcessingReceta.style.display = 'none';
+                inputScanNombre.value = res.nombre || '';
+                inputScanAfiliado.value = res.afiliado || '';
+                badgeAiModeloReceta.textContent = `🤖 ${res.modelUsed}`;
+                
+                verificarAfiliadoEnBase(res.nombre, res.afiliado);
+                cardResultReceta.style.display = 'flex';
+            } catch (err) {
+                aiProcessingReceta.style.display = 'none';
+                mostrarNotificacion('Error de Extracción', err.message, 'error');
+                cardResultReceta.style.display = 'flex';
+            }
+        });
+    }
+
+    if (btnSubirFotoReceta) {
+        btnSubirFotoReceta.addEventListener('click', () => {
+            if (fileInputReceta) fileInputReceta.click();
+        });
+    }
+
+    if (fileInputReceta) {
+        fileInputReceta.addEventListener('change', async (e) => {
+            const file = e.target.files[0];
+            if (!file) return;
+            const img = new Image();
+            img.onload = async () => {
+                aiProcessingReceta.style.display = 'flex';
+                aiModelStatusReceta.textContent = `Analizando con ${ScannerService.getSelectedModel()}...`;
+                try {
+                    const res = await ScannerService.extractRecipeData(img);
+                    aiProcessingReceta.style.display = 'none';
+                    inputScanNombre.value = res.nombre || '';
+                    inputScanAfiliado.value = res.afiliado || '';
+                    badgeAiModeloReceta.textContent = `🤖 ${res.modelUsed}`;
+                    verificarAfiliadoEnBase(res.nombre, res.afiliado);
+                    cardResultReceta.style.display = 'flex';
+                } catch (err) {
+                    aiProcessingReceta.style.display = 'none';
+                    mostrarNotificacion('Error de Extracción', err.message, 'error');
+                    cardResultReceta.style.display = 'flex';
+                }
+            };
+            img.src = URL.createObjectURL(file);
+        });
+    }
+
+    function verificarAfiliadoEnBase(nombre, afiliado) {
+        let encontrado = null;
+        if (baseDatos && baseDatos.length > 0) {
+            if (afiliado) {
+                const cleanAfil = afiliado.replace(/[^0-9]/g, '');
+                encontrado = baseDatos.find(c => {
+                    if (!c || c.NUMERO === undefined || c.NUMERO === null) return false;
+                    const clean = c.NUMERO.toString().replace(/[^0-9]/g, '');
+                    return cleanAfil && clean === cleanAfil;
+                });
+            }
+            if (!encontrado && nombre) {
+                encontrado = baseDatos.find(c => c.NOMBRE && c.NOMBRE.toString().toLowerCase() === nombre.toLowerCase());
+            }
+        }
+
+        if (encontrado) {
+            badgePadronReceta.textContent = '✓ Afiliado en Padrón';
+            badgePadronReceta.className = 'result-badge-padron match';
+            if (encontrado.NOMBRE) inputScanNombre.value = encontrado.NOMBRE.toString();
+            if (encontrado.NUMERO) inputScanAfiliado.value = encontrado.NUMERO.toString();
+        } else {
+            badgePadronReceta.textContent = 'ℹ️ Nuevo Afiliado';
+            badgePadronReceta.className = 'result-badge-padron new';
+        }
+    }
+
+    if (btnReintentarReceta) {
+        btnReintentarReceta.addEventListener('click', () => {
+            cardResultReceta.style.display = 'none';
+            inputScanNombre.value = '';
+            inputScanAfiliado.value = '';
+        });
+    }
+
+    if (btnAvanzarTicket) {
+        btnAvanzarTicket.addEventListener('click', async () => {
+            const nombre = inputScanNombre.value.trim();
+            if (!nombre) {
+                mostrarNotificacion('Aviso', 'Por favor ingresa o confirma el nombre del afiliado.', 'error');
+                return;
+            }
+            ScannerService.stopCamera(videoReceta);
+            irAPaso(2);
+            try {
+                await ScannerService.startCamera(videoTicket);
+            } catch (err) {
+                console.warn('Cámara ticket:', err);
+            }
+        });
+    }
+
+    // --- PASO 2: Ticket (QR AFIP + Fallback) ---
+    function iniciarEscaneoQrTicket() {
+        if (qrScanInterval) clearInterval(qrScanInterval);
+        if (qrStatusText) qrStatusText.textContent = 'Buscando QR de AFIP... (0 peticiones IA)';
+        if (qrStatusIndicator) qrStatusIndicator.style.background = 'rgba(16, 185, 129, 0.12)';
+
+        qrScanInterval = setInterval(async () => {
+            if (currentScannerStep !== 2 || modalScanner.style.display === 'none') {
+                detenerEscaneoQrTicket();
+                return;
+            }
+
+            try {
+                const qrData = await ScannerService.scanQrFromVideo(videoTicket);
+                if (qrData && qrData.importe) {
+                    detenerEscaneoQrTicket();
+                    if (navigator.vibrate) {
+                        try { navigator.vibrate(100); } catch (e) {}
+                    }
+                    inputScanImporte.value = qrData.importe.toFixed(2);
+                    badgeOrigenImporte.textContent = '✓ QR AFIP Instantáneo';
+                    badgeOrigenImporte.style.background = 'rgba(16, 185, 129, 0.2)';
+                    badgeOrigenImporte.style.color = '#10b981';
+                    cardResultTicket.style.display = 'flex';
+                    qrStatusText.textContent = `¡QR AFIP detectado! Importe: $${qrData.importe.toFixed(2)}`;
+                    qrStatusIndicator.style.background = 'rgba(16, 185, 129, 0.3)';
+                }
+            } catch (e) {
+                console.warn('Escaneo QR:', e);
+            }
+        }, 200);
+    }
+
+    function detenerEscaneoQrTicket() {
+        if (qrScanInterval) {
+            clearInterval(qrScanInterval);
+            qrScanInterval = null;
+        }
+    }
+
+    if (btnCapturarTicketTotal) {
+        btnCapturarTicketTotal.addEventListener('click', async () => {
+            detenerEscaneoQrTicket();
+            aiProcessingTicket.style.display = 'flex';
+            try {
+                const res = await ScannerService.extractTicketData(videoTicket);
+                aiProcessingTicket.style.display = 'none';
+                if (res.importe !== null && !isNaN(res.importe)) {
+                    inputScanImporte.value = res.importe.toFixed(2);
+                    badgeOrigenImporte.textContent = `🤖 Gemini (${res.modelUsed})`;
+                    badgeOrigenImporte.style.background = 'rgba(99, 102, 241, 0.2)';
+                    badgeOrigenImporte.style.color = '#6366f1';
+                    cardResultTicket.style.display = 'flex';
+                } else {
+                    mostrarNotificacion('Aviso', 'No se pudo leer el Total automáticamente. Ingrésalo manualmente abajo.', 'error');
+                    cardResultTicket.style.display = 'flex';
+                    inputScanImporte.focus();
+                }
+            } catch (err) {
+                aiProcessingTicket.style.display = 'none';
+                mostrarNotificacion('Error', err.message, 'error');
+                cardResultTicket.style.display = 'flex';
+                inputScanImporte.focus();
+            }
+        });
+    }
+
+    if (btnSubirFotoTicket) {
+        btnSubirFotoTicket.addEventListener('click', () => {
+            if (fileInputTicket) fileInputTicket.click();
+        });
+    }
+
+    if (fileInputTicket) {
+        fileInputTicket.addEventListener('change', async (e) => {
+            const file = e.target.files[0];
+            if (!file) return;
+            const img = new Image();
+            img.onload = async () => {
+                detenerEscaneoQrTicket();
+                aiProcessingTicket.style.display = 'flex';
+                try {
+                    const res = await ScannerService.extractTicketData(img);
+                    aiProcessingTicket.style.display = 'none';
+                    if (res.importe !== null && !isNaN(res.importe)) {
+                        inputScanImporte.value = res.importe.toFixed(2);
+                        badgeOrigenImporte.textContent = `🤖 Gemini (${res.modelUsed})`;
+                        cardResultTicket.style.display = 'flex';
+                    } else {
+                        mostrarNotificacion('Aviso', 'Ingrese el importe en la casilla.', 'error');
+                        cardResultTicket.style.display = 'flex';
+                    }
+                } catch (err) {
+                    aiProcessingTicket.style.display = 'none';
+                    mostrarNotificacion('Error', err.message, 'error');
+                    cardResultTicket.style.display = 'flex';
+                }
+            };
+            img.src = URL.createObjectURL(file);
+        });
+    }
+
+    if (btnVolverAReceta) {
+        btnVolverAReceta.addEventListener('click', async () => {
+            ScannerService.stopCamera(videoTicket);
+            irAPaso(1);
+            try {
+                await ScannerService.startCamera(videoReceta);
+            } catch (err) {
+                console.warn(err);
+            }
+        });
+    }
+
+    if (btnAvanzarConfirmacion) {
+        btnAvanzarConfirmacion.addEventListener('click', () => {
+            detenerEscaneoQrTicket();
+            const nombre = inputScanNombre.value.trim();
+            const afiliado = inputScanAfiliado.value.trim();
+            const importe = parseFloat(inputScanImporte.value);
+
+            if (!nombre) {
+                mostrarNotificacion('Aviso', 'Falta el nombre del afiliado.', 'error');
+                return;
+            }
+            if (isNaN(importe) || importe <= 0) {
+                mostrarNotificacion('Aviso', 'Por favor ingresa un importe válido para el ticket.', 'error');
+                return;
+            }
+
+            irAPaso(3);
+            confirmNombre.textContent = nombre;
+            confirmAfiliado.textContent = afiliado || 'Sin número';
+            confirmImporte.textContent = `$${importe.toFixed(2)}`;
+
+            const totalCalculado = (importe * 100 / 75);
+            confirmCargoAfiliado.textContent = `$${importe.toFixed(2)}`;
+            confirmCargoFarmacia.textContent = `$${(totalCalculado * 0.125).toFixed(2)}`;
+            confirmCargoOS.textContent = `$${(totalCalculado * 0.125).toFixed(2)}`;
+        });
+    }
+
+    // --- PASO 3: Guardar y Siguiente ---
+    if (btnEditarDesdeConfirmacion) {
+        btnEditarDesdeConfirmacion.addEventListener('click', async () => {
+            irAPaso(2);
+            try {
+                await ScannerService.startCamera(videoTicket);
+            } catch (err) {
+                console.warn(err);
+            }
+        });
+    }
+
+    if (btnGuardarYSiguiente) {
+        btnGuardarYSiguiente.addEventListener('click', async () => {
+            const nombre = inputScanNombre.value.trim();
+            const afiliado = inputScanAfiliado.value.trim();
+            const importe = parseFloat(inputScanImporte.value);
+
+            if (!nombre || isNaN(importe) || importe <= 0) {
+                mostrarNotificacion('Aviso', 'Datos incompletos para guardar.', 'error');
+                return;
+            }
+
+            btnGuardarYSiguiente.disabled = true;
+            btnGuardarYSiguiente.textContent = 'Guardando en Neon...';
+
+            try {
+                const loteActivo = getLoteActivo();
+                const email = obtenerEmailUsuario();
+                const operador = obtenerNombreOperador();
+                let guardado = null;
+
+                if (loteActivo && loteActivo.id) {
+                    guardado = await guardarRegistroEnNeon({
+                        lote_id: loteActivo.id,
+                        farmacia_email: email,
+                        nombre,
+                        afiliado,
+                        importe,
+                        cargado_por: operador
+                    });
+                }
+
+                data.push({
+                    id: guardado ? guardado.id : undefined,
+                    nombre,
+                    afiliado,
+                    importe,
+                    cargado_por: operador
+                });
+
+                if (!baseDatos.some(c => c.NOMBRE && c.NOMBRE.toLowerCase() === nombre.toLowerCase()) &&
+                    !nuevosClientes.some(c => c.Cliente.toLowerCase() === nombre.toLowerCase())) {
+                    nuevosClientes.push({ Cliente: nombre, Afiliado: afiliado });
+                }
+
+                actualizarTabla();
+                mostrarNotificacion('Guardado', `Comprobante de ${nombre} registrado con éxito.`, 'success');
+
+                // Limpiar inputs y reiniciar wizard para la siguiente receta
+                inputScanNombre.value = '';
+                inputScanAfiliado.value = '';
+                inputScanImporte.value = '';
+                cardResultReceta.style.display = 'none';
+                cardResultTicket.style.display = 'none';
+
+                irAPaso(1);
+                try {
+                    await ScannerService.startCamera(videoReceta);
+                } catch (err) {
+                    console.warn(err);
+                }
+            } catch (e) {
+                console.error('Error al guardar:', e);
+                mostrarNotificacion('Error', 'No se pudo guardar: ' + e.message, 'error');
+            } finally {
+                btnGuardarYSiguiente.disabled = false;
+                btnGuardarYSiguiente.innerHTML = `<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"></polyline></svg><span>GUARDAR Y SIGUIENTE RECETA</span>`;
+            }
+        });
     }
 });

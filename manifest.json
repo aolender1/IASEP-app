@@ -1,0 +1,24 @@
+{
+  "name": "IASEP Farmacia — Gestión y Carga",
+  "short_name": "IASEP",
+  "description": "Sistema de gestión y carga asistida por IA y QR para recetarios IASEP",
+  "start_url": "./index.html",
+  "display": "standalone",
+  "background_color": "#0f172a",
+  "theme_color": "#0f172a",
+  "orientation": "portrait-primary",
+  "icons": [
+    {
+      "src": "assets/icon.svg",
+      "sizes": "192x192 512x512",
+      "type": "image/svg+xml",
+      "purpose": "any maskable"
+    },
+    {
+      "src": "assets/favicon.ico",
+      "sizes": "64x64 32x32 24x24 16x16",
+      "type": "image/x-icon"
+    }
+  ],
+  "categories": ["medical", "business", "productivity"]
+}

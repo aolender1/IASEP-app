@@ -5,7 +5,11 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Login - IASEP Farmacia</title>
+    <!-- PWA Manifest -->
+    <link rel="manifest" href="manifest.json">
+    <meta name="theme-color" content="#0f172a">
     <link rel="icon" type="image/x-icon" href="assets/favicon.ico">
+    <link rel="apple-touch-icon" href="assets/icon.svg">
     <link rel="stylesheet" href="styles.css">
     <!-- Estilos específicos para el login -->
     <style>
@@ -87,6 +91,14 @@
     <script>
         // Script para manejar el cambio de tema
         document.addEventListener('DOMContentLoaded', function () {
+            // Si ya está logueado en este dispositivo/PWA, ir directo a index.html
+            const alreadyLogged = sessionStorage.getItem('isLoggedIn') || localStorage.getItem('isLoggedIn');
+            const token = sessionStorage.getItem('neonToken') || localStorage.getItem('neonToken');
+            if (alreadyLogged === 'true' && token) {
+                window.location.href = 'index.html';
+                return;
+            }
+
             const themeToggle = document.getElementById('themeToggle');
 
             // Función para alternar el tema
