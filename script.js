@@ -1926,6 +1926,7 @@ document.addEventListener("DOMContentLoaded", function () {
             }
 
             modalScanner.style.display = 'block';
+            document.body.style.overflow = 'hidden';
             cardResultReceta.style.display = 'none';
             cardResultTicket.style.display = 'none';
             if (cameraBoxReceta) cameraBoxReceta.classList.remove('compact-preview');
@@ -1958,6 +1959,7 @@ document.addEventListener("DOMContentLoaded", function () {
         ScannerService.stopCamera(videoReceta);
         ScannerService.stopCamera(videoTicket);
         if (modalScanner) modalScanner.style.display = 'none';
+        document.body.style.overflow = '';
         cargarRegistrosDeLoteActivo();
     }
 

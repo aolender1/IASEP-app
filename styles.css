@@ -70,11 +70,16 @@
 html,
 body {
     height: 100%;
+    width: 100%;
+    max-width: 100vw;
+    overflow-x: hidden;
+    position: relative;
 }
 
 body {
     display: flex;
     flex-direction: column;
+    width: 100%;
     background-color: var(--color-background);
     color: var(--color-text);
     font-family: 'Segoe UI', -apple-system, BlinkMacSystemFont, 'Roboto', sans-serif;
@@ -765,39 +770,16 @@ body.dark-theme {
 }
 
 /* ==================== RESPONSIVE ==================== */
-/* Tablets y pantallas pequeÃ±as */
+/* Tablets y pantallas medianas */
 @media (max-width: 1024px) {
     .container {
         grid-template-columns: 1fr;
-        max-width: 600px;
+        max-width: 720px;
+        width: 100%;
     }
-
-    /* El orden natural del HTML se mantiene: form-container primero, sidebar despuÃ©s */
 }
 
 @media (max-width: 768px) {
-    .header {
-        flex-direction: column;
-        gap: var(--spacing-md);
-        padding: var(--spacing-md);
-        position: relative;
-    }
-
-    .header-left {
-        width: 100%;
-        flex-wrap: wrap;
-        justify-content: center;
-    }
-
-    .header-right {
-        width: 100%;
-        justify-content: center;
-    }
-
-    .container {
-        margin-top: var(--spacing-xl);
-        padding: var(--spacing-md);
-    }
 
     .user-profile {
         flex-wrap: wrap;
@@ -1910,35 +1892,48 @@ body.dark-theme {
 
 /* ==================== RESPONSIVE MÓVIL (PWA) ==================== */
 @media (max-width: 768px) {
+    html, body {
+        width: 100% !important;
+        max-width: 100vw !important;
+        overflow-x: hidden !important;
+    }
+
     .header {
-        padding: 8px 10px;
-        flex-direction: column;
-        align-items: stretch;
-        gap: 8px;
-        position: relative;
+        width: 100% !important;
+        max-width: 100% !important;
+        box-sizing: border-box !important;
+        padding: 8px 10px !important;
+        flex-direction: column !important;
+        align-items: stretch !important;
+        gap: 8px !important;
+        position: relative !important;
     }
 
     .header-left {
-        width: 100%;
-        display: flex;
-        align-items: center;
-        justify-content: space-between;
-        flex-wrap: wrap;
-        gap: 6px;
+        width: 100% !important;
+        max-width: 100% !important;
+        display: flex !important;
+        align-items: center !important;
+        justify-content: space-between !important;
+        flex-wrap: wrap !important;
+        gap: 6px !important;
+        box-sizing: border-box !important;
     }
 
     .header-right {
-        display: flex;
-        align-items: center;
-        justify-content: space-between;
-        width: 100%;
-        gap: 6px;
-        padding-top: 6px;
-        border-top: 1px solid var(--color-border);
+        display: flex !important;
+        align-items: center !important;
+        justify-content: space-between !important;
+        width: 100% !important;
+        max-width: 100% !important;
+        gap: 6px !important;
+        padding-top: 6px !important;
+        border-top: 1px solid var(--color-border) !important;
+        box-sizing: border-box !important;
     }
 
     .user-info {
-        display: none; /* Ocultar email en teléfonos para que se vea la tuerca y perfil */
+        display: none !important; /* Ocultar email en teléfonos para que se vea la tuerca y perfil */
     }
 
     .user-profile {
@@ -1952,53 +1947,136 @@ body.dark-theme {
     }
 
     .container {
-        flex-direction: column;
-        padding-top: 12px;
-        margin-top: 0;
+        display: flex !important;
+        flex-direction: column !important;
+        width: 100% !important;
+        max-width: 100% !important;
+        min-width: 0 !important;
+        box-sizing: border-box !important;
+        padding: 12px 10px !important;
+        margin: 0 !important;
+        gap: 14px !important;
     }
 
-    /* Modal Escáner pantalla completa en teléfonos */
+    .form-container,
+    .sidebar,
+    .form-card,
+    .card,
+    .table-card {
+        width: 100% !important;
+        max-width: 100% !important;
+        min-width: 0 !important;
+        box-sizing: border-box !important;
+    }
+
+    .card-body {
+        width: 100% !important;
+        max-width: 100% !important;
+        min-width: 0 !important;
+        overflow-x: auto !important;
+        -webkit-overflow-scrolling: touch !important;
+        box-sizing: border-box !important;
+    }
+
+    #tabla-datos {
+        min-width: 580px; /* Permite scroll horizontal fluido dentro de la tarjeta sin ensanchar la página */
+    }
+
+    /* Modal Escáner pantalla completa e inmersivo en cualquier modelo de celular */
+    .modal-scanner-overlay {
+        position: fixed !important;
+        top: 0 !important;
+        left: 0 !important;
+        right: 0 !important;
+        bottom: 0 !important;
+        width: 100% !important;
+        width: 100vw !important;
+        height: 100% !important;
+        height: 100dvh !important;
+        max-width: 100vw !important;
+        max-height: 100dvh !important;
+        margin: 0 !important;
+        padding: 0 !important;
+        z-index: 99999 !important;
+        overflow: hidden !important;
+        background-color: #0b1120 !important;
+    }
+
     .modal-scanner-container {
-        margin: 0;
-        max-height: 100dvh;
-        height: 100dvh;
-        width: 100vw;
-        border-radius: 0;
-        border: none;
-        display: flex;
-        flex-direction: column;
+        position: absolute !important;
+        top: 0 !important;
+        left: 0 !important;
+        right: 0 !important;
+        bottom: 0 !important;
+        margin: 0 !important;
+        max-height: 100dvh !important;
+        height: 100dvh !important;
+        height: 100% !important;
+        width: 100vw !important;
+        width: 100% !important;
+        max-width: 100vw !important;
+        max-width: 100% !important;
+        border-radius: 0 !important;
+        border: none !important;
+        display: flex !important;
+        flex-direction: column !important;
+        box-sizing: border-box !important;
+        overflow: hidden !important;
+        background: var(--color-surface);
+    }
+
+    .dark-theme .modal-scanner-container {
+        background: #0f172a !important;
     }
 
     .scanner-header {
-        padding: 8px 12px;
-        flex-shrink: 0;
+        padding: 8px 12px !important;
+        flex-shrink: 0 !important;
+        width: 100% !important;
+        box-sizing: border-box !important;
     }
 
     .scanner-stepper {
-        padding: 6px 12px;
-        flex-shrink: 0;
+        padding: 6px 12px !important;
+        flex-shrink: 0 !important;
+        width: 100% !important;
+        box-sizing: border-box !important;
     }
 
     .scanner-step-view {
-        padding: 6px 8px 10px 8px;
-        gap: 8px;
-        flex: 1;
-        min-height: 0;
-        display: flex;
-        flex-direction: column;
-        overflow-y: auto;
-        -webkit-overflow-scrolling: touch;
+        padding: 6px 8px 10px 8px !important;
+        gap: 8px !important;
+        flex: 1 !important;
+        min-height: 0 !important;
+        width: 100% !important;
+        box-sizing: border-box !important;
+        display: flex !important;
+        flex-direction: column !important;
+        overflow-y: auto !important;
+        -webkit-overflow-scrolling: touch !important;
     }
 
     .camera-viewport-box {
-        width: 100%;
-        max-width: 100%;
-        flex: 1;
-        min-height: 0;
-        height: auto;
-        max-height: none;
-        margin: 0;
-        border-radius: 16px;
+        width: 100% !important;
+        max-width: 100% !important;
+        flex: 1 !important;
+        min-height: 0 !important;
+        height: 100% !important;
+        max-height: none !important;
+        margin: 0 !important;
+        border-radius: 16px !important;
+        position: relative !important;
+        overflow: hidden !important;
+        box-sizing: border-box !important;
+    }
+
+    .camera-viewport-box video {
+        position: absolute !important;
+        top: 0 !important;
+        left: 0 !important;
+        width: 100% !important;
+        height: 100% !important;
+        object-fit: cover !important;
     }
 
     .camera-viewport-box.compact-preview {
@@ -2008,12 +2086,14 @@ body.dark-theme {
     }
 
     .scanner-actions-bar {
-        flex-shrink: 0;
-        padding: 4px 0 2px 0;
+        flex-shrink: 0 !important;
+        width: 100% !important;
+        box-sizing: border-box !important;
+        padding: 4px 0 2px 0 !important;
     }
 
     .btn-guardar-siguiente {
-        padding: 18px 20px;
-        font-size: 17px;
+        padding: 16px 20px !important;
+        font-size: 16px !important;
     }
 }
