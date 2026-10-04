@@ -1300,22 +1300,22 @@ body.dark-theme {
 
 /* Camera Viewport */
 .scanner-step-view {
-    padding: 16px;
-    overflow-y: auto;
+    padding: 12px 14px;
+    flex: 1;
+    min-height: 0;
     display: flex;
     flex-direction: column;
-    gap: 14px;
+    gap: 10px;
+    overflow-y: auto;
+    -webkit-overflow-scrolling: touch;
 }
 
 .camera-viewport-box {
     position: relative;
     width: 100%;
-    max-width: 380px;
-    height: 52vh;
-    min-height: 380px;
-    max-height: 520px;
-    aspect-ratio: 3 / 4;
-    margin: 0 auto;
+    flex: 1;
+    min-height: 280px;
+    margin: 0;
     background: #000000;
     border-radius: var(--border-radius-md);
     overflow: hidden;
@@ -1323,12 +1323,18 @@ body.dark-theme {
     align-items: center;
     justify-content: center;
     box-shadow: 0 10px 30px rgba(0, 0, 0, 0.4);
+    transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.camera-viewport-box.compact-preview {
+    flex: 0 0 160px !important;
+    max-height: 160px !important;
+    min-height: 140px !important;
 }
 
 .camera-viewport-box video {
     position: absolute;
-    top: 0;
-    left: 0;
+    inset: 0;
     width: 100%;
     height: 100%;
     object-fit: cover;
@@ -1956,14 +1962,28 @@ body.dark-theme {
         margin: 0;
         max-height: 100dvh;
         height: 100dvh;
+        width: 100vw;
         border-radius: 0;
         border: none;
+        display: flex;
+        flex-direction: column;
+    }
+
+    .scanner-header {
+        padding: 8px 12px;
+        flex-shrink: 0;
+    }
+
+    .scanner-stepper {
+        padding: 6px 12px;
+        flex-shrink: 0;
     }
 
     .scanner-step-view {
-        padding: 10px 14px;
-        gap: 12px;
+        padding: 6px 8px 10px 8px;
+        gap: 8px;
         flex: 1;
+        min-height: 0;
         display: flex;
         flex-direction: column;
         overflow-y: auto;
@@ -1972,13 +1992,24 @@ body.dark-theme {
 
     .camera-viewport-box {
         width: 100%;
-        max-width: 360px;
-        height: 50vh;
-        min-height: 360px;
-        max-height: 480px;
-        aspect-ratio: 3 / 4;
-        margin: 0 auto;
+        max-width: 100%;
+        flex: 1;
+        min-height: 0;
+        height: auto;
+        max-height: none;
+        margin: 0;
         border-radius: 16px;
+    }
+
+    .camera-viewport-box.compact-preview {
+        flex: 0 0 160px !important;
+        max-height: 160px !important;
+        min-height: 140px !important;
+    }
+
+    .scanner-actions-bar {
+        flex-shrink: 0;
+        padding: 4px 0 2px 0;
     }
 
     .btn-guardar-siguiente {

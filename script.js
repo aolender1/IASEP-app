@@ -1827,6 +1827,8 @@ document.addEventListener("DOMContentLoaded", function () {
 
     // Paso 1
     const videoReceta = document.getElementById('videoReceta');
+    const cameraBoxReceta = document.getElementById('cameraBoxReceta');
+    const actionsBarReceta = document.getElementById('actionsBarReceta');
     const btnCapturarReceta = document.getElementById('btnCapturarReceta');
     const btnSubirFotoReceta = document.getElementById('btnSubirFotoReceta');
     const fileInputReceta = document.getElementById('fileInputReceta');
@@ -1843,6 +1845,8 @@ document.addEventListener("DOMContentLoaded", function () {
     const btnAvanzarTicket = document.getElementById('btnAvanzarTicket');
 
     // Paso 2
+    const cameraBoxTicket = document.getElementById('cameraBoxTicket');
+    const actionsBarTicket = document.getElementById('actionsBarTicket');
     const videoTicket = document.getElementById('videoTicket');
     const btnCapturarTicketTotal = document.getElementById('btnCapturarTicketTotal');
     const btnSubirFotoTicket = document.getElementById('btnSubirFotoTicket');
@@ -1854,6 +1858,7 @@ document.addEventListener("DOMContentLoaded", function () {
     const badgeOrigenImporte = document.getElementById('badgeOrigenImporte');
     const inputScanImporte = document.getElementById('inputScanImporte');
     const btnVolverAReceta = document.getElementById('btnVolverAReceta');
+    const btnReintentarTicket = document.getElementById('btnReintentarTicket');
     const btnAvanzarConfirmacion = document.getElementById('btnAvanzarConfirmacion');
 
     // Paso 3
@@ -1883,6 +1888,8 @@ document.addEventListener("DOMContentLoaded", function () {
             stepView1.style.display = 'flex';
             stepView2.style.display = 'none';
             stepView3.style.display = 'none';
+            if (cameraBoxReceta) cameraBoxReceta.classList.remove('compact-preview');
+            if (actionsBarReceta) actionsBarReceta.style.display = 'flex';
             detenerEscaneoQrTicket();
         } else if (paso === 2) {
             stepPill1.classList.add('done');
@@ -1890,6 +1897,13 @@ document.addEventListener("DOMContentLoaded", function () {
             stepView1.style.display = 'none';
             stepView2.style.display = 'flex';
             stepView3.style.display = 'none';
+            if (cameraBoxTicket) cameraBoxTicket.classList.remove('compact-preview');
+            if (actionsBarTicket) actionsBarTicket.style.display = 'flex';
+            if (qrStatusIndicator) {
+                qrStatusIndicator.style.display = 'flex';
+                qrStatusText.textContent = 'Buscando QR de AFIP... (0 peticiones IA)';
+                qrStatusIndicator.style.background = '';
+            }
             iniciarEscaneoQrTicket();
         } else if (paso === 3) {
             stepPill1.classList.add('done');
@@ -1914,6 +1928,10 @@ document.addEventListener("DOMContentLoaded", function () {
             modalScanner.style.display = 'block';
             cardResultReceta.style.display = 'none';
             cardResultTicket.style.display = 'none';
+            if (cameraBoxReceta) cameraBoxReceta.classList.remove('compact-preview');
+            if (cameraBoxTicket) cameraBoxTicket.classList.remove('compact-preview');
+            if (actionsBarReceta) actionsBarReceta.style.display = 'flex';
+            if (actionsBarTicket) actionsBarTicket.style.display = 'flex';
             inputScanNombre.value = '';
             inputScanAfiliado.value = '';
             inputScanImporte.value = '';
@@ -1966,11 +1984,15 @@ document.addEventListener("DOMContentLoaded", function () {
                 
                 verificarAfiliadoEnBase(res.nombre, res.afiliado);
                 cardResultReceta.style.display = 'flex';
+                if (cameraBoxReceta) cameraBoxReceta.classList.add('compact-preview');
+                if (actionsBarReceta) actionsBarReceta.style.display = 'none';
                 cardResultReceta.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
             } catch (err) {
                 aiProcessingReceta.style.display = 'none';
                 mostrarNotificacion('Error de Extracción', err.message, 'error');
                 cardResultReceta.style.display = 'flex';
+                if (cameraBoxReceta) cameraBoxReceta.classList.add('compact-preview');
+                if (actionsBarReceta) actionsBarReceta.style.display = 'none';
             }
         });
     }
@@ -2006,11 +2028,15 @@ document.addEventListener("DOMContentLoaded", function () {
                     badgeAiModeloReceta.textContent = `🤖 ${res.modelUsed}`;
                     verificarAfiliadoEnBase(res.nombre, res.afiliado);
                     cardResultReceta.style.display = 'flex';
+                    if (cameraBoxReceta) cameraBoxReceta.classList.add('compact-preview');
+                    if (actionsBarReceta) actionsBarReceta.style.display = 'none';
                     cardResultReceta.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
                 } catch (err) {
                     aiProcessingReceta.style.display = 'none';
                     mostrarNotificacion('Error de Extracción', err.message, 'error');
                     cardResultReceta.style.display = 'flex';
+                    if (cameraBoxReceta) cameraBoxReceta.classList.add('compact-preview');
+                    if (actionsBarReceta) actionsBarReceta.style.display = 'none';
                 }
             };
             img.src = URL.createObjectURL(file);
@@ -2047,6 +2073,8 @@ document.addEventListener("DOMContentLoaded", function () {
     if (btnReintentarReceta) {
         btnReintentarReceta.addEventListener('click', () => {
             cardResultReceta.style.display = 'none';
+            if (cameraBoxReceta) cameraBoxReceta.classList.remove('compact-preview');
+            if (actionsBarReceta) actionsBarReceta.style.display = 'flex';
             if (rowScanProdsReceta) rowScanProdsReceta.style.display = 'none';
             inputScanNombre.value = '';
             inputScanAfiliado.value = '';
@@ -2095,8 +2123,9 @@ document.addEventListener("DOMContentLoaded", function () {
                     badgeOrigenImporte.style.background = 'rgba(16, 185, 129, 0.2)';
                     badgeOrigenImporte.style.color = '#10b981';
                     cardResultTicket.style.display = 'flex';
-                    qrStatusText.textContent = `¡QR AFIP detectado! Importe: $${qrData.importe.toFixed(2)}`;
-                    qrStatusIndicator.style.background = 'rgba(16, 185, 129, 0.3)';
+                    if (cameraBoxTicket) cameraBoxTicket.classList.add('compact-preview');
+                    if (actionsBarTicket) actionsBarTicket.style.display = 'none';
+                    if (qrStatusIndicator) qrStatusIndicator.style.display = 'none';
                 }
             } catch (e) {
                 console.warn('Escaneo QR:', e);
@@ -2127,15 +2156,24 @@ document.addEventListener("DOMContentLoaded", function () {
                     badgeOrigenImporte.style.background = 'rgba(99, 102, 241, 0.2)';
                     badgeOrigenImporte.style.color = '#6366f1';
                     cardResultTicket.style.display = 'flex';
+                    if (cameraBoxTicket) cameraBoxTicket.classList.add('compact-preview');
+                    if (actionsBarTicket) actionsBarTicket.style.display = 'none';
+                    if (qrStatusIndicator) qrStatusIndicator.style.display = 'none';
                 } else {
                     mostrarNotificacion('Aviso', 'No se pudo leer el Total automáticamente. Ingrésalo manualmente abajo.', 'error');
                     cardResultTicket.style.display = 'flex';
+                    if (cameraBoxTicket) cameraBoxTicket.classList.add('compact-preview');
+                    if (actionsBarTicket) actionsBarTicket.style.display = 'none';
+                    if (qrStatusIndicator) qrStatusIndicator.style.display = 'none';
                     inputScanImporte.focus();
                 }
             } catch (err) {
                 aiProcessingTicket.style.display = 'none';
                 mostrarNotificacion('Error', err.message, 'error');
                 cardResultTicket.style.display = 'flex';
+                if (cameraBoxTicket) cameraBoxTicket.classList.add('compact-preview');
+                if (actionsBarTicket) actionsBarTicket.style.display = 'none';
+                if (qrStatusIndicator) qrStatusIndicator.style.display = 'none';
                 inputScanImporte.focus();
             }
         });
@@ -2165,23 +2203,48 @@ document.addEventListener("DOMContentLoaded", function () {
                         }
                         badgeOrigenImporte.textContent = `🤖 Gemini (${res.modelUsed})`;
                         cardResultTicket.style.display = 'flex';
+                        if (cameraBoxTicket) cameraBoxTicket.classList.add('compact-preview');
+                        if (actionsBarTicket) actionsBarTicket.style.display = 'none';
+                        if (qrStatusIndicator) qrStatusIndicator.style.display = 'none';
                     } else {
                         mostrarNotificacion('Aviso', 'Ingrese el importe en la casilla.', 'error');
                         cardResultTicket.style.display = 'flex';
+                        if (cameraBoxTicket) cameraBoxTicket.classList.add('compact-preview');
+                        if (actionsBarTicket) actionsBarTicket.style.display = 'none';
+                        if (qrStatusIndicator) qrStatusIndicator.style.display = 'none';
                     }
                 } catch (err) {
                     aiProcessingTicket.style.display = 'none';
                     mostrarNotificacion('Error', err.message, 'error');
                     cardResultTicket.style.display = 'flex';
+                    if (cameraBoxTicket) cameraBoxTicket.classList.add('compact-preview');
+                    if (actionsBarTicket) actionsBarTicket.style.display = 'none';
+                    if (qrStatusIndicator) qrStatusIndicator.style.display = 'none';
                 }
             };
             img.src = URL.createObjectURL(file);
         });
     }
 
+    if (btnReintentarTicket) {
+        btnReintentarTicket.addEventListener('click', () => {
+            cardResultTicket.style.display = 'none';
+            inputScanImporte.value = '';
+            if (cameraBoxTicket) cameraBoxTicket.classList.remove('compact-preview');
+            if (actionsBarTicket) actionsBarTicket.style.display = 'flex';
+            if (qrStatusIndicator) {
+                qrStatusIndicator.style.display = 'flex';
+                qrStatusText.textContent = 'Buscando QR de AFIP... (0 peticiones IA)';
+                qrStatusIndicator.style.background = '';
+            }
+            iniciarEscaneoQrTicket();
+        });
+    }
+
     if (btnVolverAReceta) {
         btnVolverAReceta.addEventListener('click', async () => {
             ScannerService.stopCamera(videoTicket);
+            if (cameraBoxTicket) cameraBoxTicket.classList.remove('compact-preview');
             irAPaso(1);
             try {
                 await ScannerService.startCamera(videoReceta);

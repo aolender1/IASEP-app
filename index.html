@@ -12,15 +12,15 @@
     <meta name="apple-mobile-web-app-capable" content="yes">
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
     <link rel="icon" type="image/x-icon" href="assets/favicon.ico">
-    <link rel="stylesheet" href="styles.css?v=2.2">
+    <link rel="stylesheet" href="styles.css?v=2.3">
     <!-- Librerías externas -->
     <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.4/xlsx.full.min.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.5.31/jspdf.plugin.autotable.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/jsqr@1.4.0/dist/jsQR.min.js"></script>
     <!-- Neon y Scanner IA -->
-    <script src="neon-config.js?v=2.2"></script>
-    <script src="scanner-service.js?v=2.2"></script>
+    <script src="neon-config.js?v=2.3"></script>
+    <script src="scanner-service.js?v=2.3"></script>
     <!-- Registro Service Worker PWA -->
     <script>
         if ('serviceWorker' in navigator) {
@@ -426,7 +426,7 @@
 
             <!-- PASO 1: Captura de Receta -->
             <div class="scanner-step-view" id="stepView1">
-                <div class="camera-viewport-box">
+                <div class="camera-viewport-box" id="cameraBoxReceta">
                     <video id="videoReceta" autoplay playsinline webkit-playsinline muted></video>
                     <!-- Guía de encuadre para la receta -->
                     <div class="camera-overlay-frame recipe-frame">
@@ -491,7 +491,7 @@
 
             <!-- PASO 2: Captura de Ticket (Lector QR AFIP + Fallback Foto) -->
             <div class="scanner-step-view" id="stepView2" style="display: none;">
-                <div class="camera-viewport-box">
+                <div class="camera-viewport-box" id="cameraBoxTicket">
                     <video id="videoTicket" autoplay playsinline webkit-playsinline muted></video>
                     <!-- Guía de encuadre para QR / Ticket -->
                     <div class="camera-overlay-frame ticket-frame" id="ticketQrReticle">
@@ -516,7 +516,7 @@
                 </div>
 
                 <!-- Acciones del Ticket -->
-                <div class="scanner-actions-bar">
+                <div class="scanner-actions-bar" id="actionsBarTicket">
                     <input type="file" id="fileInputTicket" accept="image/*" capture="environment" style="display: none;">
                     <button type="button" class="btn-scan-action secondary" id="btnCapturarTicketTotal" title="Si el ticket no tiene QR, tomar foto al Total">
                         <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
@@ -542,6 +542,7 @@
                     </div>
                     <div class="result-actions-row">
                         <button type="button" class="btn-mini-action" id="btnVolverAReceta">⬅ Volver a Receta</button>
+                        <button type="button" class="btn-mini-action" id="btnReintentarTicket">⟲ Reintentar</button>
                         <button type="button" class="btn-next-action" id="btnAvanzarConfirmacion">Paso 3: Confirmar ➔</button>
                     </div>
                 </div>
@@ -700,7 +701,7 @@
         <p>aolender | <a href="https://github.com/aolender1" target="_blank">GitHub</a></p>
     </footer>
 
-    <script src="script.js?v=2.2"></script>
+    <script src="script.js?v=2.3"></script>
     <!-- Script para manejar el cierre de sesion -->
     <script>
         document.getElementById('logoutBtn').addEventListener('click', function () {
