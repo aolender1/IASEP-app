@@ -1,3 +1,9 @@
+// Identificador del operador o dispositivo móvil actual
+function obtenerNombreOperador() {
+    return localStorage.getItem('nombre_dispositivo') || (window.innerWidth <= 768 ? 'Celular 1' : 'Principal');
+}
+window.obtenerNombreOperador = obtenerNombreOperador;
+
 // Cargar datos de la farmacia desde Neon al iniciar
 document.addEventListener('DOMContentLoaded', async function () {
     const isLoggedIn = sessionStorage.getItem('isLoggedIn') || localStorage.getItem('isLoggedIn');
@@ -2102,10 +2108,16 @@ document.addEventListener("DOMContentLoaded", function () {
     }
 
     // --- PASO 2: Ticket (QR AFIP + Fallback) ---
+    let isScanningQr = false;
+
     function iniciarEscaneoQrTicket() {
         if (qrScanInterval) clearInterval(qrScanInterval);
+        isScanningQr = false;
         if (qrStatusText) qrStatusText.textContent = 'Buscando QR de AFIP... (0 peticiones IA)';
-        if (qrStatusIndicator) qrStatusIndicator.style.background = 'rgba(16, 185, 129, 0.12)';
+        if (qrStatusIndicator) {
+            qrStatusIndicator.style.background = 'rgba(16, 185, 129, 0.12)';
+            qrStatusIndicator.style.display = 'flex';
+        }
 
         qrScanInterval = setInterval(async () => {
             if (currentScannerStep !== 2 || modalScanner.style.display === 'none') {
@@ -2113,26 +2125,35 @@ document.addEventListener("DOMContentLoaded", function () {
                 return;
             }
 
+            if (isScanningQr) return;
+            isScanningQr = true;
+
             try {
                 const qrData = await ScannerService.scanQrFromVideo(videoTicket);
-                if (qrData && qrData.importe) {
-                    detenerEscaneoQrTicket();
-                    if (navigator.vibrate) {
-                        try { navigator.vibrate(100); } catch (e) {}
+                if (qrData) {
+                    if (qrData.importe) {
+                        detenerEscaneoQrTicket();
+                        if (navigator.vibrate) {
+                            try { navigator.vibrate(100); } catch (e) {}
+                        }
+                        inputScanImporte.value = qrData.importe.toFixed(2);
+                        badgeOrigenImporte.textContent = '✓ QR AFIP Instantáneo';
+                        badgeOrigenImporte.style.background = 'rgba(16, 185, 129, 0.2)';
+                        badgeOrigenImporte.style.color = '#10b981';
+                        cardResultTicket.style.display = 'flex';
+                        if (cameraBoxTicket) cameraBoxTicket.classList.add('compact-preview');
+                        if (actionsBarTicket) actionsBarTicket.style.display = 'none';
+                        if (qrStatusIndicator) qrStatusIndicator.style.display = 'none';
+                    } else if (qrData.qrRaw) {
+                        if (qrStatusText) qrStatusText.textContent = '¡QR detectado! Si no carga el total, usa "Foto a TOTAL"';
                     }
-                    inputScanImporte.value = qrData.importe.toFixed(2);
-                    badgeOrigenImporte.textContent = '✓ QR AFIP Instantáneo';
-                    badgeOrigenImporte.style.background = 'rgba(16, 185, 129, 0.2)';
-                    badgeOrigenImporte.style.color = '#10b981';
-                    cardResultTicket.style.display = 'flex';
-                    if (cameraBoxTicket) cameraBoxTicket.classList.add('compact-preview');
-                    if (actionsBarTicket) actionsBarTicket.style.display = 'none';
-                    if (qrStatusIndicator) qrStatusIndicator.style.display = 'none';
                 }
             } catch (e) {
                 console.warn('Escaneo QR:', e);
+            } finally {
+                isScanningQr = false;
             }
-        }, 200);
+        }, 150);
     }
 
     function detenerEscaneoQrTicket() {
@@ -2140,6 +2161,7 @@ document.addEventListener("DOMContentLoaded", function () {
             clearInterval(qrScanInterval);
             qrScanInterval = null;
         }
+        isScanningQr = false;
     }
 
     if (btnCapturarTicketTotal) {

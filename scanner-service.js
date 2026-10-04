@@ -19,12 +19,23 @@ const ScannerService = (function () {
     let currentStream = null;
     let barcodeDetectorInstance = null;
 
-    // Inicializar BarcodeDetector nativo si el navegador lo soporta
+    // Inicializar BarcodeDetector nativo de forma segura según los formatos soportados
     if ('BarcodeDetector' in window) {
-        try {
-            barcodeDetectorInstance = new window.BarcodeDetector({ formats: ['qr_code', 'code_128', 'ean_13'] });
-        } catch (e) {
-            console.warn('BarcodeDetector no pudo ser inicializado:', e);
+        if (typeof window.BarcodeDetector.getSupportedFormats === 'function') {
+            window.BarcodeDetector.getSupportedFormats().then(supported => {
+                const desired = ['qr_code', 'code_128', 'ean_13'].filter(f => supported.includes(f));
+                if (desired.length > 0) {
+                    barcodeDetectorInstance = new window.BarcodeDetector({ formats: desired });
+                }
+            }).catch(() => {
+                try {
+                    barcodeDetectorInstance = new window.BarcodeDetector({ formats: ['qr_code'] });
+                } catch (e) {}
+            });
+        } else {
+            try {
+                barcodeDetectorInstance = new window.BarcodeDetector({ formats: ['qr_code'] });
+            } catch (e) {}
         }
     }
 
@@ -61,25 +72,54 @@ const ScannerService = (function () {
     }
 
     /**
-     * Decodificar Base64 seguro para URLs
+     * Decodificar Base64 seguro para URLs con soporte UTF-8 completo
      */
     function decodeBase64Safe(str) {
-        // Reemplazar caracteres URL safe
-        let base64 = str.replace(/-/g, '+').replace(/_/g, '/');
-        // Rellenar con '=' faltantes si es necesario
+        let clean = str;
+        try {
+            clean = decodeURIComponent(clean);
+        } catch (e) {}
+        let base64 = clean.replace(/-/g, '+').replace(/_/g, '/');
         while (base64.length % 4) {
             base64 += '=';
         }
         try {
-            return decodeURIComponent(escape(atob(base64)));
+            const binaryStr = atob(base64);
+            const bytes = new Uint8Array(binaryStr.length);
+            for (let i = 0; i < binaryStr.length; i++) {
+                bytes[i] = binaryStr.charCodeAt(i);
+            }
+            return new TextDecoder('utf-8').decode(bytes);
         } catch (e) {
-            return atob(base64);
+            try {
+                return decodeURIComponent(escape(atob(base64)));
+            } catch (err) {
+                return atob(base64);
+            }
         }
+    }
+
+    function extractNumericImporte(raw) {
+        if (typeof raw === 'number' && !isNaN(raw)) return raw;
+        if (typeof raw === 'string') {
+            const clean = raw.trim().replace(/[^0-9.,]/g, '');
+            if (clean.includes(',') && clean.includes('.')) {
+                const n = parseFloat(clean.replace(/\./g, '').replace(',', '.'));
+                if (!isNaN(n)) return n;
+            } else if (clean.includes(',')) {
+                const n = parseFloat(clean.replace(',', '.'));
+                if (!isNaN(n)) return n;
+            } else {
+                const n = parseFloat(clean);
+                if (!isNaN(n)) return n;
+            }
+        }
+        return null;
     }
 
     /**
      * Parsea un texto de QR buscando el estándar de AFIP
-     * Formato: https://www.afip.gob.ar/fe/qr/?p=BASE64
+     * Formato oficial: https://www.afip.gob.ar/fe/qr/?p=BASE64
      */
     function parseAfipQr(qrText) {
         if (!qrText || typeof qrText !== 'string') return null;
@@ -91,27 +131,69 @@ const ScannerService = (function () {
                 if (match && match[1]) {
                     pParam = match[1];
                 }
-            } else if (qrText.startsWith('{') && qrText.endsWith('}')) {
-                // Ya es un JSON directo
-                const json = JSON.parse(qrText);
-                if (json.importe !== undefined) {
-                    return {
-                        success: true,
-                        importe: parseFloat(json.importe),
-                        fecha: json.fecha,
-                        cuit: json.cuit,
-                        raw: json
-                    };
+            } else if (qrText.startsWith('http') && qrText.includes('afip.gob.ar')) {
+                const qIdx = qrText.indexOf('?');
+                if (qIdx !== -1) {
+                    pParam = qrText.substring(qIdx + 1);
                 }
             }
 
+            // Si se encontró parámetro p en la URL
             if (pParam) {
-                const decodedJson = decodeBase64Safe(pParam);
-                const json = JSON.parse(decodedJson);
-                if (json && json.importe !== undefined) {
+                let decodedJson = decodeBase64Safe(pParam);
+                if (!decodedJson.includes('{')) {
+                    try { decodedJson = decodeBase64Safe(decodeURIComponent(pParam)); } catch (e) {}
+                }
+                if (decodedJson.includes('{')) {
+                    const json = JSON.parse(decodedJson);
+                    const rawImp = json.importe !== undefined ? json.importe : (json.impTotal !== undefined ? json.impTotal : (json.total !== undefined ? json.total : json.monto));
+                    const num = extractNumericImporte(rawImp);
+                    if (num !== null) {
+                        return {
+                            success: true,
+                            importe: num,
+                            fecha: json.fecha,
+                            cuit: json.cuit,
+                            nroCmp: json.nroCmp,
+                            raw: json
+                        };
+                    }
+                }
+            }
+
+            // Si es un string base64 directo (comienza con ey o ew)
+            if (qrText.startsWith('ey') || qrText.startsWith('ew')) {
+                try {
+                    const decodedJson = decodeBase64Safe(qrText);
+                    if (decodedJson.includes('{')) {
+                        const json = JSON.parse(decodedJson);
+                        const rawImp = json.importe !== undefined ? json.importe : (json.impTotal !== undefined ? json.impTotal : (json.total !== undefined ? json.total : json.monto));
+                        const num = extractNumericImporte(rawImp);
+                        if (num !== null) {
+                            return {
+                                success: true,
+                                importe: num,
+                                fecha: json.fecha,
+                                cuit: json.cuit,
+                                nroCmp: json.nroCmp,
+                                raw: json
+                            };
+                        }
+                    }
+                } catch (e) {}
+            }
+
+            // Si es un JSON directo
+            if (qrText.includes('{') && qrText.includes('}')) {
+                const start = qrText.indexOf('{');
+                const end = qrText.lastIndexOf('}');
+                const json = JSON.parse(qrText.substring(start, end + 1));
+                const rawImp = json.importe !== undefined ? json.importe : (json.impTotal !== undefined ? json.impTotal : (json.total !== undefined ? json.total : json.monto));
+                const num = extractNumericImporte(rawImp);
+                if (num !== null) {
                     return {
                         success: true,
-                        importe: parseFloat(json.importe),
+                        importe: num,
                         fecha: json.fecha,
                         cuit: json.cuit,
                         nroCmp: json.nroCmp,
@@ -120,15 +202,14 @@ const ScannerService = (function () {
                 }
             }
 
-            // Si es un número puro o formato de importe
-            const numMatch = qrText.match(/TOTAL\s*[:$]?\s*([0-9.,]+)/i);
+            // Si es un texto con patrón TOTAL o IMPORTE
+            const numMatch = qrText.match(/(?:TOTAL|IMPORTE|MONTO)\s*[:$]?\s*([0-9.,]+)/i);
             if (numMatch) {
-                const clean = numMatch[1].replace(/\./g, '').replace(',', '.');
-                const val = parseFloat(clean);
-                if (!isNaN(val)) return { success: true, importe: val };
+                const num = extractNumericImporte(numMatch[1]);
+                if (num !== null) return { success: true, importe: num, raw: qrText };
             }
         } catch (error) {
-            console.warn('Error al decodificar QR AFIP:', error);
+            console.warn('Error al decodificar QR AFIP:', error, qrText);
         }
 
         return null;
@@ -415,17 +496,26 @@ Responde estrictamente un JSON válido:
     /**
      * Escanear código QR en un fotograma de video
      */
-    async function scanQrFromVideo(videoElement) {
-        if (!videoElement || videoElement.readyState < 2) return null;
+    // Canvas reutilizables para escaneo QR sin memory leaks
+    let qrCropCanvas = null;
+    let qrCropCtx = null;
+    let qrScanCanvas = null;
+    let qrScanCtx = null;
 
-        // 1. Intentar con BarcodeDetector nativo
+    /**
+     * Escanear código QR en un fotograma de video (optimizado para máxima nitidez en tickets)
+     */
+    async function scanQrFromVideo(videoElement) {
+        if (!videoElement || videoElement.readyState < 2 || !videoElement.videoWidth) return null;
+
+        // 1. Intentar con BarcodeDetector nativo si el navegador lo soporta (aceleración por hardware)
         if (barcodeDetectorInstance) {
             try {
                 const barcodes = await barcodeDetectorInstance.detect(videoElement);
                 if (barcodes && barcodes.length > 0) {
                     for (const barcode of barcodes) {
                         const parsed = parseAfipQr(barcode.rawValue);
-                        if (parsed) return parsed;
+                        if (parsed && parsed.importe) return parsed;
                     }
                 }
             } catch (e) {
@@ -433,21 +523,92 @@ Responde estrictamente un JSON válido:
             }
         }
 
-        // 2. Fallback con jsQR si está disponible en la página
-        if (window.jsQR) {
-            const canvas = document.createElement('canvas');
-            canvas.width = videoElement.videoWidth;
-            canvas.height = videoElement.videoHeight;
-            const ctx = canvas.getContext('2d');
-            ctx.drawImage(videoElement, 0, 0, canvas.width, canvas.height);
-            const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
-            const code = window.jsQR(imageData.data, imageData.width, imageData.height, {
-                inversionAttempts: 'dontInvert'
+        // 2. Fallback con biblioteca jsQR
+        const qrScanner = window.jsQR || (typeof jsQR !== 'undefined' ? jsQR : null);
+        if (!qrScanner) return null;
+
+        const vw = videoElement.videoWidth;
+        const vh = videoElement.videoHeight;
+
+        // PASO 1: Escaneo del centro/recuadro del ticket a alta resolución (mantiene nítidos los módulos del QR de AFIP)
+        try {
+            if (!qrCropCanvas) {
+                qrCropCanvas = document.createElement('canvas');
+                qrCropCtx = qrCropCanvas.getContext('2d', { willReadFrequently: true });
+            }
+
+            // Tomar 85% de ancho y 75% de alto en el centro (área donde el usuario coloca el ticket)
+            const cropW = Math.round(vw * 0.85);
+            const cropH = Math.round(vh * 0.75);
+            const cropX = Math.round((vw - cropW) / 2);
+            const cropY = Math.round((vh - cropH) / 2);
+
+            // Escala a máx 640px para procesar en ~10-15ms sin perder contraste
+            const maxCropDim = 640;
+            let drawW = cropW;
+            let drawH = cropH;
+            if (drawW > maxCropDim || drawH > maxCropDim) {
+                const scale = maxCropDim / Math.max(drawW, drawH);
+                drawW = Math.round(drawW * scale);
+                drawH = Math.round(drawH * scale);
+            }
+
+            if (qrCropCanvas.width !== drawW || qrCropCanvas.height !== drawH) {
+                qrCropCanvas.width = drawW;
+                qrCropCanvas.height = drawH;
+            }
+
+            qrCropCtx.drawImage(videoElement, cropX, cropY, cropW, cropH, 0, 0, drawW, drawH);
+            const cropImageData = qrCropCtx.getImageData(0, 0, drawW, drawH);
+
+            const cropCode = qrScanner(cropImageData.data, drawW, drawH, {
+                inversionAttempts: 'attemptBoth'
             });
+
+            if (cropCode && cropCode.data) {
+                const parsed = parseAfipQr(cropCode.data);
+                if (parsed && parsed.importe) return parsed;
+                return { success: true, qrRaw: cropCode.data, importe: null };
+            }
+        } catch (cropErr) {
+            console.warn('Escaneo crop QR:', cropErr);
+        }
+
+        // PASO 2: Si el crop no detectó, escanear el fotograma completo
+        try {
+            if (!qrScanCanvas) {
+                qrScanCanvas = document.createElement('canvas');
+                qrScanCtx = qrScanCanvas.getContext('2d', { willReadFrequently: true });
+            }
+
+            const maxDim = 640;
+            let targetW = vw;
+            let targetH = vh;
+            if (targetW > maxDim || targetH > maxDim) {
+                const scale = maxDim / Math.max(targetW, targetH);
+                targetW = Math.round(targetW * scale);
+                targetH = Math.round(targetH * scale);
+            }
+
+            if (qrScanCanvas.width !== targetW || qrScanCanvas.height !== targetH) {
+                qrScanCanvas.width = targetW;
+                qrScanCanvas.height = targetH;
+            }
+
+            qrScanCtx.drawImage(videoElement, 0, 0, targetW, targetH);
+            const fullImageData = qrScanCtx.getImageData(0, 0, targetW, targetH);
+
+            const code = qrScanner(fullImageData.data, targetW, targetH, {
+                inversionAttempts: 'attemptBoth'
+            });
+
             if (code && code.data) {
                 const parsed = parseAfipQr(code.data);
-                if (parsed) return parsed;
+                if (parsed && parsed.importe) return parsed;
+                return { success: true, qrRaw: code.data, importe: null };
             }
+        } catch (fullErr) {
+            console.warn('Escaneo full QR:', fullErr);
         }
 
         return null;

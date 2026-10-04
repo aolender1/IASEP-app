@@ -39,7 +39,7 @@
         }
     </style>
     <!-- Configuración de Neon -->
-    <script src="neon-config.js"></script>
+    <script src="neon-config.js?v=2.6"></script>
 </head>
 
 <body>
@@ -89,14 +89,35 @@
     </footer>
 
     <script>
-        // Script para manejar el cambio de tema
+        // Script para manejar el cambio de tema y autenticación
         document.addEventListener('DOMContentLoaded', function () {
-            // Si ya está logueado en este dispositivo/PWA, ir directo a index.html
             const alreadyLogged = sessionStorage.getItem('isLoggedIn') || localStorage.getItem('isLoggedIn');
             const token = sessionStorage.getItem('neonToken') || localStorage.getItem('neonToken');
-            if (alreadyLogged === 'true' && token) {
+
+            // Solo redirigir si el token está activo y NO ha expirado
+            if (alreadyLogged === 'true' && token && typeof isTokenExpired === 'function' && !isTokenExpired(token)) {
                 window.location.href = 'index.html';
                 return;
+            }
+
+            // Si el token expiró o la URL indica expiración, limpiar almacenamiento y avisar al usuario
+            const params = new URLSearchParams(window.location.search);
+            const expirado = params.get('expired') === '1' || (token && typeof isTokenExpired === 'function' && isTokenExpired(token));
+
+            if (expirado) {
+                sessionStorage.removeItem('neonToken');
+                localStorage.removeItem('neonToken');
+                sessionStorage.removeItem('isLoggedIn');
+                localStorage.removeItem('isLoggedIn');
+
+                const errEl = document.getElementById('errorMessage');
+                if (errEl) {
+                    errEl.textContent = 'Tu sesión ha expirado por seguridad. Por favor, ingresa tu contraseña nuevamente.';
+                    errEl.style.display = 'block';
+                    errEl.style.backgroundColor = 'rgba(234, 179, 8, 0.15)';
+                    errEl.style.color = '#eab308';
+                    errEl.style.border = '1px solid rgba(234, 179, 8, 0.3)';
+                }
             }
 
             const themeToggle = document.getElementById('themeToggle');

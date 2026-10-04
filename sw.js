@@ -1,4 +1,4 @@
-const CACHE_NAME = 'iasep-app-v2.5';
+const CACHE_NAME = 'iasep-app-v2.6';
 const ASSETS_TO_CACHE = [
   './',
   './index.html',
@@ -7,6 +7,7 @@ const ASSETS_TO_CACHE = [
   './script.js',
   './neon-config.js',
   './scanner-service.js',
+  './jsqr.min.js',
   './manifest.json',
   './assets/icon.svg',
   './assets/favicon.ico'

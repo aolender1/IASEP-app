@@ -12,15 +12,21 @@
     <meta name="apple-mobile-web-app-capable" content="yes">
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
     <link rel="icon" type="image/x-icon" href="assets/favicon.ico">
-    <link rel="stylesheet" href="styles.css?v=2.5">
+    <link rel="stylesheet" href="styles.css?v=2.6">
     <!-- Librerías externas -->
     <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.4/xlsx.full.min.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.5.31/jspdf.plugin.autotable.min.js"></script>
-    <script src="https://cdn.jsdelivr.net/npm/jsqr@1.4.0/dist/jsQR.min.js"></script>
+    <!-- Escaneo QR con biblioteca local + fallback CDN para máxima disponibilidad -->
+    <script src="jsqr.min.js"></script>
+    <script>
+        if (typeof jsQR === 'undefined') {
+            document.write('<script src="https://cdn.jsdelivr.net/npm/jsqr@1.4.0/dist/jsQR.min.js"><\/script>');
+        }
+    </script>
     <!-- Neon y Scanner IA -->
-    <script src="neon-config.js?v=2.5"></script>
-    <script src="scanner-service.js?v=2.5"></script>
+    <script src="neon-config.js?v=2.6"></script>
+    <script src="scanner-service.js?v=2.6"></script>
     <!-- Registro Service Worker PWA -->
     <script>
         if ('serviceWorker' in navigator) {
@@ -36,11 +42,26 @@
         document.addEventListener('DOMContentLoaded', async function () {
             const isLoggedIn = sessionStorage.getItem('isLoggedIn') || localStorage.getItem('isLoggedIn');
             const userEmail = sessionStorage.getItem('userEmail') || localStorage.getItem('userEmail');
-            const token = getAuthToken();
+            let token = getAuthToken();
 
             if (!isLoggedIn || !token) {
                 window.location.href = 'login.html';
                 return;
+            }
+
+            // Verificar si el token JWT expiró
+            if (typeof isTokenExpired === 'function' && isTokenExpired(token)) {
+                const fresh = await refrescarTokenNeon();
+                if (!fresh) {
+                    console.warn('Sesión expirada. Redirigiendo a login...');
+                    sessionStorage.removeItem('isLoggedIn');
+                    localStorage.removeItem('isLoggedIn');
+                    sessionStorage.removeItem('neonToken');
+                    localStorage.removeItem('neonToken');
+                    window.location.href = 'login.html?expired=1';
+                    return;
+                }
+                token = fresh;
             }
 
             if (userEmail) {
@@ -701,7 +722,7 @@
         <p>aolender | <a href="https://github.com/aolender1" target="_blank">GitHub</a></p>
     </footer>
 
-    <script src="script.js?v=2.5"></script>
+    <script src="script.js?v=2.6"></script>
     <!-- Script para manejar el cierre de sesion -->
     <script>
         document.getElementById('logoutBtn').addEventListener('click', function () {

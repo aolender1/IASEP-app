@@ -14,6 +14,68 @@ function getAuthToken() {
 }
 
 /**
+ * Verifica si un token JWT ha expirado o está próximo a expirar
+ */
+function isTokenExpired(token) {
+    if (!token) return true;
+    try {
+        const parts = token.split('.');
+        if (parts.length !== 3) return true;
+        const payloadStr = atob(parts[1].replace(/-/g, '+').replace(/_/g, '/'));
+        const payload = JSON.parse(payloadStr);
+        if (!payload.exp) return false;
+        // Si expira en menos de 60 segundos, considerarlo expirado
+        return (Date.now() / 1000) >= (payload.exp - 60);
+    } catch (e) {
+        return true;
+    }
+}
+
+/**
+ * Intenta refrescar el token JWT usando la sesión activa de Neon Auth
+ */
+async function refrescarTokenNeon() {
+    try {
+        const sessionResponse = await fetch(`${NEON_AUTH_URL}/get-session`, {
+            method: 'GET',
+            credentials: 'include',
+            headers: {
+                'Origin': window.location.origin || 'https://aolender1.github.io'
+            }
+        });
+        if (!sessionResponse.ok) return null;
+        let jwtToken = sessionResponse.headers.get('set-auth-jwt') || sessionResponse.headers.get('x-auth-jwt');
+        if (!jwtToken) {
+            const data = await sessionResponse.json().catch(() => null);
+            if (data && (data.token || data.jwt)) {
+                jwtToken = data.token || data.jwt;
+            }
+        }
+        if (jwtToken) {
+            sessionStorage.setItem('neonToken', jwtToken);
+            localStorage.setItem('neonToken', jwtToken);
+            return jwtToken;
+        }
+    } catch (e) {
+        console.warn('Error al intentar refrescar token Neon:', e);
+    }
+    return null;
+}
+
+/**
+ * Obtiene un token válido o intenta refrescarlo si expiró
+ */
+async function obtenerTokenValido() {
+    let token = getAuthToken();
+    if (!token || isTokenExpired(token)) {
+        const fresh = await refrescarTokenNeon();
+        if (fresh) return fresh;
+        return null;
+    }
+    return token;
+}
+
+/**
  * Inicia sesión utilizando Neon Auth
  */
 async function neonLogin(email, password) {
@@ -52,6 +114,12 @@ async function neonLogin(email, password) {
                     }
                 });
                 jwtToken = sessionResponse.headers.get('set-auth-jwt') || sessionResponse.headers.get('x-auth-jwt');
+                if (!jwtToken) {
+                    const sessionData = await sessionResponse.json().catch(() => null);
+                    if (sessionData && (sessionData.token || sessionData.jwt)) {
+                        jwtToken = sessionData.token || sessionData.jwt;
+                    }
+                }
             } catch (e) {
                 console.error('Error al intentar obtener JWT:', e);
             }
@@ -81,19 +149,29 @@ async function neonLogin(email, password) {
  * Obtiene datos de la farmacia según el email del usuario usando la Data API
  */
 async function obtenerDatosFarmacia(email) {
-    const token = getAuthToken();
+    let token = await obtenerTokenValido();
     if (!token) {
         console.warn('No hay token de sesión disponible.');
         return fallbackDatosFarmacia(email);
     }
 
     try {
-        const response = await fetch(`${NEON_DATA_URL}farmacias?email=eq.${encodeURIComponent(email)}`, {
+        let response = await fetch(`${NEON_DATA_URL}farmacias?email=eq.${encodeURIComponent(email)}`, {
             method: 'GET',
             headers: {
                 'Authorization': `Bearer ${token}`
             }
         });
+
+        if (response.status === 400 || response.status === 401) {
+            token = await refrescarTokenNeon();
+            if (token) {
+                response = await fetch(`${NEON_DATA_URL}farmacias?email=eq.${encodeURIComponent(email)}`, {
+                    method: 'GET',
+                    headers: { 'Authorization': `Bearer ${token}` }
+                });
+            }
+        }
 
         if (!response.ok) {
             console.warn('Error al obtener datos de farmacia de Neon:', response.statusText);
@@ -150,12 +228,12 @@ async function cargarDatosFarmacia() {
  * Guarda la API Key y modelo de Gemini en la cuenta de la farmacia en Neon DB
  */
 async function guardarConfiguracionGeminiEnNeon(apiKey, model) {
-    const token = getAuthToken();
+    let token = await obtenerTokenValido();
     const email = obtenerEmailUsuario();
     if (!token || !email) return false;
 
     try {
-        const res = await fetch(`${NEON_DATA_URL}farmacias?email=eq.${encodeURIComponent(email)}`, {
+        let res = await fetch(`${NEON_DATA_URL}farmacias?email=eq.${encodeURIComponent(email)}`, {
             method: 'PATCH',
             headers: {
                 'Authorization': `Bearer ${token}`,
@@ -167,6 +245,24 @@ async function guardarConfiguracionGeminiEnNeon(apiKey, model) {
                 gemini_model: model
             })
         });
+
+        if (res.status === 400 || res.status === 401) {
+            token = await refrescarTokenNeon();
+            if (token) {
+                res = await fetch(`${NEON_DATA_URL}farmacias?email=eq.${encodeURIComponent(email)}`, {
+                    method: 'PATCH',
+                    headers: {
+                        'Authorization': `Bearer ${token}`,
+                        'Content-Type': 'application/json',
+                        'Prefer': 'return=representation'
+                    },
+                    body: JSON.stringify({
+                        gemini_api_key: apiKey,
+                        gemini_model: model
+                    })
+                });
+            }
+        }
 
         if (res.ok) {
             if (farmaciaInfoGlobal) {
@@ -206,13 +302,21 @@ function getFarmaciaInfo() {
  * Obtener todos los lotes de la farmacia
  */
 async function obtenerLotesFarmacia(email) {
-    const token = getAuthToken();
+    let token = await obtenerTokenValido();
     if (!token) return [];
 
     try {
-        const res = await fetch(`${NEON_DATA_URL}lotes?farmacia_email=eq.${encodeURIComponent(email)}&order=id.desc`, {
+        let res = await fetch(`${NEON_DATA_URL}lotes?farmacia_email=eq.${encodeURIComponent(email)}&order=id.desc`, {
             headers: { 'Authorization': `Bearer ${token}` }
         });
+        if (res.status === 400 || res.status === 401) {
+            token = await refrescarTokenNeon();
+            if (token) {
+                res = await fetch(`${NEON_DATA_URL}lotes?farmacia_email=eq.${encodeURIComponent(email)}&order=id.desc`, {
+                    headers: { 'Authorization': `Bearer ${token}` }
+                });
+            }
+        }
         if (!res.ok) throw new Error(`HTTP ${res.status}`);
         return await res.json();
     } catch (e) {
@@ -225,22 +329,39 @@ async function obtenerLotesFarmacia(email) {
  * Crear un nuevo lote en Neon
  */
 async function crearLoteEnNeon(nombre, email) {
-    const token = getAuthToken();
+    let token = await obtenerTokenValido();
     if (!token) throw new Error('No hay sesión activa');
 
-    const res = await fetch(`${NEON_DATA_URL}lotes`, {
+    const payload = {
+        farmacia_email: email,
+        nombre: nombre,
+        activo: true
+    };
+
+    let res = await fetch(`${NEON_DATA_URL}lotes`, {
         method: 'POST',
         headers: {
             'Authorization': `Bearer ${token}`,
             'Content-Type': 'application/json',
             'Prefer': 'return=representation'
         },
-        body: JSON.stringify({
-            farmacia_email: email,
-            nombre: nombre,
-            activo: true
-        })
+        body: JSON.stringify(payload)
     });
+
+    if (res.status === 400 || res.status === 401) {
+        token = await refrescarTokenNeon();
+        if (token) {
+            res = await fetch(`${NEON_DATA_URL}lotes`, {
+                method: 'POST',
+                headers: {
+                    'Authorization': `Bearer ${token}`,
+                    'Content-Type': 'application/json',
+                    'Prefer': 'return=representation'
+                },
+                body: JSON.stringify(payload)
+            });
+        }
+    }
 
     if (!res.ok) {
         const err = await res.json().catch(() => ({}));
@@ -309,13 +430,21 @@ function getLoteActivo() {
  * Obtiene todos los registros del lote activo
  */
 async function obtenerRegistrosLote(loteId) {
-    const token = getAuthToken();
+    let token = await obtenerTokenValido();
     if (!token || !loteId) return [];
 
     try {
-        const res = await fetch(`${NEON_DATA_URL}registros?lote_id=eq.${loteId}&order=id.asc`, {
+        let res = await fetch(`${NEON_DATA_URL}registros?lote_id=eq.${loteId}&order=id.asc`, {
             headers: { 'Authorization': `Bearer ${token}` }
         });
+        if (res.status === 400 || res.status === 401) {
+            token = await refrescarTokenNeon();
+            if (token) {
+                res = await fetch(`${NEON_DATA_URL}registros?lote_id=eq.${loteId}&order=id.asc`, {
+                    headers: { 'Authorization': `Bearer ${token}` }
+                });
+            }
+        }
         if (!res.ok) throw new Error(`HTTP ${res.status}`);
         return await res.json();
     } catch (e) {
@@ -328,8 +457,8 @@ async function obtenerRegistrosLote(loteId) {
  * Guarda un comprobante en el lote de Neon
  */
 async function guardarRegistroEnNeon(registro) {
-    const token = getAuthToken();
-    if (!token) throw new Error('No hay sesión activa para guardar en Neon.');
+    let token = await obtenerTokenValido();
+    if (!token) throw new Error('No hay sesión activa para guardar en Neon. Por favor reingresa tus credenciales.');
 
     const payload = {
         lote_id: registro.lote_id,
@@ -341,7 +470,7 @@ async function guardarRegistroEnNeon(registro) {
         cargado_por: registro.cargado_por || obtenerEmailUsuario()
     };
 
-    const res = await fetch(`${NEON_DATA_URL}registros`, {
+    let res = await fetch(`${NEON_DATA_URL}registros`, {
         method: 'POST',
         headers: {
             'Authorization': `Bearer ${token}`,
@@ -350,6 +479,21 @@ async function guardarRegistroEnNeon(registro) {
         },
         body: JSON.stringify(payload)
     });
+
+    if (res.status === 400 || res.status === 401) {
+        token = await refrescarTokenNeon();
+        if (token) {
+            res = await fetch(`${NEON_DATA_URL}registros`, {
+                method: 'POST',
+                headers: {
+                    'Authorization': `Bearer ${token}`,
+                    'Content-Type': 'application/json',
+                    'Prefer': 'return=representation'
+                },
+                body: JSON.stringify(payload)
+            });
+        }
+    }
 
     if (!res.ok) {
         const err = await res.json().catch(() => ({}));
@@ -364,13 +508,23 @@ async function guardarRegistroEnNeon(registro) {
  * Elimina un registro de Neon por su ID
  */
 async function eliminarRegistroDeNeon(registroId) {
-    const token = getAuthToken();
+    let token = await obtenerTokenValido();
     if (!token) throw new Error('No hay sesión activa');
 
-    const res = await fetch(`${NEON_DATA_URL}registros?id=eq.${registroId}`, {
+    let res = await fetch(`${NEON_DATA_URL}registros?id=eq.${registroId}`, {
         method: 'DELETE',
         headers: { 'Authorization': `Bearer ${token}` }
     });
+
+    if (res.status === 400 || res.status === 401) {
+        token = await refrescarTokenNeon();
+        if (token) {
+            res = await fetch(`${NEON_DATA_URL}registros?id=eq.${registroId}`, {
+                method: 'DELETE',
+                headers: { 'Authorization': `Bearer ${token}` }
+            });
+        }
+    }
 
     if (!res.ok && res.status !== 204) {
         throw new Error(`Error al eliminar registro HTTP ${res.status}`);
