@@ -12,20 +12,22 @@
     <meta name="apple-mobile-web-app-capable" content="yes">
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
     <link rel="icon" type="image/x-icon" href="assets/favicon.ico">
-    <link rel="stylesheet" href="styles.css">
+    <link rel="stylesheet" href="styles.css?v=2.2">
     <!-- Librerías externas -->
     <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.4/xlsx.full.min.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.5.31/jspdf.plugin.autotable.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/jsqr@1.4.0/dist/jsQR.min.js"></script>
     <!-- Neon y Scanner IA -->
-    <script src="neon-config.js"></script>
-    <script src="scanner-service.js"></script>
+    <script src="neon-config.js?v=2.2"></script>
+    <script src="scanner-service.js?v=2.2"></script>
     <!-- Registro Service Worker PWA -->
     <script>
         if ('serviceWorker' in navigator) {
             window.addEventListener('load', () => {
-                navigator.serviceWorker.register('./sw.js').catch(err => console.log('SW reg error:', err));
+                navigator.serviceWorker.register('./sw.js').then((reg) => {
+                    reg.update();
+                }).catch(err => console.log('SW reg error:', err));
             });
         }
     </script>
@@ -698,7 +700,7 @@
         <p>aolender | <a href="https://github.com/aolender1" target="_blank">GitHub</a></p>
     </footer>
 
-    <script src="script.js"></script>
+    <script src="script.js?v=2.2"></script>
     <!-- Script para manejar el cierre de sesion -->
     <script>
         document.getElementById('logoutBtn').addEventListener('click', function () {
