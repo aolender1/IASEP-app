@@ -1835,6 +1835,8 @@ document.addEventListener("DOMContentLoaded", function () {
     const cardResultReceta = document.getElementById('cardResultReceta');
     const inputScanNombre = document.getElementById('inputScanNombre');
     const inputScanAfiliado = document.getElementById('inputScanAfiliado');
+    const rowScanProdsReceta = document.getElementById('rowScanProdsReceta');
+    const txtScanProdsPreview = document.getElementById('txtScanProdsPreview');
     const badgePadronReceta = document.getElementById('badgePadronReceta');
     const badgeAiModeloReceta = document.getElementById('badgeAiModeloReceta');
     const btnReintentarReceta = document.getElementById('btnReintentarReceta');
@@ -1952,10 +1954,19 @@ document.addEventListener("DOMContentLoaded", function () {
                 inputScanNombre.value = res.nombre || '';
                 inputScanAfiliado.value = res.afiliado || '';
                 if (inputScanProductos) inputScanProductos.value = res.productosStr || '';
+                if (rowScanProdsReceta && txtScanProdsPreview) {
+                    if (res.productosStr) {
+                        txtScanProdsPreview.textContent = res.productosStr;
+                        rowScanProdsReceta.style.display = 'block';
+                    } else {
+                        rowScanProdsReceta.style.display = 'none';
+                    }
+                }
                 badgeAiModeloReceta.textContent = `🤖 ${res.modelUsed}`;
                 
                 verificarAfiliadoEnBase(res.nombre, res.afiliado);
                 cardResultReceta.style.display = 'flex';
+                cardResultReceta.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
             } catch (err) {
                 aiProcessingReceta.style.display = 'none';
                 mostrarNotificacion('Error de Extracción', err.message, 'error');
@@ -1984,9 +1995,18 @@ document.addEventListener("DOMContentLoaded", function () {
                     inputScanNombre.value = res.nombre || '';
                     inputScanAfiliado.value = res.afiliado || '';
                     if (inputScanProductos) inputScanProductos.value = res.productosStr || '';
+                    if (rowScanProdsReceta && txtScanProdsPreview) {
+                        if (res.productosStr) {
+                            txtScanProdsPreview.textContent = res.productosStr;
+                            rowScanProdsReceta.style.display = 'block';
+                        } else {
+                            rowScanProdsReceta.style.display = 'none';
+                        }
+                    }
                     badgeAiModeloReceta.textContent = `🤖 ${res.modelUsed}`;
                     verificarAfiliadoEnBase(res.nombre, res.afiliado);
                     cardResultReceta.style.display = 'flex';
+                    cardResultReceta.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
                 } catch (err) {
                     aiProcessingReceta.style.display = 'none';
                     mostrarNotificacion('Error de Extracción', err.message, 'error');
@@ -2027,6 +2047,7 @@ document.addEventListener("DOMContentLoaded", function () {
     if (btnReintentarReceta) {
         btnReintentarReceta.addEventListener('click', () => {
             cardResultReceta.style.display = 'none';
+            if (rowScanProdsReceta) rowScanProdsReceta.style.display = 'none';
             inputScanNombre.value = '';
             inputScanAfiliado.value = '';
             if (inputScanProductos) inputScanProductos.value = '';

@@ -138,15 +138,20 @@ const ScannerService = (function () {
      * Comprime y redimensiona una imagen antes de enviarla a Gemini
      * para reducir el tiempo de subida a menos de 200ms
      */
-    function optimizeImageForAI(imageElementOrCanvas, maxWidth = 1280) {
+    function optimizeImageForAI(imageElementOrCanvas, maxDimension = 1600) {
         return new Promise((resolve) => {
             const canvas = document.createElement('canvas');
-            let width = imageElementOrCanvas.naturalWidth || imageElementOrCanvas.videoWidth || imageElementOrCanvas.width;
-            let height = imageElementOrCanvas.naturalHeight || imageElementOrCanvas.videoHeight || imageElementOrCanvas.height;
+            let width = imageElementOrCanvas.naturalWidth || imageElementOrCanvas.videoWidth || imageElementOrCanvas.width || 1080;
+            let height = imageElementOrCanvas.naturalHeight || imageElementOrCanvas.videoHeight || imageElementOrCanvas.height || 1440;
 
-            if (width > maxWidth) {
-                height = Math.round((height * maxWidth) / width);
-                width = maxWidth;
+            if (width > maxDimension || height > maxDimension) {
+                if (width > height) {
+                    height = Math.round((height * maxDimension) / width);
+                    width = maxDimension;
+                } else {
+                    width = Math.round((width * maxDimension) / height);
+                    height = maxDimension;
+                }
             }
 
             canvas.width = width;
@@ -338,12 +343,24 @@ Responde estrictamente un JSON válido:
     async function startCamera(videoElement, facingMode = 'environment') {
         stopCamera();
 
+        // Detectar si el dispositivo está en orientación vertical o es móvil
+        const isPortrait = window.innerHeight > window.innerWidth || /iPhone|iPad|iPod|Android/i.test(navigator.userAgent);
+
+        const videoConstraints = {
+            facingMode: { ideal: facingMode }
+        };
+
+        if (isPortrait) {
+            // En celulares en posición vertical, pedir resolución en formato vertical (3:4 / 9:16)
+            videoConstraints.width = { ideal: 1080 };
+            videoConstraints.height = { ideal: 1440 };
+        } else {
+            videoConstraints.width = { ideal: 1920 };
+            videoConstraints.height = { ideal: 1080 };
+        }
+
         const constraints = {
-            video: {
-                facingMode: { ideal: facingMode },
-                width: { ideal: 1920 },
-                height: { ideal: 1080 }
-            },
+            video: videoConstraints,
             audio: false
         };
 
@@ -355,17 +372,29 @@ Responde estrictamente un JSON válido:
             }
             return true;
         } catch (err) {
-            console.error('Error al iniciar cámara:', err);
-            // Fallback a cualquier cámara disponible
+            console.warn('Fallo con constraints ideales, reintentando con facingMode básico:', err);
             try {
-                currentStream = await navigator.mediaDevices.getUserMedia({ video: true, audio: false });
+                currentStream = await navigator.mediaDevices.getUserMedia({
+                    video: { facingMode: { ideal: facingMode } },
+                    audio: false
+                });
                 if (videoElement) {
                     videoElement.srcObject = currentStream;
                     await videoElement.play();
                 }
                 return true;
             } catch (fallbackErr) {
-                throw new Error('No se pudo acceder a la cámara. Verifique los permisos en el navegador.');
+                console.warn('Fallback a cualquier cámara disponible:', fallbackErr);
+                try {
+                    currentStream = await navigator.mediaDevices.getUserMedia({ video: true, audio: false });
+                    if (videoElement) {
+                        videoElement.srcObject = currentStream;
+                        await videoElement.play();
+                    }
+                    return true;
+                } catch (finalErr) {
+                    throw new Error('No se pudo acceder a la cámara. Verifique los permisos en el navegador.');
+                }
             }
         }
     }

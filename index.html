@@ -425,20 +425,20 @@
             <!-- PASO 1: Captura de Receta -->
             <div class="scanner-step-view" id="stepView1">
                 <div class="camera-viewport-box">
-                    <video id="videoReceta" autoplay playsinline muted></video>
+                    <video id="videoReceta" autoplay playsinline webkit-playsinline muted></video>
                     <!-- Guía de encuadre para la receta -->
                     <div class="camera-overlay-frame recipe-frame">
                         <div class="frame-corner tl"></div>
                         <div class="frame-corner tr"></div>
                         <div class="frame-corner bl"></div>
                         <div class="frame-corner br"></div>
-                        <div class="frame-guide-text">Encuadra Nombre y Carnet (arriba)</div>
+                        <div class="frame-guide-text">Encuadra el recetario completo (con troqueles)</div>
                     </div>
                     <!-- Spinner de Procesamiento con IA -->
                     <div class="ai-processing-overlay" id="aiProcessingReceta" style="display: none;">
                         <div class="ai-spinner"></div>
                         <span class="ai-processing-title" id="aiModelStatusReceta">Analizando con Gemini...</span>
-                        <span class="ai-processing-sub">Extrayendo Nombre y N° Carnet impreso</span>
+                        <span class="ai-processing-sub">Extrayendo Nombre, Carnet y Troqueles</span>
                     </div>
                 </div>
 
@@ -476,6 +476,10 @@
                         <label>NÚMERO DE CARNET:</label>
                         <input type="text" id="inputScanAfiliado" class="input-scanner-edit" placeholder="3-XXXXXXXX-00">
                     </div>
+                    <div class="form-group-compact" id="rowScanProdsReceta" style="display: none;">
+                        <label>MEDICAMENTOS DETECTADOS:</label>
+                        <div id="txtScanProdsPreview" style="font-size: 12px; color: var(--color-primary); font-weight: 500; background: rgba(56, 189, 248, 0.1); padding: 5px 8px; border-radius: 4px; line-height: 1.4;"></div>
+                    </div>
                     <div class="result-actions-row">
                         <button type="button" class="btn-mini-action" id="btnReintentarReceta">⟲ Volver a sacar</button>
                         <button type="button" class="btn-next-action" id="btnAvanzarTicket">Paso 2: Ticket ➔</button>
@@ -486,11 +490,15 @@
             <!-- PASO 2: Captura de Ticket (Lector QR AFIP + Fallback Foto) -->
             <div class="scanner-step-view" id="stepView2" style="display: none;">
                 <div class="camera-viewport-box">
-                    <video id="videoTicket" autoplay playsinline muted></video>
+                    <video id="videoTicket" autoplay playsinline webkit-playsinline muted></video>
                     <!-- Guía de encuadre para QR / Ticket -->
                     <div class="camera-overlay-frame ticket-frame" id="ticketQrReticle">
+                        <div class="frame-corner tl"></div>
+                        <div class="frame-corner tr"></div>
+                        <div class="frame-corner bl"></div>
+                        <div class="frame-corner br"></div>
                         <div class="qr-scan-line"></div>
-                        <div class="frame-guide-text">Apunta al código QR AFIP al pie del ticket</div>
+                        <div class="frame-guide-text">Apunta al código QR AFIP o ticket completo</div>
                     </div>
                     <!-- Spinner de Procesamiento con IA (si se saca foto al total) -->
                     <div class="ai-processing-overlay" id="aiProcessingTicket" style="display: none;">
