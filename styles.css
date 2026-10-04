@@ -2046,14 +2046,18 @@ body.dark-theme {
     .scanner-step-view {
         padding: 6px 8px 10px 8px !important;
         gap: 8px !important;
-        flex: 1 !important;
-        min-height: 0 !important;
+        flex: 1;
+        min-height: 0;
         width: 100% !important;
         box-sizing: border-box !important;
-        display: flex !important;
-        flex-direction: column !important;
+        display: flex;
+        flex-direction: column;
         overflow-y: auto !important;
         -webkit-overflow-scrolling: touch !important;
+    }
+
+    .scanner-step-view[style*="display: none"] {
+        display: none !important;
     }
 
     .camera-viewport-box {
