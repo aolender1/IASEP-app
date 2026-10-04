@@ -244,44 +244,66 @@ const ScannerService = (function () {
     }
 
     /**
-     * Extrae datos de la receta médica IASEP
+     * Extrae datos de la receta médica IASEP (Afiliado y Troqueles de Medicamentos)
      */
     async function extractRecipeData(imageSource) {
         const { base64Data, dataUrl } = await optimizeImageForAI(imageSource);
 
         const prompt = `Observa atentamente esta foto del RECETARIO OFICIAL I.A.S.E.P. (Obra Social de Formosa).
-Debes extraer con máxima exactitud dos campos que están impresos digitalmente por computadora (no la letra manuscrita del médico):
-1. "APELLIDO Y NOMBRE" del afiliado (aparece en el casillero superior impreso por computadora, por ejemplo: "ALMIRON ANTONIO ADRIAN" u "OLIVEIRA DE DASSO ALICIA BEATRIZ"). Excluye leyendas como "Ministerio de Educación" o "Caja de Previsión".
-2. "NUMERO DE CARNET" o número de afiliado (aparece en el casillero debajo del nombre, típicamente con formato con guiones como "3-24651376-00" o "3-17091313-00"). Excluye campos adyacentes como "Sexo:" o "Edad:".
+Debes extraer con máxima exactitud los siguientes campos:
+1. "APELLIDO Y NOMBRE" del afiliado (aparece en el casillero superior impreso por computadora, por ejemplo: "OLMEDO ERIS RAMON." o "ALMIRON ANTONIO ADRIAN"). Excluye leyendas secundarias como "Municipalidad de Ibarreta" o "Ministerio de Educación".
+2. "NUMERO DE CARNET" o número de afiliado (aparece en el casillero debajo del nombre, típicamente con formato con guiones como "3-18437877-00" o "3-24651376-00"). Excluye campos adyacentes como "Sexo:" o "Edad:".
+3. "PRODUCTOS" (Medicamentos facturados): Observa prioritariamente los troqueles adhesivos rectangulares pegados en la parte inferior del recetario (generalmente sobre el cartel de advertencia o recuadro inferior, cada uno tiene código de barras y texto del laboratorio). Extrae cada medicamento en formato limpio: "Nombre Dosis x Cantidad comp" (por ejemplo: "Corbis 10 x 60 comp", "Pampar 20 x 30 comp", "Turbulina 20 x 30 comp"). Si no hay troqueles pegados, busca los medicamentos en el cuerpo de prescripción o déjalo como lista vacía [].
 
 Responde estrictamente un JSON válido con esta estructura:
 {
   "nombre": "APELLIDO Y NOMBRE EN MAYUSCULAS",
-  "afiliado": "NUMERO-DE-AFILIADO"
+  "afiliado": "NUMERO-DE-AFILIADO",
+  "productos": [
+    "Corbis 10 x 60 comp",
+    "Pampar 20 x 30 comp",
+    "Turbulina 20 x 30 comp"
+  ]
 }`;
 
         const result = await callGeminiVision(base64Data, prompt);
+        const rawProds = result.data?.productos;
+        let prodsList = [];
+        if (Array.isArray(rawProds)) {
+            prodsList = rawProds.map(p => String(p).trim()).filter(p => p.length > 0);
+        } else if (typeof rawProds === 'string' && rawProds.trim()) {
+            prodsList = rawProds.split('\n').map(p => p.trim()).filter(p => p.length > 0);
+        }
+
         return {
             ...result,
             nombre: (result.data?.nombre || '').toUpperCase().trim(),
             afiliado: (result.data?.afiliado || '').trim(),
+            productos: prodsList,
+            productosStr: prodsList.join(', '),
             previewUrl: dataUrl
         };
     }
 
     /**
-     * Extrae importe total de un ticket fiscal de farmacia (fallback cuando no hay QR)
+     * Extrae importe total y productos de un ticket fiscal de farmacia (fallback cuando no hay QR)
      */
     async function extractTicketData(imageSource) {
         const { base64Data, dataUrl } = await optimizeImageForAI(imageSource);
 
         const prompt = `Observa este ticket fiscal de farmacia.
-Encuentra la línea de 'TOTAL' o 'TOTAL $' que indica el importe final a abonar (por ejemplo: "TOTAL 116660,93" o "TOTAL 113575,81").
-Extrae el importe final a pagar como un número decimal estándar (usando punto decimal para los centavos).
+Debes extraer:
+1. "TOTAL": El importe final a abonar (por ejemplo: "TOTAL 82486,80" o "TOTAL 113575,81"). Extrae el número decimal estándar con punto (ej: 82486.80).
+2. "PRODUCTOS": Los medicamentos facturados que aparecen listados en las líneas de compra (por ejemplo: "Corbis 10 x 60 comp", "Pampar 20 x 30 comp", "Turbulina 20 x 30 comp"). Omite líneas de 'BONIF.' o bonificación.
 
 Responde estrictamente un JSON válido:
 {
-  "importe": 113575.81
+  "importe": 82486.80,
+  "productos": [
+    "Corbis 10 x 60 comp",
+    "Pampar 20 x 30 comp",
+    "Turbulina 20 x 30 comp"
+  ]
 }`;
 
         const result = await callGeminiVision(base64Data, prompt);
@@ -293,9 +315,19 @@ Responde estrictamente un JSON válido:
             importeNum = parseFloat(rawImp.replace('$', '').replace(/\./g, '').replace(',', '.').trim());
         }
 
+        const rawProds = result.data?.productos;
+        let prodsList = [];
+        if (Array.isArray(rawProds)) {
+            prodsList = rawProds.map(p => String(p).trim()).filter(p => p.length > 0);
+        } else if (typeof rawProds === 'string' && rawProds.trim()) {
+            prodsList = rawProds.split('\n').map(p => p.trim()).filter(p => p.length > 0);
+        }
+
         return {
             ...result,
             importe: isNaN(importeNum) ? null : importeNum,
+            productos: prodsList,
+            productosStr: prodsList.join(', '),
             previewUrl: dataUrl
         };
     }

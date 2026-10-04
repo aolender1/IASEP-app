@@ -995,6 +995,7 @@ document.addEventListener("DOMContentLoaded", function () {
         const loteActivo = getLoteActivo();
         const email = obtenerEmailUsuario();
         const operador = obtenerNombreOperador();
+        const productosVal = document.getElementById('productos')?.value.trim() || '';
 
         if (loteActivo && loteActivo.id) {
             try {
@@ -1004,6 +1005,7 @@ document.addEventListener("DOMContentLoaded", function () {
                     nombre: finalNombre,
                     afiliado: finalAfiliado,
                     importe: importe,
+                    productos: productosVal,
                     cargado_por: operador
                 });
             } catch (err) {
@@ -1016,6 +1018,7 @@ document.addEventListener("DOMContentLoaded", function () {
             nombre: finalNombre,
             afiliado: finalAfiliado,
             importe,
+            productos: productosVal,
             cargado_por: operador
         });
 
@@ -1032,6 +1035,7 @@ document.addEventListener("DOMContentLoaded", function () {
         clienteInput.value = '';
         if (afiliadoInput) afiliadoInput.value = '';
         importeInput.value = '';
+        if (document.getElementById('productos')) document.getElementById('productos').value = '';
         clienteInput.focus();
         mostrarNotificacion('Éxito!', 'Registro guardado correctamente.', 'success');
     }
@@ -1043,6 +1047,7 @@ document.addEventListener("DOMContentLoaded", function () {
         const nombreManual = document.getElementById('clienteManual').value.trim();
         const afiliadoManual = document.getElementById('afiliadoManual').value.trim();
         const importeManual = parseFloat(document.getElementById('importeManual').value.replace('$', '').replace(',', ''));
+        const productosManual = document.getElementById('productosManual')?.value.trim() || '';
 
         if (!nombreManual || !afiliadoManual || isNaN(importeManual)) {
             mostrarNotificacion('Aviso', 'Por favor, complete todos los campos correctamente.', 'error');
@@ -1062,6 +1067,7 @@ document.addEventListener("DOMContentLoaded", function () {
                     nombre: nombreManual,
                     afiliado: afiliadoManual,
                     importe: importeManual,
+                    productos: productosManual,
                     cargado_por: operador
                 });
             } catch (err) {
@@ -1074,6 +1080,7 @@ document.addEventListener("DOMContentLoaded", function () {
             nombre: nombreManual,
             afiliado: afiliadoManual,
             importe: importeManual,
+            productos: productosManual,
             cargado_por: operador
         });
 
@@ -1121,8 +1128,9 @@ document.addEventListener("DOMContentLoaded", function () {
             const cellNombre = row.insertCell(1);
             const cellAfiliado = row.insertCell(2);
             const cellImporte = row.insertCell(3);
-            const cellCargadoPor = row.insertCell(4);
-            const cellAcciones = row.insertCell(5);
+            const cellProductos = row.insertCell(4);
+            const cellCargadoPor = row.insertCell(5);
+            const cellAcciones = row.insertCell(6);
 
             cellCount.textContent = count;
             count--;
@@ -1131,8 +1139,14 @@ document.addEventListener("DOMContentLoaded", function () {
             cellAfiliado.textContent = item.afiliado || '-';
             cellImporte.textContent = '$' + item.importe.toFixed(2);
 
+            if (item.productos) {
+                cellProductos.innerHTML = `<span class="producto-tag">${item.productos}</span>`;
+            } else {
+                cellProductos.textContent = '-';
+            }
+
             // Mostrar el usuario que cargó el comprobante
-            const usuarioAlias = item.cargado_por ? item.cargado_por.split('@')[0] : 'Manual';
+            const usuarioAlias = item.cargado_por ? (item.cargado_por.includes('@') ? item.cargado_por.split('@')[0] : item.cargado_por) : 'Manual';
             cellCargadoPor.innerHTML = `<span style="font-size: 11px; font-weight: 600; padding: 2px 6px; border-radius: 4px; background: var(--color-primary-light); color: var(--color-primary);">${usuarioAlias}</span>`;
 
             // Botón eliminar
@@ -1201,22 +1215,22 @@ document.addEventListener("DOMContentLoaded", function () {
         const hojaBaseDatos = XLSX.utils.json_to_sheet(combinedClientes, { header: ["ID", "NOMBRE", "NUMERO"] });
         XLSX.utils.sheet_add_aoa(hojaBaseDatos, [["ID", "NOMBRE", "NUMERO"]], { origin: "A1" });
 
-        // Preparar la hoja "Datos" con ORDEN, NOMBRE, AFILIADO e IMPORTE
-        // Aquí usamos 'data' que contiene las entradas cargadas en la sesión actual
-        // Ordenamos alfabéticamente por NOMBRE
+        // Preparar la hoja "Datos" con ORDEN, NOMBRE, AFILIADO, IMPORTE, PRODUCTOS y CARGADO POR
         const datosOrdenados = [...data].sort((a, b) => a.nombre.localeCompare(b.nombre));
 
-        // Añadir la columna 'ORDEN'
+        // Añadir las columnas
         const datosConOrden = datosOrdenados.map((item, index) => ({
             ORDEN: index + 1,
             NOMBRE: item.nombre,
             AFILIADO: item.afiliado,
-            IMPORTE: item.importe
+            IMPORTE: item.importe,
+            PRODUCTOS: item.productos || '',
+            "CARGADO POR": item.cargado_por || ''
         }));
 
         // Crear una hoja "Datos"
-        const hojaDatos = XLSX.utils.json_to_sheet(datosConOrden, { header: ["ORDEN", "NOMBRE", "AFILIADO", "IMPORTE"] });
-        XLSX.utils.sheet_add_aoa(hojaDatos, [["ORDEN", "NOMBRE", "AFILIADO", "IMPORTE"]], { origin: "A1" });
+        const hojaDatos = XLSX.utils.json_to_sheet(datosConOrden, { header: ["ORDEN", "NOMBRE", "AFILIADO", "IMPORTE", "PRODUCTOS", "CARGADO POR"] });
+        XLSX.utils.sheet_add_aoa(hojaDatos, [["ORDEN", "NOMBRE", "AFILIADO", "IMPORTE", "PRODUCTOS", "CARGADO POR"]], { origin: "A1" });
 
         // Crear una hoja "Nuevos Clientes" si hay nuevos clientes
         let hojaNuevosClientes = null;
@@ -1565,6 +1579,7 @@ document.addEventListener("DOMContentLoaded", function () {
                     nombre: r.nombre,
                     afiliado: r.afiliado,
                     importe: parseFloat(r.importe),
+                    productos: r.productos || '',
                     cargado_por: r.cargado_por
                 });
             });
@@ -1707,7 +1722,7 @@ document.addEventListener("DOMContentLoaded", function () {
     }
 
     if (formGeminiConfig) {
-        formGeminiConfig.addEventListener('submit', (e) => {
+        formGeminiConfig.addEventListener('submit', async (e) => {
             e.preventDefault();
             const key = cfgGeminiApiKey.value.trim();
             const model = cfgGeminiModel.value;
@@ -1721,10 +1736,78 @@ document.addEventListener("DOMContentLoaded", function () {
                 } else {
                     localStorage.removeItem('nombre_dispositivo');
                 }
+                actualizarNombreDispositivoUI();
             }
 
+            // Sincronizar clave y modelo en la base de datos de Neon para que los celulares la obtengan automáticamente
+            const guardadoDb = await guardarConfiguracionGeminiEnNeon(key, model);
+
             if (modalGeminiConfig) modalGeminiConfig.style.display = 'none';
-            mostrarNotificacion('Configuración Guardada', `Configuración actualizada con éxito.`, 'success');
+            if (guardadoDb) {
+                mostrarNotificacion('Configuración Guardada', `API Key sincronizada en la nube para ${model}.`, 'success');
+            } else {
+                mostrarNotificacion('Configuración Guardada', `Configuración guardada localmente para ${model}.`, 'success');
+            }
+        });
+    }
+
+    // =========================================================================
+    // IDENTIFICACIÓN DEL DISPOSITIVO / OPERADOR MÓVIL
+    // =========================================================================
+    const btnConfigurarDispositivo = document.getElementById('btnConfigurarDispositivo');
+    const lblNombreDispositivo = document.getElementById('lblNombreDispositivo');
+    const modalDispositivo = document.getElementById('modalDispositivo');
+    const btnCerrarModalDispositivo = document.getElementById('btnCerrarModalDispositivo');
+    const btnCancelarModalDispositivo = document.getElementById('btnCancelarModalDispositivo');
+    const formDispositivoModal = document.getElementById('formDispositivoModal');
+    const inputModalNombreDispositivo = document.getElementById('inputModalNombreDispositivo');
+    const btnCambiarDispositivoEnScan = document.getElementById('btnCambiarDispositivoEnScan');
+    const lblDispositivoConfirm = document.getElementById('lblDispositivoConfirm');
+
+    function actualizarNombreDispositivoUI() {
+        const nombre = localStorage.getItem('nombre_dispositivo') || 'Celular 1';
+        if (lblNombreDispositivo) lblNombreDispositivo.textContent = nombre;
+        if (lblDispositivoConfirm) lblDispositivoConfirm.textContent = nombre;
+        if (cfgDispositivoNombre) cfgDispositivoNombre.value = localStorage.getItem('nombre_dispositivo') || '';
+    }
+    actualizarNombreDispositivoUI();
+
+    function abrirModalDispositivo() {
+        if (inputModalNombreDispositivo) {
+            inputModalNombreDispositivo.value = localStorage.getItem('nombre_dispositivo') || '';
+        }
+        if (modalDispositivo) modalDispositivo.style.display = 'block';
+        if (inputModalNombreDispositivo) inputModalNombreDispositivo.focus();
+    }
+
+    if (btnConfigurarDispositivo) {
+        btnConfigurarDispositivo.addEventListener('click', abrirModalDispositivo);
+    }
+    if (btnCambiarDispositivoEnScan) {
+        btnCambiarDispositivoEnScan.addEventListener('click', abrirModalDispositivo);
+    }
+    if (btnCerrarModalDispositivo) {
+        btnCerrarModalDispositivo.addEventListener('click', () => {
+            if (modalDispositivo) modalDispositivo.style.display = 'none';
+        });
+    }
+    if (btnCancelarModalDispositivo) {
+        btnCancelarModalDispositivo.addEventListener('click', () => {
+            if (modalDispositivo) modalDispositivo.style.display = 'none';
+        });
+    }
+    if (formDispositivoModal) {
+        formDispositivoModal.addEventListener('submit', (e) => {
+            e.preventDefault();
+            const val = inputModalNombreDispositivo ? inputModalNombreDispositivo.value.trim() : '';
+            if (val) {
+                localStorage.setItem('nombre_dispositivo', val);
+            } else {
+                localStorage.removeItem('nombre_dispositivo');
+            }
+            actualizarNombreDispositivoUI();
+            if (modalDispositivo) modalDispositivo.style.display = 'none';
+            mostrarNotificacion('Dispositivo Configurado', `Operador activo: "${val || 'Predeterminado'}".`, 'success');
         });
     }
 
@@ -1778,6 +1861,7 @@ document.addEventListener("DOMContentLoaded", function () {
     const confirmCargoAfiliado = document.getElementById('confirmCargoAfiliado');
     const confirmCargoFarmacia = document.getElementById('confirmCargoFarmacia');
     const confirmCargoOS = document.getElementById('confirmCargoOS');
+    const inputScanProductos = document.getElementById('inputScanProductos');
     const btnGuardarYSiguiente = document.getElementById('btnGuardarYSiguiente');
     const btnEditarDesdeConfirmacion = document.getElementById('btnEditarDesdeConfirmacion');
     const btnFinalizarScanner = document.getElementById('btnFinalizarScanner');
@@ -1831,6 +1915,7 @@ document.addEventListener("DOMContentLoaded", function () {
             inputScanNombre.value = '';
             inputScanAfiliado.value = '';
             inputScanImporte.value = '';
+            if (inputScanProductos) inputScanProductos.value = '';
 
             irAPaso(1);
             try {
@@ -1866,6 +1951,7 @@ document.addEventListener("DOMContentLoaded", function () {
                 aiProcessingReceta.style.display = 'none';
                 inputScanNombre.value = res.nombre || '';
                 inputScanAfiliado.value = res.afiliado || '';
+                if (inputScanProductos) inputScanProductos.value = res.productosStr || '';
                 badgeAiModeloReceta.textContent = `🤖 ${res.modelUsed}`;
                 
                 verificarAfiliadoEnBase(res.nombre, res.afiliado);
@@ -1897,6 +1983,7 @@ document.addEventListener("DOMContentLoaded", function () {
                     aiProcessingReceta.style.display = 'none';
                     inputScanNombre.value = res.nombre || '';
                     inputScanAfiliado.value = res.afiliado || '';
+                    if (inputScanProductos) inputScanProductos.value = res.productosStr || '';
                     badgeAiModeloReceta.textContent = `🤖 ${res.modelUsed}`;
                     verificarAfiliadoEnBase(res.nombre, res.afiliado);
                     cardResultReceta.style.display = 'flex';
@@ -1942,6 +2029,7 @@ document.addEventListener("DOMContentLoaded", function () {
             cardResultReceta.style.display = 'none';
             inputScanNombre.value = '';
             inputScanAfiliado.value = '';
+            if (inputScanProductos) inputScanProductos.value = '';
         });
     }
 
@@ -2011,6 +2099,9 @@ document.addEventListener("DOMContentLoaded", function () {
                 aiProcessingTicket.style.display = 'none';
                 if (res.importe !== null && !isNaN(res.importe)) {
                     inputScanImporte.value = res.importe.toFixed(2);
+                    if (inputScanProductos && !inputScanProductos.value.trim() && res.productosStr) {
+                        inputScanProductos.value = res.productosStr;
+                    }
                     badgeOrigenImporte.textContent = `🤖 Gemini (${res.modelUsed})`;
                     badgeOrigenImporte.style.background = 'rgba(99, 102, 241, 0.2)';
                     badgeOrigenImporte.style.color = '#6366f1';
@@ -2048,6 +2139,9 @@ document.addEventListener("DOMContentLoaded", function () {
                     aiProcessingTicket.style.display = 'none';
                     if (res.importe !== null && !isNaN(res.importe)) {
                         inputScanImporte.value = res.importe.toFixed(2);
+                        if (inputScanProductos && !inputScanProductos.value.trim() && res.productosStr) {
+                            inputScanProductos.value = res.productosStr;
+                        }
                         badgeOrigenImporte.textContent = `🤖 Gemini (${res.modelUsed})`;
                         cardResultTicket.style.display = 'flex';
                     } else {
@@ -2097,6 +2191,10 @@ document.addEventListener("DOMContentLoaded", function () {
             confirmAfiliado.textContent = afiliado || 'Sin número';
             confirmImporte.textContent = `$${importe.toFixed(2)}`;
 
+            if (lblDispositivoConfirm) {
+                lblDispositivoConfirm.textContent = obtenerNombreOperador();
+            }
+
             const totalCalculado = (importe * 100 / 75);
             confirmCargoAfiliado.textContent = `$${importe.toFixed(2)}`;
             confirmCargoFarmacia.textContent = `$${(totalCalculado * 0.125).toFixed(2)}`;
@@ -2121,6 +2219,7 @@ document.addEventListener("DOMContentLoaded", function () {
             const nombre = inputScanNombre.value.trim();
             const afiliado = inputScanAfiliado.value.trim();
             const importe = parseFloat(inputScanImporte.value);
+            const productos = inputScanProductos ? inputScanProductos.value.trim() : '';
 
             if (!nombre || isNaN(importe) || importe <= 0) {
                 mostrarNotificacion('Aviso', 'Datos incompletos para guardar.', 'error');
@@ -2143,6 +2242,7 @@ document.addEventListener("DOMContentLoaded", function () {
                         nombre,
                         afiliado,
                         importe,
+                        productos,
                         cargado_por: operador
                     });
                 }
@@ -2152,6 +2252,7 @@ document.addEventListener("DOMContentLoaded", function () {
                     nombre,
                     afiliado,
                     importe,
+                    productos,
                     cargado_por: operador
                 });
 
@@ -2167,6 +2268,7 @@ document.addEventListener("DOMContentLoaded", function () {
                 inputScanNombre.value = '';
                 inputScanAfiliado.value = '';
                 inputScanImporte.value = '';
+                if (inputScanProductos) inputScanProductos.value = '';
                 cardResultReceta.style.display = 'none';
                 cardResultTicket.style.display = 'none';
 

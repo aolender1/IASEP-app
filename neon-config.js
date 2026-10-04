@@ -133,8 +133,55 @@ async function cargarDatosFarmacia() {
     const email = obtenerEmailUsuario();
     if (email) {
         farmaciaInfoGlobal = await obtenerDatosFarmacia(email);
+        // Si la base de datos ya tiene la API Key y modelo de Gemini para esta cuenta, sincronizarlos
+        if (farmaciaInfoGlobal) {
+            if (farmaciaInfoGlobal.gemini_api_key) {
+                localStorage.setItem('gemini_api_key', farmaciaInfoGlobal.gemini_api_key);
+            }
+            if (farmaciaInfoGlobal.gemini_model) {
+                localStorage.setItem('gemini_selected_model', farmaciaInfoGlobal.gemini_model);
+            }
+        }
     }
     return farmaciaInfoGlobal;
+}
+
+/**
+ * Guarda la API Key y modelo de Gemini en la cuenta de la farmacia en Neon DB
+ */
+async function guardarConfiguracionGeminiEnNeon(apiKey, model) {
+    const token = getAuthToken();
+    const email = obtenerEmailUsuario();
+    if (!token || !email) return false;
+
+    try {
+        const res = await fetch(`${NEON_DATA_URL}farmacias?email=eq.${encodeURIComponent(email)}`, {
+            method: 'PATCH',
+            headers: {
+                'Authorization': `Bearer ${token}`,
+                'Content-Type': 'application/json',
+                'Prefer': 'return=representation'
+            },
+            body: JSON.stringify({
+                gemini_api_key: apiKey,
+                gemini_model: model
+            })
+        });
+
+        if (res.ok) {
+            if (farmaciaInfoGlobal) {
+                farmaciaInfoGlobal.gemini_api_key = apiKey;
+                farmaciaInfoGlobal.gemini_model = model;
+            }
+            return true;
+        } else {
+            console.warn('Error al actualizar configuración en Neon DB:', res.status);
+            return false;
+        }
+    } catch (e) {
+        console.warn('Error de red al guardar configuración en Neon:', e);
+        return false;
+    }
 }
 
 /**
@@ -290,6 +337,7 @@ async function guardarRegistroEnNeon(registro) {
         nombre: registro.nombre,
         afiliado: registro.afiliado,
         importe: registro.importe,
+        productos: registro.productos || '',
         cargado_por: registro.cargado_por || obtenerEmailUsuario()
     };
 

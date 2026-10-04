@@ -1785,29 +1785,150 @@ body.dark-theme {
     color: var(--color-text);
 }
 
+/* Botón de identificación de dispositivo en header */
+.dispositivo-pill-btn {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    padding: 6px 12px;
+    border-radius: var(--border-radius-full);
+    background: var(--color-surface);
+    border: 1px solid var(--color-border);
+    color: var(--color-text);
+    font-size: 13px;
+    font-weight: 600;
+    cursor: pointer;
+    transition: all var(--transition-fast);
+}
+
+.dispositivo-pill-btn:hover {
+    border-color: var(--color-primary);
+    color: var(--color-primary);
+    background: var(--color-primary-light);
+}
+
+/* Caja de productos/medicamentos en Paso 3 Confirmación */
+.summary-productos-box {
+    margin-top: 12px;
+    padding: 10px 12px;
+    background: var(--color-background);
+    border: 1px solid var(--color-border);
+    border-radius: var(--border-radius-sm);
+}
+
+.summary-productos-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 6px;
+}
+
+.summary-sublabel {
+    font-size: 11px;
+    font-weight: 500;
+    color: var(--color-primary);
+}
+
+.summary-productos-box textarea {
+    width: 100%;
+    resize: vertical;
+    min-height: 48px;
+    font-family: inherit;
+    font-size: 13px;
+    line-height: 1.4;
+    border-radius: 4px;
+    border: 1px solid var(--color-border);
+    background: var(--color-surface);
+    color: var(--color-text);
+    padding: 6px 8px;
+    box-sizing: border-box;
+}
+
+.summary-productos-box textarea:focus {
+    outline: none;
+    border-color: var(--color-primary);
+}
+
+/* Indicador de dispositivo en confirmación */
+.summary-device-row {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    margin-top: 10px;
+    padding: 8px 12px;
+    background: rgba(99, 102, 241, 0.08);
+    border-radius: var(--border-radius-sm);
+    font-size: 13px;
+    color: var(--color-text);
+}
+
+.btn-link-mini {
+    background: none;
+    border: none;
+    color: var(--color-primary);
+    text-decoration: underline;
+    cursor: pointer;
+    font-size: 12px;
+    padding: 0 4px;
+}
+
+/* Etiqueta de productos en tabla */
+.producto-tag {
+    display: inline-block;
+    font-size: 12px;
+    line-height: 1.35;
+    color: var(--color-text);
+    max-width: 280px;
+    word-break: break-word;
+}
+
 /* ==================== RESPONSIVE MÓVIL (PWA) ==================== */
 @media (max-width: 768px) {
     .header {
-        padding: 8px 12px;
-        flex-wrap: wrap;
+        padding: 8px 10px;
+        flex-direction: column;
+        align-items: stretch;
         gap: 8px;
+        position: relative;
     }
 
     .header-left {
         width: 100%;
+        display: flex;
+        align-items: center;
         justify-content: space-between;
-        overflow-x: auto;
-        padding-bottom: 4px;
-        gap: 8px;
+        flex-wrap: wrap;
+        gap: 6px;
     }
 
     .header-right {
-        display: none; /* En mobile se accede desde el menú o barra inferior */
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        width: 100%;
+        gap: 6px;
+        padding-top: 6px;
+        border-top: 1px solid var(--color-border);
+    }
+
+    .user-info {
+        display: none; /* Ocultar email en teléfonos para que se vea la tuerca y perfil */
+    }
+
+    .user-profile {
+        padding: 2px 6px;
+        gap: 4px;
+    }
+
+    .dispositivo-pill-btn {
+        padding: 4px 8px;
+        font-size: 12px;
     }
 
     .container {
         flex-direction: column;
-        padding-top: 105px;
+        padding-top: 12px;
+        margin-top: 0;
     }
 
     /* Modal Escáner pantalla completa en teléfonos */

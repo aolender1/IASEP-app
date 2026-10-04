@@ -108,6 +108,14 @@
         </div>
         <!-- Seccion derecha para el perfil de usuario y toggle de tema -->
         <div class="header-right">
+            <!-- Botón Identificador de Dispositivo -->
+            <button id="btnConfigurarDispositivo" class="dispositivo-pill-btn" title="Identificador de este dispositivo / celular">
+                <svg xmlns="http://www.w3.org/2000/svg" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                    <rect x="5" y="2" width="14" height="20" rx="2" ry="2"></rect>
+                    <line x1="12" y1="18" x2="12.01" y2="18"></line>
+                </svg>
+                <span id="lblNombreDispositivo">Celular 1</span>
+            </button>
             <!-- Botón Configuración Gemini -->
             <button id="btnAbrirConfigGemini" class="theme-toggle" title="Configurar API Key Gemini y Modelos">
                 <svg xmlns="http://www.w3.org/2000/svg" width="19" height="19" viewBox="0 0 24 24" fill="none"
@@ -250,6 +258,19 @@
                     </div>
                 </div>
 
+                <div class="form-group">
+                    <label for="productos">MEDICAMENTOS (OPCIONAL)</label>
+                    <div class="input-wrapper">
+                        <span class="input-icon">
+                            <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                                <path d="m10.5 20.5 10-10a4.95 4.95 0 1 0-7-7l-10 10a4.95 4.95 0 1 0 7 7Z"></path>
+                                <path d="m8.5 8.5 7 7"></path>
+                            </svg>
+                        </span>
+                        <input type="text" id="productos" class="input-grande" placeholder="Ej: Corbis 10 x 60 comp, Pampar 20 x 30 comp...">
+                    </div>
+                </div>
+
                 <button class="boton-grande" id="cargar">
                     <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none"
                         stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
@@ -279,13 +300,15 @@
                     <h3 class="card-title">Detalle de Clientes</h3>
                     <span class="card-badge" id="registrosCount">0 Registros</span>
                 </div>
-                <div class="card-body" style=                    <table id="tabla-datos">
+                <div class="card-body" style="overflow-x: auto;">
+                    <table id="tabla-datos">
                         <thead>
                             <tr>
                                 <th>#</th>
                                 <th>CLIENTE</th>
                                 <th>AFILIADO</th>
                                 <th>IMPORTE</th>
+                                <th>PRODUCTOS</th>
                                 <th>CARGADO POR</th>
                                 <th>ACCIÓN</th>
                             </tr>
@@ -351,6 +374,9 @@
 
                 <label for="importeManual">Importe:</label>
                 <input type="text" id="importeManual" name="importeManual" placeholder="Ingrese el importe" required>
+
+                <label for="productosManual">Medicamentos / Productos (Opcional):</label>
+                <input type="text" id="productosManual" name="productosManual" placeholder="Ej: Corbis 10 x 60 comp, Pampar 20 x 30 comp...">
 
                 <button type="submit" class="boton-grande">
                     <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none"
@@ -531,6 +557,22 @@
                         <span class="summary-val-price" id="confirmImporte">$0.00</span>
                     </div>
 
+                    <!-- Medicamentos / Productos facturados -->
+                    <div class="summary-productos-box">
+                        <div class="summary-productos-header">
+                            <span class="summary-label">Medicamentos / Productos:</span>
+                            <span class="summary-sublabel">Troqueles detectados por IA</span>
+                        </div>
+                        <textarea id="inputScanProductos" class="input-scanner-edit" rows="2" placeholder="Ej: Corbis 10 x 60 comp, Pampar 20 x 30 comp, Turbulina 20 x 30 comp"></textarea>
+                    </div>
+
+                    <!-- Operador / Dispositivo -->
+                    <div class="summary-device-row">
+                        <span>📱 Cargando como:</span>
+                        <strong id="lblDispositivoConfirm">Celular 1</strong>
+                        <button type="button" id="btnCambiarDispositivoEnScan" class="btn-link-mini" title="Cambiar nombre de este teléfono">Cambiar</button>
+                    </div>
+
                     <!-- Desglose de Liquidación Obra Social -->
                     <div class="liquidacion-breakdown">
                         <div class="breakdown-item">
@@ -578,6 +620,9 @@
                     Obtener clave gratis aquí ↗
                 </a>
             </div>
+            <div style="margin-bottom: 14px; padding: 10px 12px; border-radius: 6px; background: rgba(0, 229, 163, 0.12); border: 1px solid rgba(0, 229, 163, 0.3); font-size: 13px; color: var(--color-text); line-height: 1.4;">
+                ☁️ <strong>Sincronización en la Nube:</strong> La clave y el modelo se guardan en la cuenta de tu farmacia en Neon DB. Al iniciar sesión desde tus celulares, se sincronizarán automáticamente sin tener que volver a escribirlos.
+            </div>
             <form id="formGeminiConfig">
                 <label for="cfgGeminiApiKey">API Key de Google Gemini:</label>
                 <input type="password" id="cfgGeminiApiKey" placeholder="AIzaSy..." style="margin-bottom: 12px;" required>
@@ -601,6 +646,26 @@
                 <div style="display: flex; gap: 10px; justify-content: flex-end;">
                     <button type="button" id="btnProbarKeyGemini" class="boton-secundario" style="margin-top: 0;">Probar Conexión</button>
                     <button type="submit" class="boton-excel" style="margin-top: 0; background-color: var(--color-primary);">Guardar</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- ==================== MODAL DE NOMBRE DE DISPOSITIVO / CELULAR ==================== -->
+    <div id="modalDispositivo" class="modal">
+        <div class="modal-content" style="max-width: 400px;">
+            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px;">
+                <h3 style="margin: 0; font-size: 18px;">📱 Nombre de este Dispositivo</h3>
+                <span class="close" id="btnCerrarModalDispositivo">&times;</span>
+            </div>
+            <p style="font-size: 13px; color: var(--color-text-secondary); margin-bottom: 14px;">
+                Identifica este celular para saber en la computadora quién cargó cada comprobante.
+            </p>
+            <form id="formDispositivoModal">
+                <input type="text" id="inputModalNombreDispositivo" class="input-grande" placeholder="Ej: Celular 1, Celular Alberto..." required>
+                <div style="display: flex; gap: 8px; justify-content: flex-end; margin-top: 16px;">
+                    <button type="button" class="boton-secundario" id="btnCancelarModalDispositivo" style="margin-top: 0;">Cancelar</button>
+                    <button type="submit" class="boton-excel" style="margin-top: 0; background: var(--color-primary);">Guardar</button>
                 </div>
             </form>
         </div>
