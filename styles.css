@@ -1558,6 +1558,15 @@ body.dark-theme {
     border-radius: 6px;
 }
 
+.result-badge-warning {
+    font-size: 11px;
+    font-weight: 700;
+    background: rgba(245, 158, 11, 0.15);
+    color: #f59e0b;
+    padding: 3px 8px;
+    border-radius: 6px;
+}
+
 .form-group-compact {
     display: flex;
     flex-direction: column;

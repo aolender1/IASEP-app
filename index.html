@@ -562,11 +562,17 @@
                 <div class="scanner-card-result" id="cardResultTicket" style="display: none;">
                     <div class="result-header">
                         <span class="result-badge-ai" id="badgeOrigenImporte">QR AFIP</span>
-                        <span class="result-badge-success">✓ Importe Detectado</span>
+                        <span class="result-badge-success" id="badgeEstadoImporte">✓ Importe Detectado</span>
                     </div>
                     <div class="form-group-compact">
-                        <label>IMPORTE TOTAL DEL TICKET ($):</label>
-                        <input type="number" step="0.01" id="inputScanImporte" class="input-scanner-edit input-importe-destacado" placeholder="0.00">
+                        <label id="lblImporteTicket">IMPORTE TOTAL DEL TICKET ($):</label>
+                        <div style="display: flex; gap: 8px; align-items: stretch; margin-top: 4px;">
+                            <input type="number" step="0.01" id="inputScanImporte" class="input-scanner-edit input-importe-destacado" placeholder="Ej: 82486.80" style="flex: 1; margin: 0;">
+                            <button type="button" class="btn-scan-action secondary" id="btnLeerConIaDesdeCard" style="padding: 0 14px; white-space: nowrap; font-size: 0.82rem; min-height: 48px; border-radius: 8px; display: none; align-items: center; justify-content: center; gap: 6px; background: rgba(99, 102, 241, 0.2); border: 1px solid rgba(99, 102, 241, 0.4); color: #818cf8; cursor: pointer;">
+                                <span>🤖 Leer con IA</span>
+                            </button>
+                        </div>
+                        <small id="txtAyudaImporte" style="display: block; font-size: 0.78rem; color: #94a3b8; margin-top: 6px;"></small>
                     </div>
                     <div class="result-actions-row">
                         <button type="button" class="btn-mini-action" id="btnVolverAReceta">⬅ Volver a Receta</button>
@@ -729,7 +735,7 @@
         <p>aolender | <a href="https://github.com/aolender1" target="_blank">GitHub</a></p>
     </footer>
 
-    <script src="script.js?v=2.7"></script>
+    <script src="script.js?v=2.8"></script>
     <!-- Script para manejar el cierre de sesion -->
     <script>
         document.getElementById('logoutBtn').addEventListener('click', function () {

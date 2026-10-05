@@ -1984,6 +1984,9 @@ document.addEventListener("DOMContentLoaded", function () {
     const qrStatusText = document.getElementById('qrStatusText');
     const cardResultTicket = document.getElementById('cardResultTicket');
     const badgeOrigenImporte = document.getElementById('badgeOrigenImporte');
+    const badgeEstadoImporte = document.getElementById('badgeEstadoImporte');
+    const btnLeerConIaDesdeCard = document.getElementById('btnLeerConIaDesdeCard');
+    const txtAyudaImporte = document.getElementById('txtAyudaImporte');
     const inputScanImporte = document.getElementById('inputScanImporte');
     const btnVolverAReceta = document.getElementById('btnVolverAReceta');
     const btnReintentarTicket = document.getElementById('btnReintentarTicket');
@@ -2064,6 +2067,9 @@ document.addEventListener("DOMContentLoaded", function () {
             inputScanNombre.value = '';
             inputScanAfiliado.value = '';
             inputScanImporte.value = '';
+            inputScanImporte.placeholder = 'Ej: 82486.80';
+            if (txtAyudaImporte) txtAyudaImporte.textContent = '';
+            if (btnLeerConIaDesdeCard) btnLeerConIaDesdeCard.style.display = 'none';
             if (inputScanProductos) inputScanProductos.value = '';
 
             irAPaso(1);
@@ -2261,9 +2267,16 @@ document.addEventListener("DOMContentLoaded", function () {
                             try { navigator.vibrate(100); } catch (e) {}
                         }
                         inputScanImporte.value = qrData.importe.toFixed(2);
-                        badgeOrigenImporte.textContent = '✓ QR AFIP Instantáneo';
+                        badgeOrigenImporte.textContent = '✓ QR Factura AFIP';
                         badgeOrigenImporte.style.background = 'rgba(16, 185, 129, 0.2)';
                         badgeOrigenImporte.style.color = '#10b981';
+                        if (badgeEstadoImporte) {
+                            badgeEstadoImporte.className = 'result-badge-success';
+                            badgeEstadoImporte.textContent = '✓ Importe Detectado';
+                            badgeEstadoImporte.style.display = 'inline-block';
+                        }
+                        if (btnLeerConIaDesdeCard) btnLeerConIaDesdeCard.style.display = 'none';
+                        if (txtAyudaImporte) txtAyudaImporte.textContent = 'Importe extraído directamente del QR de Factura Electrónica.';
                         cardResultTicket.style.display = 'flex';
                         if (cameraBoxTicket) cameraBoxTicket.classList.add('compact-preview');
                         if (actionsBarTicket) actionsBarTicket.style.display = 'none';
@@ -2273,9 +2286,20 @@ document.addEventListener("DOMContentLoaded", function () {
                         if (navigator.vibrate) {
                             try { navigator.vibrate(100); } catch (e) {}
                         }
-                        badgeOrigenImporte.textContent = 'ℹ️ QR Detectado (Ingresar Total)';
+                        inputScanImporte.value = '';
+                        inputScanImporte.placeholder = 'Ej: 82486.80';
+                        badgeOrigenImporte.textContent = 'ℹ️ QR Data Fiscal (F960)';
                         badgeOrigenImporte.style.background = 'rgba(245, 158, 11, 0.2)';
                         badgeOrigenImporte.style.color = '#f59e0b';
+                        if (badgeEstadoImporte) {
+                            badgeEstadoImporte.className = 'result-badge-warning';
+                            badgeEstadoImporte.textContent = '✍️ Ingresar Total';
+                            badgeEstadoImporte.style.display = 'inline-block';
+                        }
+                        if (btnLeerConIaDesdeCard) btnLeerConIaDesdeCard.style.display = 'inline-flex';
+                        if (txtAyudaImporte) {
+                            txtAyudaImporte.textContent = 'Este ticket tiene QR Data Fiscal (solo identifica al comercio, no lleva monto). Ingresa el Total a mano o pulsa "Leer con IA".';
+                        }
                         cardResultTicket.style.display = 'flex';
                         if (cameraBoxTicket) cameraBoxTicket.classList.add('compact-preview');
                         if (actionsBarTicket) actionsBarTicket.style.display = 'none';
@@ -2306,11 +2330,49 @@ document.addEventListener("DOMContentLoaded", function () {
             badgeOrigenImporte.textContent = '✍️ Ingreso Manual';
             badgeOrigenImporte.style.background = 'rgba(107, 114, 128, 0.2)';
             badgeOrigenImporte.style.color = '#9ca3af';
+            if (badgeEstadoImporte) badgeEstadoImporte.style.display = 'none';
+            if (btnLeerConIaDesdeCard) btnLeerConIaDesdeCard.style.display = 'inline-flex';
+            if (txtAyudaImporte) txtAyudaImporte.textContent = 'Ingresa el importe total del ticket o pulsa "Leer con IA".';
+            inputScanImporte.value = '';
+            inputScanImporte.placeholder = 'Ej: 82486.80';
             cardResultTicket.style.display = 'flex';
             if (cameraBoxTicket) cameraBoxTicket.classList.add('compact-preview');
             if (actionsBarTicket) actionsBarTicket.style.display = 'none';
             if (qrStatusIndicator) qrStatusIndicator.style.display = 'none';
             inputScanImporte.focus();
+        });
+    }
+
+    if (btnLeerConIaDesdeCard) {
+        btnLeerConIaDesdeCard.addEventListener('click', async () => {
+            aiProcessingTicket.style.display = 'flex';
+            try {
+                const res = await ScannerService.extractTicketData(videoTicket);
+                aiProcessingTicket.style.display = 'none';
+                if (res.importe !== null && !isNaN(res.importe)) {
+                    inputScanImporte.value = res.importe.toFixed(2);
+                    if (inputScanProductos && !inputScanProductos.value.trim() && res.productosStr) {
+                        inputScanProductos.value = res.productosStr;
+                    }
+                    badgeOrigenImporte.textContent = `🤖 Gemini (${res.modelUsed})`;
+                    badgeOrigenImporte.style.background = 'rgba(99, 102, 241, 0.2)';
+                    badgeOrigenImporte.style.color = '#6366f1';
+                    if (badgeEstadoImporte) {
+                        badgeEstadoImporte.className = 'result-badge-success';
+                        badgeEstadoImporte.textContent = '✓ Total Detectado con IA';
+                        badgeEstadoImporte.style.display = 'inline-block';
+                    }
+                    if (txtAyudaImporte) txtAyudaImporte.textContent = 'Total leído automáticamente del ticket.';
+                    btnLeerConIaDesdeCard.style.display = 'none';
+                } else {
+                    mostrarNotificacion('Aviso', 'No se pudo leer el Total automáticamente del ticket. Ingrésalo a mano.', 'error');
+                    inputScanImporte.focus();
+                }
+            } catch (err) {
+                aiProcessingTicket.style.display = 'none';
+                mostrarNotificacion('Error', err.message, 'error');
+                inputScanImporte.focus();
+            }
         });
     }
 
@@ -2329,12 +2391,27 @@ document.addEventListener("DOMContentLoaded", function () {
                     badgeOrigenImporte.textContent = `🤖 Gemini (${res.modelUsed})`;
                     badgeOrigenImporte.style.background = 'rgba(99, 102, 241, 0.2)';
                     badgeOrigenImporte.style.color = '#6366f1';
+                    if (badgeEstadoImporte) {
+                        badgeEstadoImporte.className = 'result-badge-success';
+                        badgeEstadoImporte.textContent = '✓ Total Detectado con IA';
+                        badgeEstadoImporte.style.display = 'inline-block';
+                    }
+                    if (btnLeerConIaDesdeCard) btnLeerConIaDesdeCard.style.display = 'none';
+                    if (txtAyudaImporte) txtAyudaImporte.textContent = 'Total leído automáticamente del ticket.';
                     cardResultTicket.style.display = 'flex';
                     if (cameraBoxTicket) cameraBoxTicket.classList.add('compact-preview');
                     if (actionsBarTicket) actionsBarTicket.style.display = 'none';
                     if (qrStatusIndicator) qrStatusIndicator.style.display = 'none';
                 } else {
                     mostrarNotificacion('Aviso', 'No se pudo leer el Total automáticamente. Ingrésalo manualmente abajo.', 'error');
+                    badgeOrigenImporte.textContent = '✍️ Ingreso Manual';
+                    if (badgeEstadoImporte) {
+                        badgeEstadoImporte.className = 'result-badge-warning';
+                        badgeEstadoImporte.textContent = '⚠️ Ingrese Total';
+                        badgeEstadoImporte.style.display = 'inline-block';
+                    }
+                    if (btnLeerConIaDesdeCard) btnLeerConIaDesdeCard.style.display = 'inline-flex';
+                    if (txtAyudaImporte) txtAyudaImporte.textContent = 'Ingresa el importe total a mano.';
                     cardResultTicket.style.display = 'flex';
                     if (cameraBoxTicket) cameraBoxTicket.classList.add('compact-preview');
                     if (actionsBarTicket) actionsBarTicket.style.display = 'none';
@@ -2376,6 +2453,15 @@ document.addEventListener("DOMContentLoaded", function () {
                             inputScanProductos.value = res.productosStr;
                         }
                         badgeOrigenImporte.textContent = `🤖 Gemini (${res.modelUsed})`;
+                        badgeOrigenImporte.style.background = 'rgba(99, 102, 241, 0.2)';
+                        badgeOrigenImporte.style.color = '#6366f1';
+                        if (badgeEstadoImporte) {
+                            badgeEstadoImporte.className = 'result-badge-success';
+                            badgeEstadoImporte.textContent = '✓ Total Detectado con IA';
+                            badgeEstadoImporte.style.display = 'inline-block';
+                        }
+                        if (btnLeerConIaDesdeCard) btnLeerConIaDesdeCard.style.display = 'none';
+                        if (txtAyudaImporte) txtAyudaImporte.textContent = 'Total leído automáticamente del ticket.';
                         cardResultTicket.style.display = 'flex';
                         if (cameraBoxTicket) cameraBoxTicket.classList.add('compact-preview');
                         if (actionsBarTicket) actionsBarTicket.style.display = 'none';
@@ -2404,6 +2490,8 @@ document.addEventListener("DOMContentLoaded", function () {
         btnReintentarTicket.addEventListener('click', () => {
             cardResultTicket.style.display = 'none';
             inputScanImporte.value = '';
+            if (txtAyudaImporte) txtAyudaImporte.textContent = '';
+            if (btnLeerConIaDesdeCard) btnLeerConIaDesdeCard.style.display = 'none';
             if (cameraBoxTicket) cameraBoxTicket.classList.remove('compact-preview');
             if (actionsBarTicket) actionsBarTicket.style.display = 'flex';
             if (qrStatusIndicator) {
