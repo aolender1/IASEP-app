@@ -12,7 +12,7 @@
     <meta name="apple-mobile-web-app-capable" content="yes">
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
     <link rel="icon" type="image/x-icon" href="assets/favicon.ico">
-    <link rel="stylesheet" href="styles.css?v=2.6">
+    <link rel="stylesheet" href="styles.css?v=2.7">
     <!-- Librerías externas -->
     <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.4/xlsx.full.min.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
@@ -25,8 +25,8 @@
         }
     </script>
     <!-- Neon y Scanner IA -->
-    <script src="neon-config.js?v=2.6"></script>
-    <script src="scanner-service.js?v=2.6"></script>
+    <script src="neon-config.js?v=2.7"></script>
+    <script src="scanner-service.js?v=2.7"></script>
     <!-- Registro Service Worker PWA -->
     <script>
         if ('serviceWorker' in navigator) {
@@ -539,12 +539,19 @@
                 <!-- Acciones del Ticket -->
                 <div class="scanner-actions-bar" id="actionsBarTicket">
                     <input type="file" id="fileInputTicket" accept="image/*" capture="environment" style="display: none;">
-                    <button type="button" class="btn-scan-action secondary" id="btnCapturarTicketTotal" title="Si el ticket no tiene QR, tomar foto al Total">
+                    <button type="button" class="btn-scan-action secondary" id="btnCapturarTicketTotal" title="Si el ticket no tiene QR, tomar foto al Total con IA">
                         <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
                             <path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"></path>
                             <circle cx="12" cy="13" r="4"></circle>
                         </svg>
                         <span>Foto a TOTAL</span>
+                    </button>
+                    <button type="button" class="btn-scan-action secondary" id="btnImporteManualTicket" title="Ingresar el importe escribiendo directamente sin usar IA">
+                        <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                            <path d="M12 20h9"></path>
+                            <path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4L16.5 3.5z"></path>
+                        </svg>
+                        <span>Manual</span>
                     </button>
                     <button type="button" class="btn-scan-action secondary" id="btnSubirFotoTicket">
                         📁 Galería
@@ -722,7 +729,7 @@
         <p>aolender | <a href="https://github.com/aolender1" target="_blank">GitHub</a></p>
     </footer>
 
-    <script src="script.js?v=2.6"></script>
+    <script src="script.js?v=2.7"></script>
     <!-- Script para manejar el cierre de sesion -->
     <script>
         document.getElementById('logoutBtn').addEventListener('click', function () {

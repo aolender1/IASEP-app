@@ -551,6 +551,41 @@ document.addEventListener("DOMContentLoaded", function () {
     let nuevosClientes = []; // Array para almacenar clientes agregados manualmente
     let currentIndex = -1;
 
+    // Cargar padrón de clientes desde cache local (para disponibilidad offline e instantánea)
+    try {
+        const cachedPadron = localStorage.getItem('clientes_padron');
+        if (cachedPadron) {
+            baseDatos = JSON.parse(cachedPadron);
+            console.log(`Padrón cargado desde cache local: ${baseDatos.length} clientes.`);
+        }
+    } catch (e) {
+        console.warn('Error al leer cache local de clientes:', e);
+    }
+
+    // Sincronizar clientes con Neon DB
+    async function sincronizarClientesDesdeNeon() {
+        const email = obtenerEmailUsuario();
+        if (!email || typeof obtenerClientesFarmacia !== 'function') return;
+        try {
+            const clientesNeon = await obtenerClientesFarmacia(email);
+            if (clientesNeon && clientesNeon.length > 0) {
+                baseDatos = clientesNeon.map((c, i) => ({
+                    ID: i + 1,
+                    NOMBRE: c.nombre,
+                    NUMERO: c.numero,
+                    ES_NUEVO: c.es_nuevo
+                }));
+                try {
+                    localStorage.setItem('clientes_padron', JSON.stringify(baseDatos));
+                } catch (e) {}
+                console.log(`Padrón sincronizado con Neon DB: ${baseDatos.length} clientes.`);
+            }
+        } catch (err) {
+            console.warn('Error al sincronizar clientes desde Neon:', err);
+        }
+    }
+    sincronizarClientesDesdeNeon();
+
     // Obtener elementos del modal
     const modalManual = document.getElementById('modalManual');
     const agregarManualButton = document.getElementById('agregarManual');
@@ -924,9 +959,9 @@ document.addEventListener("DOMContentLoaded", function () {
         const file = event.target.files[0]; // Obtener el primer archivo seleccionado
         if (file) {
             const reader = new FileReader();
-            reader.onload = function (e) {
-                const data = new Uint8Array(e.target.result);
-                const workbook = XLSX.read(data, { type: 'array' });
+            reader.onload = async function (e) {
+                const dataBuffer = new Uint8Array(e.target.result);
+                const workbook = XLSX.read(dataBuffer, { type: 'array' });
 
                 // Obtener la hoja "base-de-datos"
                 const sheetName = "base-de-datos";
@@ -945,7 +980,22 @@ document.addEventListener("DOMContentLoaded", function () {
                 }
 
                 cargarClientesDesdeExcel(jsonData);
-                mostrarNotificacion('Exito!', 'Datos cargados correctamente desde Excel.', 'success');
+                try {
+                    localStorage.setItem('clientes_padron', JSON.stringify(jsonData));
+                } catch (errCache) {}
+                mostrarNotificacion('¡Éxito!', `Se cargaron ${jsonData.length} clientes. Sincronizando con la nube...`, 'success');
+
+                const email = obtenerEmailUsuario();
+                if (email && typeof sincronizarLoteClientesNeon === 'function') {
+                    try {
+                        const guardados = await sincronizarLoteClientesNeon(jsonData, email, (actual, total) => {
+                            console.log(`Subiendo clientes a Neon: ${actual}/${total}`);
+                        });
+                        mostrarNotificacion('Nube Sincronizada', `${guardados} clientes guardados en la nube. ¡Ya están disponibles en tu celular!`, 'success');
+                    } catch (syncErr) {
+                        console.warn('Error sincronizando clientes con Neon:', syncErr);
+                    }
+                }
             };
             reader.readAsArrayBuffer(file); // Leer el contenido del archivo como ArrayBuffer
         }
@@ -1029,9 +1079,22 @@ document.addEventListener("DOMContentLoaded", function () {
         });
 
         // Si es cliente nuevo que no estaba en baseDatos, registrarlo
-        if (!baseDatos.some(c => c.NOMBRE && c.NOMBRE.toLowerCase() === finalNombre.toLowerCase()) &&
-            !nuevosClientes.some(c => c.Cliente.toLowerCase() === finalNombre.toLowerCase())) {
-            nuevosClientes.push({ Cliente: finalNombre, Afiliado: finalAfiliado });
+        const existeEnBase = baseDatos.some(c => c.NOMBRE && c.NOMBRE.trim().toLowerCase() === finalNombre.toLowerCase());
+        if (!existeEnBase) {
+            if (!nuevosClientes.some(c => c.Cliente && c.Cliente.trim().toLowerCase() === finalNombre.toLowerCase())) {
+                nuevosClientes.push({ Cliente: finalNombre, Afiliado: finalAfiliado });
+            }
+            baseDatos.push({
+                ID: baseDatos.length + 1,
+                NOMBRE: finalNombre,
+                NUMERO: finalAfiliado,
+                ES_NUEVO: true
+            });
+            try { localStorage.setItem('clientes_padron', JSON.stringify(baseDatos)); } catch (e) {}
+
+            if (email && typeof guardarClienteEnNeon === 'function') {
+                guardarClienteEnNeon({ nombre: finalNombre, numero: finalAfiliado, es_nuevo: true }, email).catch(console.warn);
+            }
         }
 
         console.log('Datos guardados:', data);
@@ -1090,9 +1153,22 @@ document.addEventListener("DOMContentLoaded", function () {
             cargado_por: operador
         });
 
-        if (!baseDatos.some(c => c.NOMBRE && c.NOMBRE.toLowerCase() === nombreManual.toLowerCase()) &&
-            !nuevosClientes.some(c => c.Cliente.toLowerCase() === nombreManual.toLowerCase())) {
-            nuevosClientes.push({ Cliente: nombreManual, Afiliado: afiliadoManual });
+        const existeEnBaseManual = baseDatos.some(c => c.NOMBRE && c.NOMBRE.trim().toLowerCase() === nombreManual.toLowerCase());
+        if (!existeEnBaseManual) {
+            if (!nuevosClientes.some(c => c.Cliente && c.Cliente.trim().toLowerCase() === nombreManual.toLowerCase())) {
+                nuevosClientes.push({ Cliente: nombreManual, Afiliado: afiliadoManual });
+            }
+            baseDatos.push({
+                ID: baseDatos.length + 1,
+                NOMBRE: nombreManual,
+                NUMERO: afiliadoManual,
+                ES_NUEVO: true
+            });
+            try { localStorage.setItem('clientes_padron', JSON.stringify(baseDatos)); } catch (e) {}
+
+            if (email && typeof guardarClienteEnNeon === 'function') {
+                guardarClienteEnNeon({ nombre: nombreManual, numero: afiliadoManual, es_nuevo: true }, email).catch(console.warn);
+            }
         }
 
         actualizarTabla();
@@ -1202,17 +1278,66 @@ document.addEventListener("DOMContentLoaded", function () {
 
     // Función para crear el archivo Excel
     function crearExcel() {
-        // Combinar baseDatos con nuevosClientes para crear 'base-de-datos'
-        const combinedClientes = [...baseDatos, ...nuevosClientes.map(c => ({
-            ID: "", // Placeholder, se asignará después
-            NOMBRE: c.Cliente,
-            NUMERO: c.Afiliado
-        }))];
+        // 1. Identificar clientes en los registros del lote activo
+        const clientesEnLote = [];
+        const mapaLote = new Map();
+        data.forEach(item => {
+            const k = (item.nombre || '').trim().toLowerCase();
+            if (k && !mapaLote.has(k)) {
+                mapaLote.set(k, { Cliente: item.nombre.trim(), Afiliado: (item.afiliado || '').toString().trim() });
+                clientesEnLote.push({ Cliente: item.nombre.trim(), Afiliado: (item.afiliado || '').toString().trim() });
+            }
+        });
 
-        // Ordenar alfabéticamente por NOMBRE
-        combinedClientes.sort((a, b) => a.NOMBRE.localeCompare(b.NOMBRE));
+        // 2. Set de nombres del padrón base preexistente (sin contar los marcados como ES_NUEVO)
+        const padronBaseMap = new Map();
+        baseDatos.forEach(c => {
+            if (!c || !c.NOMBRE) return;
+            const k = c.NOMBRE.toString().trim().toLowerCase();
+            if (!c.ES_NUEVO) {
+                padronBaseMap.set(k, { NOMBRE: c.NOMBRE.toString().trim(), NUMERO: (c.NUMERO || '').toString().trim() });
+            }
+        });
 
-        // Asignar IDs secuenciales
+        // 3. Determinar la lista completa de NUEVOS CLIENTES
+        // Aquellos en nuevosClientes O aquellos en el lote que no estén en el padrón base
+        const nuevosClientesMap = new Map();
+        nuevosClientes.forEach(nc => {
+            const k = (nc.Cliente || '').trim().toLowerCase();
+            if (k && !padronBaseMap.has(k)) {
+                nuevosClientesMap.set(k, { Cliente: nc.Cliente.trim(), Afiliado: (nc.Afiliado || '').toString().trim() });
+            }
+        });
+        clientesEnLote.forEach(cl => {
+            const k = cl.Cliente.toLowerCase();
+            if (!padronBaseMap.has(k) && !nuevosClientesMap.has(k)) {
+                nuevosClientesMap.set(k, { Cliente: cl.Cliente, Afiliado: cl.Afiliado });
+            }
+        });
+
+        const listaNuevosFinal = Array.from(nuevosClientesMap.values()).sort((a, b) => a.Cliente.localeCompare(b.Cliente));
+
+        // 4. Crear la hoja 'base-de-datos' con TODOS los clientes (padrón base + todos los nuevos)
+        const todosClientesMap = new Map();
+        baseDatos.forEach(c => {
+            if (!c || !c.NOMBRE) return;
+            const k = c.NOMBRE.toString().trim().toLowerCase();
+            todosClientesMap.set(k, { NOMBRE: c.NOMBRE.toString().trim(), NUMERO: (c.NUMERO || '').toString().trim() });
+        });
+        listaNuevosFinal.forEach(nc => {
+            const k = nc.Cliente.toLowerCase();
+            if (!todosClientesMap.has(k)) {
+                todosClientesMap.set(k, { NOMBRE: nc.Cliente, NUMERO: nc.Afiliado });
+            }
+        });
+        clientesEnLote.forEach(cl => {
+            const k = cl.Cliente.toLowerCase();
+            if (!todosClientesMap.has(k)) {
+                todosClientesMap.set(k, { NOMBRE: cl.Cliente, NUMERO: cl.Afiliado });
+            }
+        });
+
+        const combinedClientes = Array.from(todosClientesMap.values()).sort((a, b) => a.NOMBRE.localeCompare(b.NOMBRE));
         combinedClientes.forEach((cliente, index) => {
             cliente.ID = index + 1;
         });
@@ -1228,7 +1353,7 @@ document.addEventListener("DOMContentLoaded", function () {
         const datosConOrden = datosOrdenados.map((item, index) => ({
             ORDEN: index + 1,
             NOMBRE: item.nombre,
-            AFILIADO: item.afiliado,
+            AFILIADO: item.afiliado || '',
             IMPORTE: item.importe,
             PRODUCTOS: item.productos || '',
             "CARGADO POR": item.cargado_por || ''
@@ -1240,12 +1365,8 @@ document.addEventListener("DOMContentLoaded", function () {
 
         // Crear una hoja "Nuevos Clientes" si hay nuevos clientes
         let hojaNuevosClientes = null;
-        if (nuevosClientes.length > 0) {
-            // Sort 'nuevosClientes' alfabéticamente por Cliente
-            const nuevosClientesOrdenados = [...nuevosClientes].sort((a, b) => a.Cliente.localeCompare(b.Cliente));
-
-            // Crear la hoja de trabajo para nuevos clientes
-            hojaNuevosClientes = XLSX.utils.json_to_sheet(nuevosClientesOrdenados, { header: ["Cliente", "Afiliado"] });
+        if (listaNuevosFinal.length > 0) {
+            hojaNuevosClientes = XLSX.utils.json_to_sheet(listaNuevosFinal, { header: ["Cliente", "Afiliado"] });
             XLSX.utils.sheet_add_aoa(hojaNuevosClientes, [["Cliente", "Afiliado"]], { origin: "A1" });
         }
 
@@ -1855,6 +1976,7 @@ document.addEventListener("DOMContentLoaded", function () {
     const actionsBarTicket = document.getElementById('actionsBarTicket');
     const videoTicket = document.getElementById('videoTicket');
     const btnCapturarTicketTotal = document.getElementById('btnCapturarTicketTotal');
+    const btnImporteManualTicket = document.getElementById('btnImporteManualTicket');
     const btnSubirFotoTicket = document.getElementById('btnSubirFotoTicket');
     const fileInputTicket = document.getElementById('fileInputTicket');
     const aiProcessingTicket = document.getElementById('aiProcessingTicket');
@@ -1977,8 +2099,8 @@ document.addEventListener("DOMContentLoaded", function () {
             try {
                 const res = await ScannerService.extractRecipeData(videoReceta);
                 aiProcessingReceta.style.display = 'none';
-                inputScanNombre.value = res.nombre || '';
-                inputScanAfiliado.value = res.afiliado || '';
+                inputScanNombre.value = (res.nombre || '').replace(/[.,\-_/]+$/, '').trim();
+                inputScanAfiliado.value = (res.afiliado || '').replace(/[.,\-_/]+$/, '').trim();
                 if (inputScanProductos) inputScanProductos.value = res.productosStr || '';
                 if (rowScanProdsReceta && txtScanProdsPreview) {
                     if (res.productosStr) {
@@ -2022,8 +2144,8 @@ document.addEventListener("DOMContentLoaded", function () {
                 try {
                     const res = await ScannerService.extractRecipeData(img);
                     aiProcessingReceta.style.display = 'none';
-                    inputScanNombre.value = res.nombre || '';
-                    inputScanAfiliado.value = res.afiliado || '';
+                    inputScanNombre.value = (res.nombre || '').replace(/[.,\-_/]+$/, '').trim();
+                    inputScanAfiliado.value = (res.afiliado || '').replace(/[.,\-_/]+$/, '').trim();
                     if (inputScanProductos) inputScanProductos.value = res.productosStr || '';
                     if (rowScanProdsReceta && txtScanProdsPreview) {
                         if (res.productosStr) {
@@ -2070,11 +2192,12 @@ document.addEventListener("DOMContentLoaded", function () {
         if (encontrado) {
             badgePadronReceta.textContent = '✓ Afiliado en Padrón';
             badgePadronReceta.className = 'result-badge-padron match';
-            if (encontrado.NOMBRE) inputScanNombre.value = encontrado.NOMBRE.toString();
+            if (encontrado.NOMBRE) inputScanNombre.value = encontrado.NOMBRE.toString().replace(/[.,\-_/]+$/, '').trim();
             if (encontrado.NUMERO) inputScanAfiliado.value = encontrado.NUMERO.toString();
         } else {
             badgePadronReceta.textContent = 'ℹ️ Nuevo Afiliado';
             badgePadronReceta.className = 'result-badge-padron new';
+            inputScanNombre.value = inputScanNombre.value.replace(/[.,\-_/]+$/, '').trim();
         }
     }
 
@@ -2092,7 +2215,8 @@ document.addEventListener("DOMContentLoaded", function () {
 
     if (btnAvanzarTicket) {
         btnAvanzarTicket.addEventListener('click', async () => {
-            const nombre = inputScanNombre.value.trim();
+            const nombre = inputScanNombre.value.replace(/[.,\-_/]+$/, '').trim();
+            inputScanNombre.value = nombre;
             if (!nombre) {
                 mostrarNotificacion('Aviso', 'Por favor ingresa o confirma el nombre del afiliado.', 'error');
                 return;
@@ -2145,7 +2269,19 @@ document.addEventListener("DOMContentLoaded", function () {
                         if (actionsBarTicket) actionsBarTicket.style.display = 'none';
                         if (qrStatusIndicator) qrStatusIndicator.style.display = 'none';
                     } else if (qrData.qrRaw) {
-                        if (qrStatusText) qrStatusText.textContent = '¡QR detectado! Si no carga el total, usa "Foto a TOTAL"';
+                        detenerEscaneoQrTicket();
+                        if (navigator.vibrate) {
+                            try { navigator.vibrate(100); } catch (e) {}
+                        }
+                        badgeOrigenImporte.textContent = 'ℹ️ QR Detectado (Ingresar Total)';
+                        badgeOrigenImporte.style.background = 'rgba(245, 158, 11, 0.2)';
+                        badgeOrigenImporte.style.color = '#f59e0b';
+                        cardResultTicket.style.display = 'flex';
+                        if (cameraBoxTicket) cameraBoxTicket.classList.add('compact-preview');
+                        if (actionsBarTicket) actionsBarTicket.style.display = 'none';
+                        if (qrStatusIndicator) qrStatusIndicator.style.display = 'none';
+                        inputScanImporte.focus();
+                        console.log('QR Raw detectado sin importe extraíble:', qrData.qrRaw);
                     }
                 }
             } catch (e) {
@@ -2162,6 +2298,20 @@ document.addEventListener("DOMContentLoaded", function () {
             qrScanInterval = null;
         }
         isScanningQr = false;
+    }
+
+    if (btnImporteManualTicket) {
+        btnImporteManualTicket.addEventListener('click', () => {
+            detenerEscaneoQrTicket();
+            badgeOrigenImporte.textContent = '✍️ Ingreso Manual';
+            badgeOrigenImporte.style.background = 'rgba(107, 114, 128, 0.2)';
+            badgeOrigenImporte.style.color = '#9ca3af';
+            cardResultTicket.style.display = 'flex';
+            if (cameraBoxTicket) cameraBoxTicket.classList.add('compact-preview');
+            if (actionsBarTicket) actionsBarTicket.style.display = 'none';
+            if (qrStatusIndicator) qrStatusIndicator.style.display = 'none';
+            inputScanImporte.focus();
+        });
     }
 
     if (btnCapturarTicketTotal) {
@@ -2281,8 +2431,10 @@ document.addEventListener("DOMContentLoaded", function () {
     if (btnAvanzarConfirmacion) {
         btnAvanzarConfirmacion.addEventListener('click', () => {
             detenerEscaneoQrTicket();
-            const nombre = inputScanNombre.value.trim();
-            const afiliado = inputScanAfiliado.value.trim();
+            const nombre = inputScanNombre.value.replace(/[.,\-_/]+$/, '').trim();
+            inputScanNombre.value = nombre;
+            const afiliado = inputScanAfiliado.value.replace(/[.,\-_/]+$/, '').trim();
+            inputScanAfiliado.value = afiliado;
             const importe = parseFloat(inputScanImporte.value);
 
             if (!nombre) {
@@ -2324,8 +2476,8 @@ document.addEventListener("DOMContentLoaded", function () {
 
     if (btnGuardarYSiguiente) {
         btnGuardarYSiguiente.addEventListener('click', async () => {
-            const nombre = inputScanNombre.value.trim();
-            const afiliado = inputScanAfiliado.value.trim();
+            const nombre = inputScanNombre.value.replace(/[.,\-_/]+$/, '').trim();
+            const afiliado = inputScanAfiliado.value.replace(/[.,\-_/]+$/, '').trim();
             const importe = parseFloat(inputScanImporte.value);
             const productos = inputScanProductos ? inputScanProductos.value.trim() : '';
 
@@ -2364,9 +2516,22 @@ document.addEventListener("DOMContentLoaded", function () {
                     cargado_por: operador
                 });
 
-                if (!baseDatos.some(c => c.NOMBRE && c.NOMBRE.toLowerCase() === nombre.toLowerCase()) &&
-                    !nuevosClientes.some(c => c.Cliente.toLowerCase() === nombre.toLowerCase())) {
-                    nuevosClientes.push({ Cliente: nombre, Afiliado: afiliado });
+                const existeEnBase = baseDatos.some(c => c.NOMBRE && c.NOMBRE.trim().toLowerCase() === nombre.toLowerCase());
+                if (!existeEnBase) {
+                    if (!nuevosClientes.some(c => c.Cliente && c.Cliente.trim().toLowerCase() === nombre.toLowerCase())) {
+                        nuevosClientes.push({ Cliente: nombre, Afiliado: afiliado });
+                    }
+                    baseDatos.push({
+                        ID: baseDatos.length + 1,
+                        NOMBRE: nombre,
+                        NUMERO: afiliado,
+                        ES_NUEVO: true
+                    });
+                    try { localStorage.setItem('clientes_padron', JSON.stringify(baseDatos)); } catch (e) {}
+
+                    if (email && typeof guardarClienteEnNeon === 'function') {
+                        guardarClienteEnNeon({ nombre, numero: afiliado, es_nuevo: true }, email).catch(console.warn);
+                    }
                 }
 
                 actualizarTabla();

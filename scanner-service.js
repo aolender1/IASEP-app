@@ -118,50 +118,71 @@ const ScannerService = (function () {
     }
 
     /**
-     * Parsea un texto de QR buscando el estándar de AFIP
-     * Formato oficial: https://www.afip.gob.ar/fe/qr/?p=BASE64
+     * Parsea un texto de QR buscando el estándar de AFIP / ARCA y controladores fiscales
+     * Formatos oficiales: https://www.afip.gob.ar/fe/qr/?p=BASE64, https://www.arca.gob.ar/fe/qr/?p=BASE64,
+     * URLs con parámetros directos, JSON directo o cadenas delimitadas.
      */
     function parseAfipQr(qrText) {
         if (!qrText || typeof qrText !== 'string') return null;
 
         try {
+            const cleanText = qrText.trim();
+
+            // 1. AFIP / ARCA estándar en Base64 con parámetro ?p= o &p= (case-insensitive)
             let pParam = null;
-            if (qrText.includes('?p=') || qrText.includes('&p=')) {
-                const match = qrText.match(/[?&]p=([^&#]+)/);
-                if (match && match[1]) {
-                    pParam = match[1];
-                }
-            } else if (qrText.startsWith('http') && qrText.includes('afip.gob.ar')) {
-                const qIdx = qrText.indexOf('?');
+            const pMatch = cleanText.match(/[?&]p=([^&#\s]+)/i);
+            if (pMatch && pMatch[1]) {
+                pParam = pMatch[1];
+            } else if (cleanText.startsWith('http') && (cleanText.includes('afip.gob.ar') || cleanText.includes('arca.gob.ar'))) {
+                const qIdx = cleanText.indexOf('?');
                 if (qIdx !== -1) {
-                    pParam = qrText.substring(qIdx + 1);
+                    const query = cleanText.substring(qIdx + 1);
+                    if (!query.includes('=')) {
+                        pParam = query;
+                    }
                 }
             }
 
-            // Si se encontró parámetro p en la URL
             if (pParam) {
                 let decodedJson = decodeBase64Safe(pParam);
                 if (!decodedJson.includes('{')) {
                     try { decodedJson = decodeBase64Safe(decodeURIComponent(pParam)); } catch (e) {}
                 }
                 if (decodedJson.includes('{')) {
-                    const json = JSON.parse(decodedJson);
-                    const rawImp = json.importe !== undefined ? json.importe : (json.impTotal !== undefined ? json.impTotal : (json.total !== undefined ? json.total : json.monto));
-                    const num = extractNumericImporte(rawImp);
-                    if (num !== null) {
-                        return {
-                            success: true,
-                            importe: num,
-                            fecha: json.fecha,
-                            cuit: json.cuit,
-                            nroCmp: json.nroCmp,
-                            raw: json
-                        };
+                    try {
+                        const start = decodedJson.indexOf('{');
+                        const end = decodedJson.lastIndexOf('}');
+                        const json = JSON.parse(decodedJson.substring(start, end + 1));
+                        const rawImp = json.importe !== undefined ? json.importe : (json.impTotal !== undefined ? json.impTotal : (json.total !== undefined ? json.total : json.monto));
+                        const num = extractNumericImporte(rawImp);
+                        if (num !== null) {
+                            return {
+                                success: true,
+                                importe: num,
+                                fecha: json.fecha,
+                                cuit: json.cuit,
+                                nroCmp: json.nroCmp,
+                                raw: json
+                            };
+                        }
+                    } catch (errJson) {
+                        console.warn('Error al parsear JSON de QR Base64:', errJson);
                     }
                 }
             }
 
-            // Si es un string base64 directo (comienza con ey o ew)
+            // 2. Parámetros directos en URL (ej: cae.aspx?cuit=...&importe=73382.89 o &total=...)
+            if (qrText.includes('?') || qrText.includes('&')) {
+                const urlParamMatch = qrText.match(/[?&](?:importe|total|monto|imp|impTotal)=([0-9.,]+)/i);
+                if (urlParamMatch && urlParamMatch[1]) {
+                    const num = extractNumericImporte(urlParamMatch[1]);
+                    if (num !== null && num > 0) {
+                        return { success: true, importe: num, raw: qrText };
+                    }
+                }
+            }
+
+            // 3. Cadena Base64 directa
             if (qrText.startsWith('ey') || qrText.startsWith('ew')) {
                 try {
                     const decodedJson = decodeBase64Safe(qrText);
@@ -183,7 +204,7 @@ const ScannerService = (function () {
                 } catch (e) {}
             }
 
-            // Si es un JSON directo
+            // 4. JSON plano directo
             if (qrText.includes('{') && qrText.includes('}')) {
                 const start = qrText.indexOf('{');
                 const end = qrText.lastIndexOf('}');
@@ -202,8 +223,19 @@ const ScannerService = (function () {
                 }
             }
 
-            // Si es un texto con patrón TOTAL o IMPORTE
-            const numMatch = qrText.match(/(?:TOTAL|IMPORTE|MONTO)\s*[:$]?\s*([0-9.,]+)/i);
+            // 5. Valores delimitados por barras o punto y coma (Controladores Fiscales tradicionales)
+            if (qrText.includes('|') || qrText.includes(';')) {
+                const parts = qrText.split(/[|;]/);
+                for (const part of parts) {
+                    if (/^\d{1,9}[.,]\d{2}$/.test(part.trim())) {
+                        const num = extractNumericImporte(part.trim());
+                        if (num !== null && num > 0) return { success: true, importe: num, raw: qrText };
+                    }
+                }
+            }
+
+            // 6. Texto con patrón TOTAL / IMPORTE / MONTO
+            const numMatch = qrText.match(/(?:TOTAL|IMPORTE|MONTO)\s*[:=]?\s*[$]?\s*([0-9.,]+)/i);
             if (numMatch) {
                 const num = extractNumericImporte(numMatch[1]);
                 if (num !== null) return { success: true, importe: num, raw: qrText };
@@ -337,13 +369,13 @@ const ScannerService = (function () {
 
         const prompt = `Observa atentamente esta foto del RECETARIO OFICIAL I.A.S.E.P. (Obra Social de Formosa).
 Debes extraer con máxima exactitud los siguientes campos:
-1. "APELLIDO Y NOMBRE" del afiliado (aparece en el casillero superior impreso por computadora, por ejemplo: "OLMEDO ERIS RAMON." o "ALMIRON ANTONIO ADRIAN"). Excluye leyendas secundarias como "Municipalidad de Ibarreta" o "Ministerio de Educación".
+1. "APELLIDO Y NOMBRE" del afiliado (aparece en el casillero superior impreso por computadora, por ejemplo: "ACOSTA FRANCISCA TERESA." o "ALMIRON ANTONIO ADRIAN"). IMPORTANTE: Remueve cualquier punto final o signo de puntuación al final del nombre (debe quedar limpio, por ejemplo: "ACOSTA FRANCISCA TERESA"). Excluye leyendas secundarias como "Municipalidad de Ibarreta" o "Ministerio de Educación".
 2. "NUMERO DE CARNET" o número de afiliado (aparece en el casillero debajo del nombre, típicamente con formato con guiones como "3-18437877-00" o "3-24651376-00"). Excluye campos adyacentes como "Sexo:" o "Edad:".
 3. "PRODUCTOS" (Medicamentos facturados): Observa prioritariamente los troqueles adhesivos rectangulares pegados en la parte inferior del recetario (generalmente sobre el cartel de advertencia o recuadro inferior, cada uno tiene código de barras y texto del laboratorio). Extrae cada medicamento en formato limpio: "Nombre Dosis x Cantidad comp" (por ejemplo: "Corbis 10 x 60 comp", "Pampar 20 x 30 comp", "Turbulina 20 x 30 comp"). Si no hay troqueles pegados, busca los medicamentos en el cuerpo de prescripción o déjalo como lista vacía [].
 
 Responde estrictamente un JSON válido con esta estructura:
 {
-  "nombre": "APELLIDO Y NOMBRE EN MAYUSCULAS",
+  "nombre": "APELLIDO Y NOMBRE EN MAYUSCULAS SIN PUNTOS",
   "afiliado": "NUMERO-DE-AFILIADO",
   "productos": [
     "Corbis 10 x 60 comp",
@@ -361,10 +393,17 @@ Responde estrictamente un JSON válido con esta estructura:
             prodsList = rawProds.split('\n').map(p => p.trim()).filter(p => p.length > 0);
         }
 
+        let cleanNombre = (result.data?.nombre || '').toUpperCase().trim();
+        // Quitar cualquier punto, coma o guión al final del nombre
+        cleanNombre = cleanNombre.replace(/[.,\-_/]+$/, '').trim();
+
+        let cleanAfiliado = (result.data?.afiliado || '').trim();
+        cleanAfiliado = cleanAfiliado.replace(/[.,\-_/]+$/, '').trim();
+
         return {
             ...result,
-            nombre: (result.data?.nombre || '').toUpperCase().trim(),
-            afiliado: (result.data?.afiliado || '').trim(),
+            nombre: cleanNombre,
+            afiliado: cleanAfiliado,
             productos: prodsList,
             productosStr: prodsList.join(', '),
             previewUrl: dataUrl
@@ -516,6 +555,7 @@ Responde estrictamente un JSON válido:
                     for (const barcode of barcodes) {
                         const parsed = parseAfipQr(barcode.rawValue);
                         if (parsed && parsed.importe) return parsed;
+                        return { success: true, qrRaw: barcode.rawValue, importe: null };
                     }
                 }
             } catch (e) {
@@ -668,3 +708,7 @@ Responde estrictamente un JSON válido:
         testApiKey
     };
 })();
+
+if (typeof window !== 'undefined') {
+    window.ScannerService = ScannerService;
+}

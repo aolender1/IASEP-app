@@ -1456,21 +1456,22 @@ body.dark-theme {
 /* Scanner Action Bar */
 .scanner-actions-bar {
     display: flex;
-    gap: 10px;
+    gap: 8px;
+    width: 100%;
 }
 
 .btn-scan-action {
     flex: 1;
-    padding: 12px 18px;
+    padding: 12px 14px;
     border-radius: var(--border-radius-sm);
     font-weight: 700;
-    font-size: 15px;
+    font-size: 14px;
     border: none;
     cursor: pointer;
     display: flex;
     align-items: center;
     justify-content: center;
-    gap: 8px;
+    gap: 6px;
     transition: all var(--transition-fast);
 }
 
@@ -1488,7 +1489,9 @@ body.dark-theme {
     background: var(--color-surface);
     border: 1px solid var(--color-border);
     color: var(--color-text);
-    flex: 0 0 auto;
+    flex: 1 1 0;
+    min-width: 0;
+    white-space: nowrap;
 }
 
 .dark-theme .btn-scan-action.secondary {

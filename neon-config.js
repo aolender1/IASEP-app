@@ -532,3 +532,146 @@ async function eliminarRegistroDeNeon(registroId) {
     return true;
 }
 
+// ============================================================================
+// GESTIÓN DE PADRÓN DE CLIENTES MULTI-DISPOSITIVO (Neon Data API)
+// ============================================================================
+
+/**
+ * Obtiene todos los clientes registrados para la farmacia desde Neon DB
+ */
+async function obtenerClientesFarmacia(email) {
+    let token = await obtenerTokenValido();
+    if (!token || !email) return [];
+
+    try {
+        let res = await fetch(`${NEON_DATA_URL}clientes?farmacia_email=eq.${encodeURIComponent(email)}&order=nombre.asc`, {
+            headers: { 'Authorization': `Bearer ${token}` }
+        });
+        if (res.status === 400 || res.status === 401) {
+            token = await refrescarTokenNeon();
+            if (token) {
+                res = await fetch(`${NEON_DATA_URL}clientes?farmacia_email=eq.${encodeURIComponent(email)}&order=nombre.asc`, {
+                    headers: { 'Authorization': `Bearer ${token}` }
+                });
+            }
+        }
+        if (!res.ok) throw new Error(`HTTP ${res.status}`);
+        return await res.json();
+    } catch (e) {
+        console.warn('Error al obtener clientes de Neon:', e);
+        return [];
+    }
+}
+
+/**
+ * Guarda o actualiza un cliente en Neon DB
+ */
+async function guardarClienteEnNeon(cliente, email) {
+    let token = await obtenerTokenValido();
+    if (!token || !email) return null;
+
+    const payload = {
+        farmacia_email: email,
+        nombre: (cliente.nombre || cliente.NOMBRE || cliente.Cliente || '').trim(),
+        numero: (cliente.numero || cliente.NUMERO || cliente.Afiliado || '').trim(),
+        es_nuevo: cliente.es_nuevo !== undefined ? cliente.es_nuevo : true
+    };
+
+    if (!payload.nombre) return null;
+
+    try {
+        let res = await fetch(`${NEON_DATA_URL}clientes`, {
+            method: 'POST',
+            headers: {
+                'Authorization': `Bearer ${token}`,
+                'Content-Type': 'application/json',
+                'Prefer': 'return=representation,resolution=merge-duplicates'
+            },
+            body: JSON.stringify(payload)
+        });
+
+        if (res.status === 400 || res.status === 401) {
+            token = await refrescarTokenNeon();
+            if (token) {
+                res = await fetch(`${NEON_DATA_URL}clientes`, {
+                    method: 'POST',
+                    headers: {
+                        'Authorization': `Bearer ${token}`,
+                        'Content-Type': 'application/json',
+                        'Prefer': 'return=representation,resolution=merge-duplicates'
+                    },
+                    body: JSON.stringify(payload)
+                });
+            }
+        }
+
+        if (res.ok) {
+            const data = await res.json();
+            return Array.isArray(data) ? data[0] : data;
+        }
+    } catch (e) {
+        console.warn('Error al guardar cliente en Neon:', e);
+    }
+    return null;
+}
+
+/**
+ * Sincroniza un lote de clientes (ej. importados de Excel) con Neon DB
+ */
+async function sincronizarLoteClientesNeon(clientesArray, email, onProgress) {
+    let token = await obtenerTokenValido();
+    if (!token || !email || !Array.isArray(clientesArray) || clientesArray.length === 0) return 0;
+
+    const CHUNK_SIZE = 100;
+    let guardados = 0;
+
+    for (let i = 0; i < clientesArray.length; i += CHUNK_SIZE) {
+        const chunk = clientesArray.slice(i, i + CHUNK_SIZE).map(c => ({
+            farmacia_email: email,
+            nombre: (c.NOMBRE || c.nombre || c.Cliente || '').toString().trim(),
+            numero: (c.NUMERO || c.numero || c.Afiliado || '').toString().trim(),
+            es_nuevo: false
+        })).filter(c => c.nombre.length > 0);
+
+        if (chunk.length === 0) continue;
+
+        try {
+            let res = await fetch(`${NEON_DATA_URL}clientes`, {
+                method: 'POST',
+                headers: {
+                    'Authorization': `Bearer ${token}`,
+                    'Content-Type': 'application/json',
+                    'Prefer': 'return=minimal,resolution=merge-duplicates'
+                },
+                body: JSON.stringify(chunk)
+            });
+
+            if (res.status === 400 || res.status === 401) {
+                token = await refrescarTokenNeon();
+                if (token) {
+                    res = await fetch(`${NEON_DATA_URL}clientes`, {
+                        method: 'POST',
+                        headers: {
+                            'Authorization': `Bearer ${token}`,
+                            'Content-Type': 'application/json',
+                            'Prefer': 'return=minimal,resolution=merge-duplicates'
+                        },
+                        body: JSON.stringify(chunk)
+                    });
+                }
+            }
+
+            if (res.ok) {
+                guardados += chunk.length;
+                if (typeof onProgress === 'function') {
+                    onProgress(guardados, clientesArray.length);
+                }
+            }
+        } catch (e) {
+            console.warn('Error al subir bloque de clientes a Neon:', e);
+        }
+    }
+
+    return guardados;
+}
+
