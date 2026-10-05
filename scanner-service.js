@@ -6,14 +6,10 @@
  */
 
 const ScannerService = (function () {
-    // Modelos soportados ordenados por prioridad (mayor cuota / velocidad primero)
+    // Modelos soportados (únicamente versiones Flash-Lite de máxima velocidad y menor latencia)
     const SUPPORTED_MODELS = [
-        { id: 'gemini-3.5-flash-lite', name: 'Gemini 3.5 Flash Lite (Recomendado - 500 RPD / 15 RPM)' },
-        { id: 'gemini-3.1-flash-lite', name: 'Gemini 3.1 Flash Lite (500 RPD / 15 RPM)' },
-        { id: 'gemini-3.8-flash', name: 'Gemini 3.8 Flash' },
-        { id: 'gemini-3.7-flash', name: 'Gemini 3.7 Flash' },
-        { id: 'gemini-3.6-flash', name: 'Gemini 3.6 Flash' },
-        { id: 'gemini-2.5-flash-lite', name: 'Gemini 2.5 Flash Lite' }
+        { id: 'gemini-3.5-flash-lite', name: 'Gemini 3.5 Flash Lite (Recomendado - Ultra Rápido)' },
+        { id: 'gemini-3.1-flash-lite', name: 'Gemini 3.1 Flash Lite (Ultra Rápido)' }
     ];
 
     let currentStream = null;
@@ -61,7 +57,11 @@ const ScannerService = (function () {
      * Obtener modelo seleccionado o el predeterminado
      */
     function getSelectedModel() {
-        return localStorage.getItem('gemini_selected_model') || 'gemini-3.5-flash-lite';
+        const stored = localStorage.getItem('gemini_selected_model');
+        if (stored && SUPPORTED_MODELS.some(m => m.id === stored)) {
+            return stored;
+        }
+        return 'gemini-3.5-flash-lite';
     }
 
     /**
@@ -249,9 +249,9 @@ const ScannerService = (function () {
 
     /**
      * Comprime y redimensiona una imagen antes de enviarla a Gemini
-     * para reducir el tiempo de subida a menos de 200ms
+     * Optimizado para máxima velocidad de subida móvil (~80-120 KB por imagen)
      */
-    function optimizeImageForAI(imageElementOrCanvas, maxDimension = 1600) {
+    function optimizeImageForAI(imageElementOrCanvas, maxDimension = 1080) {
         return new Promise((resolve) => {
             const canvas = document.createElement('canvas');
             let width = imageElementOrCanvas.naturalWidth || imageElementOrCanvas.videoWidth || imageElementOrCanvas.width || 1080;
@@ -272,8 +272,8 @@ const ScannerService = (function () {
             const ctx = canvas.getContext('2d');
             ctx.drawImage(imageElementOrCanvas, 0, 0, width, height);
 
-            // Exportar a base64 JPEG calidad 0.85
-            const dataUrl = canvas.toDataURL('image/jpeg', 0.85);
+            // Exportar a base64 JPEG calidad 0.70 (~80-100 KB, sube en <150ms en 4G)
+            const dataUrl = canvas.toDataURL('image/jpeg', 0.70);
             // Extraer solo la parte base64 sin el encabezado data:image/jpeg;base64,
             const base64Data = dataUrl.split(',')[1];
             resolve({ dataUrl, base64Data });
@@ -290,7 +290,7 @@ const ScannerService = (function () {
         }
 
         const modelToUse = preferredModel || getSelectedModel();
-        // Generar lista de modelos para intentar (el elegido primero, luego los demás)
+        // Generar lista de modelos para intentar (el elegido primero, luego el alternativo)
         const modelsToTry = [
             modelToUse,
             ...SUPPORTED_MODELS.map(m => m.id).filter(id => id !== modelToUse)
@@ -317,7 +317,8 @@ const ScannerService = (function () {
                     ],
                     generationConfig: {
                         response_mime_type: 'application/json',
-                        temperature: 0.1
+                        temperature: 0.1,
+                        maxOutputTokens: 250
                     }
                 };
 
@@ -668,7 +669,7 @@ Responde estrictamente un JSON válido:
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({
                     contents: [{ parts: [{ text: 'Responde estrictamente: {"status":"ok"}' }] }],
-                    generationConfig: { response_mime_type: 'application/json' }
+                    generationConfig: { response_mime_type: 'application/json', maxOutputTokens: 50 }
                 })
             });
 
