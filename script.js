@@ -572,7 +572,7 @@ document.addEventListener("DOMContentLoaded", function () {
                 baseDatos = clientesNeon.map((c, i) => ({
                     ID: i + 1,
                     NOMBRE: (c.nombre || '').replace(/[.,\-_/]+$/, '').trim(),
-                    NUMERO: (c.numero || '').toString().trim(),
+                    NUMERO: typeof formatCarnetIasep === 'function' ? formatCarnetIasep(c.numero || '') : (c.numero || '').toString().trim(),
                     ES_NUEVO: c.es_nuevo
                 }));
             }
@@ -589,7 +589,8 @@ document.addEventListener("DOMContentLoaded", function () {
                         pastClients.forEach(r => {
                             if (!r.nombre) return;
                             const rNombre = r.nombre.replace(/[.,\-_/]+$/, '').trim();
-                            const rAfil = (r.afiliado || '').toString().trim();
+                            const rawAfil = (r.afiliado || '').toString().trim();
+                            const rAfil = typeof formatCarnetIasep === 'function' ? formatCarnetIasep(rawAfil) : rawAfil;
                             const yaExiste = baseDatos.some(b => {
                                 const cleanB = (b.NUMERO || '').replace(/[^0-9]/g, '');
                                 const cleanR = rAfil.replace(/[^0-9]/g, '');
@@ -680,7 +681,15 @@ document.addEventListener("DOMContentLoaded", function () {
     // Función para cargar clientes desde la hoja "base-de-datos" de Excel
     function cargarClientesDesdeExcel(clientesData) {
         console.log("Iniciando carga de clientes desde Excel:", clientesData);
-        baseDatos = clientesData; // Actualizar el array baseDatos
+        baseDatos = (clientesData || []).map((cliente, index) => {
+            const rawNum = (cliente.NUMERO || cliente.numero || cliente.Afiliado || '').toString();
+            return {
+                ID: cliente.ID || index + 1,
+                NOMBRE: (cliente.NOMBRE || cliente.nombre || cliente.Cliente || '').toString().trim(),
+                NUMERO: typeof formatCarnetIasep === 'function' ? formatCarnetIasep(rawNum) : rawNum.trim(),
+                ES_NUEVO: false
+            };
+        }).filter(c => c.NOMBRE.length > 0);
         console.log("Carga de clientes completada desde Excel:", baseDatos);
     }
 
@@ -801,6 +810,16 @@ document.addEventListener("DOMContentLoaded", function () {
         }
     });
 
+    clienteInput.addEventListener('blur', function () {
+        const inputValue = this.value.trim();
+        if (inputValue && (!afiliadoInput.value || afiliadoInput.value.trim() === '')) {
+            const match = verificarAfiliadoEnBase(inputValue, '');
+            if (match && match.NUMERO) {
+                afiliadoInput.value = match.NUMERO.toString();
+            }
+        }
+    });
+
     // Event listener para cambios en el input 'afiliadoInput'
     if (afiliadoInput) {
         afiliadoInput.addEventListener('input', function () {
@@ -824,11 +843,28 @@ document.addEventListener("DOMContentLoaded", function () {
             }
         });
 
+        afiliadoInput.addEventListener('blur', function () {
+            const raw = this.value.trim();
+            if (raw) {
+                const formatted = typeof formatCarnetIasep === 'function' ? formatCarnetIasep(raw) : raw;
+                this.value = formatted;
+                if (!clienteInput.value || clienteInput.value.trim() === '') {
+                    const match = verificarAfiliadoEnBase('', formatted);
+                    if (match && match.NOMBRE) {
+                        clienteInput.value = match.NOMBRE.toString();
+                    }
+                }
+            }
+        });
+
         afiliadoInput.addEventListener('change', function () {
             const inputValue = this.value.trim();
             if (inputValue && baseDatos.length > 0) {
+                const formatted = typeof formatCarnetIasep === 'function' ? formatCarnetIasep(inputValue) : inputValue;
+                this.value = formatted;
                 const cleanVal = inputValue.replace(/[^0-9]/g, '');
-                const match = baseDatos.find(c => c.NUMERO && c.NUMERO.toString() === inputValue) ||
+                const match = baseDatos.find(c => c.NUMERO && c.NUMERO.toString() === formatted) ||
+                    baseDatos.find(c => c.NUMERO && c.NUMERO.toString() === inputValue) ||
                     baseDatos.find(c => cleanVal && c.NUMERO && c.NUMERO.toString().replace(/[^0-9]/g, '') === cleanVal) ||
                     baseDatos.find(c => cleanVal && c.NUMERO && c.NUMERO.toString().replace(/[^0-9]/g, '').startsWith(cleanVal)) ||
                     baseDatos.find(c => c.NUMERO && c.NUMERO.toString().toLowerCase().includes(inputValue.toLowerCase()));
@@ -1017,16 +1053,16 @@ document.addEventListener("DOMContentLoaded", function () {
 
                 cargarClientesDesdeExcel(jsonData);
                 try {
-                    localStorage.setItem('clientes_padron', JSON.stringify(jsonData));
+                    localStorage.setItem('clientes_padron', JSON.stringify(baseDatos));
                 } catch (errCache) {}
-                mostrarNotificacion('¡Éxito!', `Se cargaron ${jsonData.length} clientes. Sincronizando con la nube...`, 'success');
+                mostrarNotificacion('¡Éxito!', `Se cargaron ${baseDatos.length} clientes. Sincronizando con la nube...`, 'success');
 
                 const email = obtenerEmailUsuario();
                 if (email && typeof sincronizarLoteClientesNeon === 'function') {
                     try {
-                        const guardados = await sincronizarLoteClientesNeon(jsonData, email, (actual, total) => {
+                        const guardados = await sincronizarLoteClientesNeon(baseDatos, email, (actual, total) => {
                             console.log(`Subiendo clientes a Neon: ${actual}/${total}`);
-                        });
+                        }, true); // Limpiar y reemplazar padrón para reflejar eliminaciones
                         mostrarNotificacion('Nube Sincronizada', `${guardados} clientes guardados en la nube. ¡Ya están disponibles en tu celular!`, 'success');
                     } catch (syncErr) {
                         console.warn('Error sincronizando clientes con Neon:', syncErr);
@@ -1049,28 +1085,11 @@ document.addEventListener("DOMContentLoaded", function () {
             return;
         }
 
-        // Buscar cliente en la base de datos por número o por nombre
-        let clienteEncontrado = null;
-        if (baseDatos && baseDatos.length > 0) {
-            if (afiliadoVal) {
-                const cleanAfil = afiliadoVal.replace(/[^0-9]/g, '');
-                clienteEncontrado = baseDatos.find(c => {
-                    if (!c || c.NUMERO === undefined || c.NUMERO === null) return false;
-                    const numStr = c.NUMERO.toString();
-                    const cleanNum = numStr.replace(/[^0-9]/g, '');
-                    return numStr === afiliadoVal || (cleanAfil && cleanNum === cleanAfil);
-                });
-            }
-            if (!clienteEncontrado && nombre) {
-                clienteEncontrado = baseDatos.find(c => {
-                    if (!c || c.NOMBRE === undefined || c.NOMBRE === null) return false;
-                    return c.NOMBRE.toString().toLowerCase() === nombre.toLowerCase();
-                });
-            }
-        }
+        const formattedAfil = typeof formatCarnetIasep === 'function' ? formatCarnetIasep(afiliadoVal) : afiliadoVal;
+        const clienteEncontrado = verificarAfiliadoEnBase(nombre, formattedAfil);
 
         const finalNombre = clienteEncontrado ? clienteEncontrado.NOMBRE.toString() : nombre;
-        const finalAfiliado = clienteEncontrado ? clienteEncontrado.NUMERO.toString() : afiliadoVal;
+        const finalAfiliado = clienteEncontrado ? clienteEncontrado.NUMERO.toString() : formattedAfil;
 
         if (!finalNombre) {
             mostrarNotificacion('Aviso', 'Por favor ingrese el nombre del cliente.', 'error');
@@ -2158,12 +2177,18 @@ document.addEventListener("DOMContentLoaded", function () {
     function verificarAfiliadoEnBase(nombre, afiliado) {
         let encontrado = null;
         const normNombre = normalizeClientName(nombre);
-        const cleanAfil = afiliado ? afiliado.toString().replace(/[^0-9]/g, '') : '';
-        const dniAfil = extractDniCore(afiliado);
+        const fmtAfil = typeof formatCarnetIasep === 'function' ? formatCarnetIasep(afiliado) : (afiliado || '').toString().trim();
+        const cleanAfil = fmtAfil ? fmtAfil.toString().replace(/[^0-9]/g, '') : '';
+        const dniAfil = extractDniCore(fmtAfil);
 
         if (baseDatos && baseDatos.length > 0) {
-            // 1. Búsqueda por Carnet o DNI
-            if (cleanAfil || dniAfil) {
+            // 1. Búsqueda directa por Carnet estándar D-DDDDDDDD-DD (más rápida y unívoca)
+            if (fmtAfil) {
+                encontrado = baseDatos.find(c => c && c.NUMERO && c.NUMERO === fmtAfil);
+            }
+
+            // 2. Búsqueda por dígitos limpios o núcleo de DNI
+            if (!encontrado && (cleanAfil || dniAfil)) {
                 encontrado = baseDatos.find(c => {
                     if (!c || c.NUMERO === undefined || c.NUMERO === null) return false;
                     const clean = c.NUMERO.toString().replace(/[^0-9]/g, '');
@@ -2379,9 +2404,16 @@ document.addEventListener("DOMContentLoaded", function () {
                 if (aiProcessingTicket) aiProcessingTicket.style.display = 'none';
 
                 // Llenar campos de Confirmación (Paso 3)
-                const nombreLimpio = (res.nombre || '').replace(/[.,\-_/]+$/, '').trim();
-                const afiliadoLimpio = (res.afiliado || '').replace(/[.,\-_/]+$/, '').trim();
+                let nombreLimpio = (res.nombre || '').replace(/[.,\-_/]+$/, '').trim();
+                let afiliadoLimpio = typeof formatCarnetIasep === 'function' ? formatCarnetIasep(res.afiliado || '') : (res.afiliado || '').replace(/[.,\-_/]+$/, '').trim();
                 const importeNum = (res.importe !== null && !isNaN(res.importe)) ? res.importe : null;
+
+                // Enriquecer con los datos oficiales si coincide en el padrón
+                const afiliadoPadron = verificarAfiliadoEnBase(nombreLimpio, afiliadoLimpio);
+                if (afiliadoPadron) {
+                    if (afiliadoPadron.NUMERO) afiliadoLimpio = afiliadoPadron.NUMERO;
+                    if (afiliadoPadron.NOMBRE) nombreLimpio = afiliadoPadron.NOMBRE;
+                }
 
                 if (confirmNombre) confirmNombre.value = nombreLimpio;
                 if (confirmAfiliado) confirmAfiliado.value = afiliadoLimpio;
@@ -2442,9 +2474,16 @@ document.addEventListener("DOMContentLoaded", function () {
                     const res = await ScannerService.extractCompleteRecipeAndTicket(capturedRecetaSource, capturedTicketSource);
                     if (aiProcessingTicket) aiProcessingTicket.style.display = 'none';
 
-                    const nombreLimpio = (res.nombre || '').replace(/[.,\-_/]+$/, '').trim();
-                    const afiliadoLimpio = (res.afiliado || '').replace(/[.,\-_/]+$/, '').trim();
+                    let nombreLimpio = (res.nombre || '').replace(/[.,\-_/]+$/, '').trim();
+                    let afiliadoLimpio = typeof formatCarnetIasep === 'function' ? formatCarnetIasep(res.afiliado || '') : (res.afiliado || '').replace(/[.,\-_/]+$/, '').trim();
                     const importeNum = (res.importe !== null && !isNaN(res.importe)) ? res.importe : null;
+
+                    // Enriquecer con los datos oficiales si coincide en el padrón
+                    const afiliadoPadron = verificarAfiliadoEnBase(nombreLimpio, afiliadoLimpio);
+                    if (afiliadoPadron) {
+                        if (afiliadoPadron.NUMERO) afiliadoLimpio = afiliadoPadron.NUMERO;
+                        if (afiliadoPadron.NOMBRE) nombreLimpio = afiliadoPadron.NOMBRE;
+                    }
 
                     if (confirmNombre) confirmNombre.value = nombreLimpio;
                     if (confirmAfiliado) confirmAfiliado.value = afiliadoLimpio;
@@ -2507,8 +2546,15 @@ document.addEventListener("DOMContentLoaded", function () {
                 const res = await ScannerService.extractRecipeData(capturedRecetaSource);
                 if (aiProcessingTicket) aiProcessingTicket.style.display = 'none';
 
-                const nombreLimpio = (res.nombre || '').replace(/[.,\-_/]+$/, '').trim();
-                const afiliadoLimpio = (res.afiliado || '').replace(/[.,\-_/]+$/, '').trim();
+                let nombreLimpio = (res.nombre || '').replace(/[.,\-_/]+$/, '').trim();
+                let afiliadoLimpio = typeof formatCarnetIasep === 'function' ? formatCarnetIasep(res.afiliado || '') : (res.afiliado || '').replace(/[.,\-_/]+$/, '').trim();
+
+                // Enriquecer con los datos oficiales si coincide en el padrón
+                const afiliadoPadron = verificarAfiliadoEnBase(nombreLimpio, afiliadoLimpio);
+                if (afiliadoPadron) {
+                    if (afiliadoPadron.NUMERO) afiliadoLimpio = afiliadoPadron.NUMERO;
+                    if (afiliadoPadron.NOMBRE) nombreLimpio = afiliadoPadron.NOMBRE;
+                }
 
                 if (confirmNombre) confirmNombre.value = nombreLimpio;
                 if (confirmAfiliado) confirmAfiliado.value = afiliadoLimpio;
@@ -2544,14 +2590,32 @@ document.addEventListener("DOMContentLoaded", function () {
         confirmNombre.addEventListener('input', () => {
             verificarAfiliadoEnBase(confirmNombre.value, confirmAfiliado ? confirmAfiliado.value : '');
         });
+        confirmNombre.addEventListener('blur', () => {
+            if (confirmNombre.value && (!confirmAfiliado.value || confirmAfiliado.value.trim() === '')) {
+                const match = verificarAfiliadoEnBase(confirmNombre.value, '');
+                if (match && match.NUMERO) {
+                    confirmAfiliado.value = match.NUMERO;
+                }
+            }
+        });
     }
 
     if (confirmAfiliado) {
         confirmAfiliado.addEventListener('input', () => {
             verificarAfiliadoEnBase(confirmNombre ? confirmNombre.value : '', confirmAfiliado.value);
         });
+        confirmAfiliado.addEventListener('blur', () => {
+            if (confirmAfiliado.value) {
+                if (typeof formatCarnetIasep === 'function') {
+                    confirmAfiliado.value = formatCarnetIasep(confirmAfiliado.value);
+                }
+                const match = verificarAfiliadoEnBase(confirmNombre ? confirmNombre.value : '', confirmAfiliado.value);
+                if (match && match.NOMBRE && (!confirmNombre.value || confirmNombre.value.trim() === '')) {
+                    confirmNombre.value = match.NOMBRE;
+                }
+            }
+        });
     }
-
 
     if (btnReintentarTodo) {
         btnReintentarTodo.addEventListener('click', () => {
@@ -2564,7 +2628,8 @@ document.addEventListener("DOMContentLoaded", function () {
     if (btnGuardarYSiguiente) {
         btnGuardarYSiguiente.addEventListener('click', async () => {
             const nombre = confirmNombre ? confirmNombre.value.replace(/[.,\-_/]+$/, '').trim() : '';
-            const afiliado = confirmAfiliado ? confirmAfiliado.value.replace(/[.,\-_/]+$/, '').trim() : '';
+            const rawAfiliado = confirmAfiliado ? confirmAfiliado.value.replace(/[.,\-_/]+$/, '').trim() : '';
+            const afiliado = typeof formatCarnetIasep === 'function' ? formatCarnetIasep(rawAfiliado) : rawAfiliado;
             const rawImporte = confirmImporte ? confirmImporte.value : '';
             const importe = parseFloat(rawImporte);
             const productos = inputScanProductos ? inputScanProductos.value.trim() : '';

@@ -72,6 +72,51 @@ const ScannerService = (function () {
     }
 
     /**
+     * Estandariza un número de carnet IASEP al formato oficial canónico D-DDDDDDDD-DD (13 caracteres)
+     * Ejemplos:
+     * - "31843787700"   -> "3-18437877-00"
+     * - "3-18437877-00" -> "3-18437877-00"
+     * - "10823028600"   -> "1-08230286-00"
+     * - "1823028600"    -> "1-08230286-00"
+     */
+    function formatCarnetIasep(val) {
+        if (!val) return '';
+        let str = val.toString().trim().replace(/[.,\-_/]+$/, '').trim();
+        // Si ya cumple exactamente con la norma D-DDDDDDDD-DD (13 caracteres)
+        if (/^\d-\d{8}-\d{2}$/.test(str)) {
+            return str;
+        }
+
+        // Extraer únicamente los dígitos numéricos
+        const digits = str.replace(/\D/g, '');
+
+        // 11 dígitos: 1 de plan + 8 de DNI + 2 de parentesco
+        if (digits.length === 11) {
+            return `${digits.charAt(0)}-${digits.slice(1, 9)}-${digits.slice(9, 11)}`;
+        }
+
+        // 10 dígitos: 1 de plan + 7 de DNI + 2 de parentesco (se rellena DNI con 0 adelante)
+        if (digits.length === 10) {
+            return `${digits.charAt(0)}-0${digits.slice(1, 8)}-${digits.slice(8, 10)}`;
+        }
+
+        // Formato con guiones parciales o espacios: ej "3-1843787700" o "3 18437877 00" o "3-8230286-00"
+        const m = str.match(/^(\d)[-\s]+(\d{7,8})[-\s]+(\d{1,2})$/);
+        if (m) {
+            const plan = m[1];
+            const dni = m[2].padStart(8, '0');
+            const parentesco = m[3].padStart(2, '0');
+            return `${plan}-${dni}-${parentesco}`;
+        }
+
+        return str;
+    }
+
+    if (typeof window !== 'undefined') {
+        window.formatCarnetIasep = formatCarnetIasep;
+    }
+
+    /**
      * Decodificar Base64 seguro para URLs con soporte UTF-8 completo
      */
     function decodeBase64Safe(str) {
@@ -383,13 +428,13 @@ const ScannerService = (function () {
         const prompt = `Observa atentamente esta foto del RECETARIO OFICIAL I.A.S.E.P. (Obra Social de Formosa).
 Debes extraer con máxima exactitud los siguientes campos:
 1. "APELLIDO Y NOMBRE" del afiliado (aparece en el casillero superior impreso por computadora, por ejemplo: "ACOSTA FRANCISCA TERESA." o "ALMIRON ANTONIO ADRIAN"). IMPORTANTE: Remueve cualquier punto final o signo de puntuación al final del nombre (debe quedar limpio, por ejemplo: "ACOSTA FRANCISCA TERESA"). Excluye leyendas secundarias como "Municipalidad de Ibarreta" o "Ministerio de Educación".
-2. "NUMERO DE CARNET" o número de afiliado (aparece en el casillero debajo del nombre, típicamente con formato con guiones como "3-18437877-00" o "3-24651376-00"). Excluye campos adyacentes como "Sexo:" o "Edad:".
+2. "NUMERO DE CARNET" o número de afiliado (aparece en el casillero debajo del nombre, estrictamente en formato "D-DDDDDDDD-DD", por ejemplo: "3-18437877-00" o "1-08230286-00"). Excluye campos adyacentes como "Sexo:" o "Edad:".
 3. "PRODUCTOS" (Medicamentos facturados): Observa prioritariamente los troqueles adhesivos rectangulares pegados en la parte inferior del recetario (generalmente sobre el cartel de advertencia o recuadro inferior, cada uno tiene código de barras y texto del laboratorio). Extrae cada medicamento en formato limpio: "Nombre Dosis x Cantidad comp" (por ejemplo: "Corbis 10 x 60 comp", "Pampar 20 x 30 comp", "Turbulina 20 x 30 comp"). Si no hay troqueles pegados, busca los medicamentos en el cuerpo de prescripción o déjalo como lista vacía [].
 
 Responde estrictamente un JSON válido con esta estructura:
 {
   "nombre": "APELLIDO Y NOMBRE EN MAYUSCULAS SIN PUNTOS",
-  "afiliado": "NUMERO-DE-AFILIADO",
+  "afiliado": "3-XXXXXXXX-00",
   "productos": [
     "Corbis 10 x 60 comp",
     "Pampar 20 x 30 comp",
@@ -410,8 +455,7 @@ Responde estrictamente un JSON válido con esta estructura:
         // Quitar cualquier punto, coma o guión al final del nombre
         cleanNombre = cleanNombre.replace(/[.,\-_/]+$/, '').trim();
 
-        let cleanAfiliado = (result.data?.afiliado || '').trim();
-        cleanAfiliado = cleanAfiliado.replace(/[.,\-_/]+$/, '').trim();
+        let cleanAfiliado = formatCarnetIasep((result.data?.afiliado || '').trim());
 
         return {
             ...result,
@@ -484,7 +528,7 @@ Responde estrictamente un JSON válido:
 IMAGEN 1: RECETARIO OFICIAL I.A.S.E.P. (Obra Social de Formosa).
 Debes extraer:
 1. "nombre": APELLIDO Y NOMBRE del afiliado (aparece en el casillero superior impreso por computadora, por ejemplo: "ACOSTA FRANCISCA TERESA" o "ALMIRON ANTONIO ADRIAN"). Quita cualquier punto final o signo de puntuación.
-2. "afiliado": NUMERO DE CARNET / AFILIADO (aparece debajo del nombre, ej: "3-18437877-00").
+2. "afiliado": NUMERO DE CARNET / AFILIADO (aparece debajo del nombre, estrictamente en formato "D-DDDDDDDD-DD", ej: "3-18437877-00" o "1-08230286-00").
 3. "productos_receta": Medicamentos de los troqueles adhesivos pegados abajo o prescritos.
 
 IMAGEN 2: TICKET FISCAL de la farmacia.
@@ -497,7 +541,7 @@ Combina todos los medicamentos de ambas imágenes en una sola lista limpia "prod
 Responde estrictamente un JSON válido con esta estructura exacta:
 {
   "nombre": "APELLIDO Y NOMBRE EN MAYUSCULAS",
-  "afiliado": "NUMERO-DE-AFILIADO",
+  "afiliado": "3-XXXXXXXX-00",
   "importe": 82486.80,
   "productos": [
     "Turbulina 20 mg comp",
@@ -507,7 +551,7 @@ Responde estrictamente un JSON válido con esta estructura exacta:
 
         const result = await callGeminiVisionMulti([optReceta.base64Data, optTicket.base64Data], prompt);
         let cleanNombre = (result.data?.nombre || '').toUpperCase().trim().replace(/[.,\-_/]+$/, '').trim();
-        let cleanAfiliado = (result.data?.afiliado || '').trim().replace(/[.,\-_/]+$/, '').trim();
+        let cleanAfiliado = formatCarnetIasep((result.data?.afiliado || '').trim());
 
         let rawImp = result.data?.importe;
         let importeNum = null;
@@ -784,7 +828,8 @@ Responde estrictamente un JSON válido con esta estructura exacta:
         startCamera,
         stopCamera,
         scanQrFromVideo,
-        testApiKey
+        testApiKey,
+        formatCarnetIasep
     };
 })();
 

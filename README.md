@@ -1,16 +1,20 @@
-# 🏥 IASEP Farmacias — Sistema de Gestión y Carga de Comprobantes
+# 🏥 IASEP Farmacias — Sistema de Gestión y Carga de Comprobantes con IA & PWA
 
 [![Demo Live](https://img.shields.io/badge/Demo-Online-brightgreen?style=for-the-badge&logo=github)](https://aolender1.github.io/IASEP-app/)
 [![Database](https://img.shields.io/badge/Database-NeonDB_PostgreSQL-00e5a3?style=for-the-badge&logo=postgresql)](https://neon.tech/)
+[![AI Vision](https://img.shields.io/badge/AI_Vision-Google_Gemini_Flash--Lite-4285F4?style=for-the-badge&logo=google)](https://ai.google.dev/)
+[![PWA](https://img.shields.io/badge/PWA-Installable-blueviolet?style=for-the-badge&logo=pwa)](https://aolender1.github.io/IASEP-app/)
 [![License](https://img.shields.io/badge/License-MIT-blue.svg?style=for-the-badge)](LICENSE.md)
 
-Aplicación web profesional para la gestión, registro de comprobantes y consolidación de datos de la obra social **IASEP** (Instituto de Asistencia Social para el Empleado Público). Permite procesar planillas de clientes desde archivos Excel, realizar autocompletado rápido o dictado por voz en tiempo real, calcular totales de liquidación y generar reportes consolidados en Excel de manera ágil e intuitiva.
+Aplicación web progresiva (**PWA**) profesional y moderna para la gestión, digitalización de recetas, registro de comprobantes y liquidación de la obra social **IASEP** (Instituto de Asistencia Social para el Empleado Público). 
+
+Diseñada para funcionar tanto en computadoras de escritorio como en teléfonos móviles desde el mostrador de la farmacia, integrando **visión artificial con Google Gemini**, auto-escaneo de QR de AFIP/ARCA, dictado por voz, sincronización multi-dispositivo en la nube con **Neon PostgreSQL (Serverless)** y generación automática de reportes oficiales en **Excel y PDF**.
 
 ---
 
 ## 🚀 **Acceso Demo Público**
 
-Puedes probar la aplicación en vivo sin necesidad de registro previo ingresando con la siguiente **cuenta demo pública**:
+Puedes probar la aplicación en vivo sin necesidad de registro previo utilizando la siguiente **cuenta demo pública** (contiene exclusivamente datos de muestra imaginarios para evaluación):
 
 | Parámetro | Credenciales & Datos Demo |
 | :--- | :--- |
@@ -24,11 +28,11 @@ Puedes probar la aplicación en vivo sin necesidad de registro previo ingresando
 
 ## 📥 **Archivo Excel de Ejemplo para Pruebas**
 
-Para probar la importación de datos y la función de autocompletado/dictado inmediatamente, puedes descargar el archivo de datos de prueba precargado con nombres y afiliados argentinos:
+Para probar la importación de clientes y la función de autocompletado y dictado de inmediato, puedes descargar el archivo de datos de prueba con nombres y afiliados ficticios:
 
 👉 **[Descargar datos_demo.xlsx](https://github.com/aolender1/IASEP-app/raw/main/datos_demo.xlsx)** *(incluido en este repositorio)*
 
-### **Estructura del archivo `datos_demo.xlsx`:**
+### **Estructura requerida (`base-de-datos`):**
 El archivo contiene la hoja requerida **`base-de-datos`** con el formato exacto que interpreta la aplicación:
 
 | ID | NOMBRE | NUMERO |
@@ -41,81 +45,89 @@ El archivo contiene la hoja requerida **`base-de-datos`** con el formato exacto 
 
 ---
 
-## 🖼️ **Vista Previa del Proyecto (Capturas de Pantalla)**
+## ✨ **Características y Funcionalidades Destacadas**
 
-> *Las capturas a continuación muestran el flujo de uso de la aplicación utilizando la cuenta demo pública.*
+### 🤖 **1. Escáner Inteligente Asistido por IA (Google Gemini Flash-Lite)**
+* **Flujo Guiado de 3 Pasos con Mínimo Consumo de API:**
+  1. **Paso 1 (Receta):** Captura fotográfica o subida del Recetario Oficial IASEP.
+  2. **Paso 2 (Ticket):** Captura fotográfica del Ticket fiscal o ingreso manual rápido del importe.
+  3. **Llamada Unificada (1 Sola Petición):** Si se toman ambas fotos, el sistema las analiza en conjunto en **una sola llamada multimodal a Gemini Flash-Lite**, reduciendo costos de API al 50% y duplicando la velocidad.
+* **Extracción Automática:**
+  * Apellido y Nombre del afiliado (depurado sin puntos ni símbolos).
+  * Número de carnet estandarizado (`D-DDDDDDDD-DD`).
+  * Troqueles y medicamentos prescritos y facturados.
+  * Importe total a abonar en el ticket.
+* **Confirmación Inmediata con 1 Clic:** Botón *"Guardar y siguiente receta"* para carga continua en mostrador sin tocar el teclado.
 
-### **1. Inicio de Sesión / Login (Neon Auth)**
-![Pantalla de Login](assets/screenshots/01-login.png)
-*Autenticación segura integrada con Neon PostgreSQL.*
+### 📱 **2. PWA Multi-Dispositivo (Instalable en Móviles Android & iOS)**
+* **Instalable como App Nativa:** Soporte PWA con Web App Manifest y Service Worker offline.
+* **Identificador de Celular / Operador:** Asigna un nombre a cada dispositivo (ej. *"Celular Mostrador 1"*, *"Celular Mostrador 2"*) para auditoría de qué empleado cargó cada receta.
 
----
+### 💳 **3. Estandarización Universal de Carnets IASEP (`D-DDDDDDDD-DD`)**
+* Formateo automático de cualquier número ingresado:
+  * Entradas de 11 dígitos continuos (ej. `31843787700`) $\rightarrow$ `3-18437877-00`.
+  * DNIs de 7 dígitos con sufijo (ej. `1823028600`) $\rightarrow$ `1-08230286-00`.
+* **Autocompletado Bidireccional:**
+  * Al escribir o detectar el **Carnet**, autocompleta el **Nombre**.
+  * Al escribir o dictar el **Nombre**, autocompleta el **Carnet**.
+* Comparador tolerante a acentos y variaciones menores de OCR para evitar falsos positivos de *"Nuevo Afiliado"*.
 
-### **2. Panel Principal & Carga de Archivo Excel**
-![Panel Principal](assets/screenshots/02-panel-principal.png)
-*Carga de la base de clientes desde el archivo `datos_demo.xlsx`.*
+### 📦 **4. Gestión de Lotes y Períodos Mensuales**
+* Organización de recetas por Lote (ej. *"Octubre 2026"*).
+* Creación rápida de nuevos lotes con el botón `+`.
+* **Eliminación Segura de Lotes:** Botón con papelera `🗑️` y modal de confirmación con borrado en cascada (`ON DELETE CASCADE`) en la base de datos PostgreSQL.
 
----
+### 🎙️ **5. Dictado por Voz Manos Libres (`es-AR`)**
+* Dictado independiente para **Nombre** y **Número de Afiliado** mediante Web Speech API.
+* Detección fonética de números orales (ej: *"tres dieciocho cuatrocientos..."* se transcribe automáticamente como carnet).
 
-### **3. Autocompletado Intuitivo & Dictado por Voz (`es-AR`)**
-![Autocompletado y Dictado](assets/screenshots/03-autocompletado-dictado.png)
-*Búsqueda inteligente por nombre o número de afiliado y asistencia por dictado de voz para agilizar el ingreso.*
+### ☁️ **6. Base de Datos Cloud y Sincronización en Tiempo Real (Neon DB)**
+* Almacenamiento seguro en la nube con **Neon PostgreSQL Serverless**.
+* Autenticación JWT mediante **Neon Auth**.
+* Padrón sincronizado en caché local (`localStorage`) para búsqueda instantánea en milisegundos sin latencia.
+* Sincronización limpia al importar Excel: reemplazo automático para reflejar bajas y eliminaciones del padrón.
 
----
-
-### **4. Registro Manual de Nuevos Clientes**
-![Carga Manual de Clientes](assets/screenshots/04-carga-manual.png)
-*Formulario modal para incorporar clientes que no estaban en la planilla inicial.*
-
----
-
-### **5. Generación e Historial de Excel Multi-Hoja**
-![Exportación a Excel](assets/screenshots/05-exportacion.png)
-*Descarga del reporte consolidado con hojas estructuradas (`base-de-datos`, `Datos`, `Nuevos Clientes`).*
-
----
-
-## ✨ **Características Destacadas**
-
-- **🔐 Autenticación en la Nube**: Inicio de sesión mediante **Neon Auth** y conexión a base de datos **Neon PostgreSQL (Serverless)**.
-- **📊 Carga Directa desde Excel**: Lectura de planillas `.xlsx` desde la hoja `"base-de-datos"` sin necesidad de convertir archivos a JSON.
-- **⚡ Autocompletado Bivalente**: Búsqueda instantánea de afiliados escribiendo tanto por **Nombre y Apellido** como por **Número de Afiliado**.
-- **🎙️ Dictado por Voz en Español (`es-AR`)**: Reconocimiento de voz nativo (Web Speech API) para ingresar clientes, afiliados e importes manos libres.
-- **➕ Gestión de Clientes Nuevos**: Incorporación rápida de afiliados no registrados mediante un modal persistente.
-- **🧮 Cálculo Automático de Obra Social**: Liquidación e importes calculados en tiempo real según los parámetros de la obra social.
-- **📄 Generación de Reportes Excel**: Descarga automática de un archivo `datos.xlsx` actualizado con 3 hojas organizadas:
-  1. `base-de-datos`: Lista completa de clientes antiguos y nuevos ordenados alfabéticamente con IDs secuenciales.
-  2. `Datos`: Registros cargados en la sesión actual (`ORDEN`, `NOMBRE`, `AFILIADO`, `IMPORTE`).
-  3. `Nuevos Clientes`: Registro exclusivo de clientes dados de alta manualmente.
-- **🌙 Modo Claro / Oscuro**: Interruptor de tema visual con persistencia automática en `localStorage`.
+### 📊 **7. Liquidación Automática y Reportes (Excel & PDF)**
+* Cálculo en tiempo real del desglose de liquidación IASEP:
+  * **A cargo del Afiliado (75%)**
+  * **A cargo de la Farmacia (5%)**
+  * **A cargo de la Obra Social (20%)**
+* **Exportación a Excel (`.xlsx`):** Multi-hoja con estructura oficial (`base-de-datos`, `Datos`, `Nuevos Clientes`).
+* **Exportación a PDF:** Documento formateado listo para firma y presentación.
+* **Modo Claro / Oscuro:** Selector de tema visual con persistencia automática.
 
 ---
 
 ## 🛠️ **Tecnologías Utilizadas**
 
-- **HTML5 & CSS3**: Diseño moderno, responsive, adaptado a dispositivos móviles y escritorio.
-- **JavaScript (ES6+)**: Lógica cliente, manipulación del DOM, eventos de teclado y voz.
-- **[Neon Serverless PostgreSQL](https://neon.tech/) & Neon Auth**: Autenticación de usuarios y backend serverless.
-- **[XLSX.js (SheetJS)](https://sheetjs.com/)**: Procesamiento y generación de libros de cálculo Excel en el navegador.
-- **Web Speech API**: Dictado por voz integrado para el idioma español de Argentina.
+* **Frontend:** HTML5 Semántico, CSS3 Moderno (Vanilla CSS con Custom Properties), JavaScript Moderno (ES6+ Asíncrono).
+* **PWA:** Web App Manifest, Service Worker v3.2, Cache API.
+* **Inteligencia Artificial:** Google Gemini API (modelos `gemini-3.5-flash-lite` y `gemini-3.1-flash-lite`).
+* **Backend & Base de Datos:** [Neon Serverless PostgreSQL](https://neon.tech/) con Neon Data API (PostgREST) y Neon Auth.
+* **Procesamiento de Documentos:** [SheetJS (xlsx.full.min.js)](https://sheetjs.com/), [jsPDF](https://github.com/parallax/jsPDF) y [jsPDF-AutoTable](https://github.com/simonbengtsson/jsPDF-AutoTable).
+* **Escaneo de Códigos:** [jsQR](https://github.com/cozmo/jsQR) y BarcodeDetector API nativo.
+* **Voz:** Web Speech API (reconocimiento de voz nativo en español argentino).
 
 ---
 
 ## 📋 **Instrucciones de Uso (Paso a Paso)**
 
-1. **Ingresar a la Aplicación**:
-   - Accede a **[https://aolender1.github.io/IASEP-app/](https://aolender1.github.io/IASEP-app/)**.
-2. **Iniciar Sesión**:
-   - Utiliza la cuenta demo pública: `demo@farmacia.com` / `demo123456`.
-3. **Cargar la Base de Clientes**:
-   - Haz clic en **"Subir Datos en Excel"** y selecciona el archivo **`datos_demo.xlsx`**.
-4. **Ingresar Registros**:
-   - Escribe el nombre o número de afiliado (o activa el dictado por voz 🎙️).
-   - Ingrese el importe correspondiente y presiona **Enter** o el botón **"CARGAR"**.
-5. **Agregar Clientes Nuevos (Opcional)**:
-   - Haz clic en **"Agregar Clientes Manualmente"** para abrir el modal y añadir afiliados que no figuraban en la planilla original.
-6. **Exportar el Reporte**:
-   - Presiona **"Crear Excel"** para descargar el archivo de datos actualizado con los totales procesados.
+### **Opción 1: Carga Rápida con Celular (Escáner IA)**
+1. Abre la app en el navegador del celular o instálala como PWA desde la opción *"Agregar a pantalla de inicio"*.
+2. Inicia sesión con tus credenciales (o usa la cuenta demo `demo@farmacia.com` / `demo123456`).
+3. En la barra superior, configura tu API Key de Gemini desde el botón de ajustes ⚙️ (si usas una cuenta propia).
+4. Toca el botón flotante **"📷 Escanear con IA"**:
+   - **Paso 1:** Apunta la cámara a la receta y toca *"Capturar Receta"*.
+   - **Paso 2:** Apunta al ticket y toca *"Foto a Ticket y Analizar Ambos"*, o bien selecciona *"Ingresar Importe Manual"*.
+   - **Paso 3:** Revisa el resumen con los datos extraídos y el cálculo de liquidación, y toca **"GUARDAR Y SIGUIENTE RECETA"**.
+
+### **Opción 2: Carga Manual o Dictado por Voz (Computadora de Mostrador)**
+1. Ingresa a la app e inicia sesión.
+2. Si es la primera vez, haz clic en **"Subir Datos"** y selecciona tu archivo de padrón (o `datos_demo.xlsx`).
+3. En el formulario *"Nuevo Registro"*:
+   - Escribe el nombre o número de afiliado (se autocompletará automáticamente), o usa los botones de **Nombre** / **N° Afiliado** para dictar por voz 🎙️.
+   - Ingresa el importe del ticket y presiona **Enter** o haz clic en **"CARGAR"**.
+4. Al finalizar el período, haz clic en **"Crear Excel"** o **"Descargar PDF"** para obtener los reportes consolidados.
 
 ---
 
@@ -124,32 +136,31 @@ El archivo contiene la hoja requerida **`base-de-datos`** con el formato exacto 
 ```
 IASEP-app/
 │
-├── index.html            # Interfaz principal del sistema
-├── login.html            # Pantalla de autenticación / inicio de sesión
-├── script.js             # Lógica principal, autocompletado, dictado y Excel
-├── neon-config.js        # Configuración de endpoints de Neon Auth y Data API
-├── styles.css            # Estilos globales, variables CSS y temas (claro/oscuro)
-├── datos_demo.xlsx       # Archivo Excel de prueba para la cuenta demo
+├── index.html            # Interfaz principal, asistente de escáner y modales
+├── login.html            # Pantalla de inicio de sesión con Neon Auth
+├── script.js             # Lógica general, formulario, eventos, PWA y reportes
+├── scanner-service.js    # Servicio de Visión IA (Gemini), cámara y formateo
+├── neon-config.js        # Integración con Neon PostgreSQL y Neon Auth
+├── styles.css            # Diseño responsivo moderno, diseño de escáner y temas
+├── manifest.json         # Configuración PWA para instalación móvil
+├── sw.js                 # Service Worker para funcionamiento offline y caché
+├── jsqr.min.js           # Motor de lectura de códigos QR offline
+├── datos_demo.xlsx       # Archivo de prueba con datos ficticios para la demo
 │
 ├── assets/               # Recursos gráficos e íconos
 │   ├── favicon.ico
-│   ├── delete-icon.svg
-│   └── screenshots/      # Capturas de pantalla para el README.md
-│       ├── 01-login.png
-│       ├── 02-panel-principal.png
-│       ├── 03-autocompletado-dictado.png
-│       ├── 04-carga-manual.png
-│       └── 05-exportacion.png
+│   ├── icon.svg
+│   └── screenshots/      # Capturas de pantalla de la aplicación
 │
 ├── LICENSE.md            # Licencia del proyecto (MIT)
-└── README.md             # Documentación del proyecto
+└── README.md             # Documentación completa del proyecto
 ```
 
 ---
 
 ## 👤 **Créditos y Autoría**
 
-Desarrollado por **[Alberto Olender (aolender1)](https://github.com/aolender1)** para optimizar el registro y la facturación de afiliados en farmacias que operan con la obra social IASEP.
+Desarrollado por **[Alberto Olender (aolender1)](https://github.com/aolender1)** para optimizar la digitalización, control y liquidación farmacéutica de afiliados de la obra social IASEP.
 
 ---
 

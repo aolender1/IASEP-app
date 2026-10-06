@@ -609,10 +609,11 @@ async function guardarClienteEnNeon(cliente, email) {
     let token = await obtenerTokenValido();
     if (!token || !email) return null;
 
+    const rawNum = (cliente.numero || cliente.NUMERO || cliente.Afiliado || '').toString().trim();
     const payload = {
         farmacia_email: email,
         nombre: (cliente.nombre || cliente.NOMBRE || cliente.Cliente || '').trim(),
-        numero: (cliente.numero || cliente.NUMERO || cliente.Afiliado || '').trim(),
+        numero: typeof formatCarnetIasep === 'function' ? formatCarnetIasep(rawNum) : rawNum,
         es_nuevo: cliente.es_nuevo !== undefined ? cliente.es_nuevo : true
     };
 
@@ -657,20 +658,34 @@ async function guardarClienteEnNeon(cliente, email) {
 /**
  * Sincroniza un lote de clientes (ej. importados de Excel) con Neon DB
  */
-async function sincronizarLoteClientesNeon(clientesArray, email, onProgress) {
+async function sincronizarLoteClientesNeon(clientesArray, email, onProgress, reemplazar = false) {
     let token = await obtenerTokenValido();
     if (!token || !email || !Array.isArray(clientesArray) || clientesArray.length === 0) return 0;
+
+    if (reemplazar) {
+        try {
+            await fetch(`${NEON_DATA_URL}clientes?farmacia_email=eq.${encodeURIComponent(email)}`, {
+                method: 'DELETE',
+                headers: { 'Authorization': `Bearer ${token}` }
+            });
+        } catch (eDel) {
+            console.warn('Error al limpiar padrón anterior en Neon:', eDel);
+        }
+    }
 
     const CHUNK_SIZE = 100;
     let guardados = 0;
 
     for (let i = 0; i < clientesArray.length; i += CHUNK_SIZE) {
-        const chunk = clientesArray.slice(i, i + CHUNK_SIZE).map(c => ({
-            farmacia_email: email,
-            nombre: (c.NOMBRE || c.nombre || c.Cliente || '').toString().trim(),
-            numero: (c.NUMERO || c.numero || c.Afiliado || '').toString().trim(),
-            es_nuevo: false
-        })).filter(c => c.nombre.length > 0);
+        const chunk = clientesArray.slice(i, i + CHUNK_SIZE).map(c => {
+            const rawNum = (c.NUMERO || c.numero || c.Afiliado || '').toString().trim();
+            return {
+                farmacia_email: email,
+                nombre: (c.NOMBRE || c.nombre || c.Cliente || '').toString().trim(),
+                numero: typeof formatCarnetIasep === 'function' ? formatCarnetIasep(rawNum) : rawNum,
+                es_nuevo: false
+            };
+        }).filter(c => c.nombre.length > 0);
 
         if (chunk.length === 0) continue;
 
