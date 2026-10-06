@@ -247,50 +247,59 @@ const ScannerService = (function () {
         return null;
     }
 
+    function processLoadedElement(element, maxDimension) {
+        const canvas = document.createElement('canvas');
+        let width = element.naturalWidth || element.videoWidth || element.width || 1080;
+        let height = element.naturalHeight || element.videoHeight || element.height || 1440;
+
+        if (width > maxDimension || height > maxDimension) {
+            if (width > height) {
+                height = Math.round((height * maxDimension) / width);
+                width = maxDimension;
+            } else {
+                width = Math.round((width * maxDimension) / height);
+                height = maxDimension;
+            }
+        }
+
+        canvas.width = width;
+        canvas.height = height;
+        const ctx = canvas.getContext('2d');
+        ctx.drawImage(element, 0, 0, width, height);
+
+        // Exportar a base64 JPEG calidad 0.70 (~80-100 KB, sube en <150ms en 4G)
+        const dataUrl = canvas.toDataURL('image/jpeg', 0.70);
+        const base64Data = dataUrl.split(',')[1];
+        return { dataUrl, base64Data };
+    }
+
     /**
      * Comprime y redimensiona una imagen antes de enviarla a Gemini
-     * Optimizado para máxima velocidad de subida móvil (~80-120 KB por imagen)
+     * Acepta VideoElement, ImageElement, CanvasElement o DataURL string
      */
-    function optimizeImageForAI(imageElementOrCanvas, maxDimension = 1080) {
-        return new Promise((resolve) => {
-            const canvas = document.createElement('canvas');
-            let width = imageElementOrCanvas.naturalWidth || imageElementOrCanvas.videoWidth || imageElementOrCanvas.width || 1080;
-            let height = imageElementOrCanvas.naturalHeight || imageElementOrCanvas.videoHeight || imageElementOrCanvas.height || 1440;
-
-            if (width > maxDimension || height > maxDimension) {
-                if (width > height) {
-                    height = Math.round((height * maxDimension) / width);
-                    width = maxDimension;
-                } else {
-                    width = Math.round((width * maxDimension) / height);
-                    height = maxDimension;
-                }
+    function optimizeImageForAI(imageSource, maxDimension = 1080) {
+        return new Promise((resolve, reject) => {
+            if (typeof imageSource === 'string') {
+                const img = new Image();
+                img.onload = () => resolve(processLoadedElement(img, maxDimension));
+                img.onerror = (e) => reject(new Error('Error al cargar imagen en memoria'));
+                img.src = imageSource;
+                return;
             }
-
-            canvas.width = width;
-            canvas.height = height;
-            const ctx = canvas.getContext('2d');
-            ctx.drawImage(imageElementOrCanvas, 0, 0, width, height);
-
-            // Exportar a base64 JPEG calidad 0.70 (~80-100 KB, sube en <150ms en 4G)
-            const dataUrl = canvas.toDataURL('image/jpeg', 0.70);
-            // Extraer solo la parte base64 sin el encabezado data:image/jpeg;base64,
-            const base64Data = dataUrl.split(',')[1];
-            resolve({ dataUrl, base64Data });
+            resolve(processLoadedElement(imageSource, maxDimension));
         });
     }
 
     /**
-     * Llama a la API de Gemini con fallback inteligente de modelos
+     * Llama a la API de Gemini con una o múltiples imágenes (visión multimodal nativa)
      */
-    async function callGeminiVision(base64Image, promptText, preferredModel = null) {
+    async function callGeminiVisionMulti(base64ImagesArray, promptText, preferredModel = null) {
         const apiKey = getApiKey();
         if (!apiKey) {
             throw new Error('No se ha configurado la API Key de Google Gemini. Ve a Configuración ⚙️ para ingresarla.');
         }
 
         const modelToUse = preferredModel || getSelectedModel();
-        // Generar lista de modelos para intentar (el elegido primero, luego el alternativo)
         const modelsToTry = [
             modelToUse,
             ...SUPPORTED_MODELS.map(m => m.id).filter(id => id !== modelToUse)
@@ -298,27 +307,25 @@ const ScannerService = (function () {
 
         let lastError = null;
 
+        const parts = [{ text: promptText }];
+        for (const b64 of base64ImagesArray) {
+            parts.push({
+                inline_data: {
+                    mime_type: 'image/jpeg',
+                    data: b64
+                }
+            });
+        }
+
         for (const model of modelsToTry) {
             try {
                 const url = `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${apiKey}`;
                 const payload = {
-                    contents: [
-                        {
-                            parts: [
-                                { text: promptText },
-                                {
-                                    inline_data: {
-                                        mime_type: 'image/jpeg',
-                                        data: base64Image
-                                    }
-                                }
-                            ]
-                        }
-                    ],
+                    contents: [{ parts }],
                     generationConfig: {
                         response_mime_type: 'application/json',
                         temperature: 0.1,
-                        maxOutputTokens: 250
+                        maxOutputTokens: 350
                     }
                 };
 
@@ -333,7 +340,6 @@ const ScannerService = (function () {
                     const errMsg = errJson.error ? errJson.error.message : response.statusText;
                     console.warn(`Error con modelo ${model} (${response.status}): ${errMsg}`);
                     lastError = new Error(`Modelo ${model}: ${errMsg}`);
-                    // Si es rate limit (429) o modelo no encontrado (404), intentar el siguiente
                     if (response.status === 429 || response.status === 404) {
                         continue;
                     }
@@ -346,7 +352,6 @@ const ScannerService = (function () {
                     throw new Error('La respuesta de Gemini no contiene datos de texto.');
                 }
 
-                // Parsear respuesta JSON
                 const parsed = JSON.parse(textResponse);
                 return {
                     success: true,
@@ -360,6 +365,13 @@ const ScannerService = (function () {
         }
 
         throw lastError || new Error('No se pudo procesar la imagen con ningún modelo de Gemini.');
+    }
+
+    /**
+     * Llama a Gemini con una sola imagen (wrapper retrocompatible)
+     */
+    async function callGeminiVision(base64Image, promptText, preferredModel = null) {
+        return callGeminiVisionMulti([base64Image], promptText, preferredModel);
     }
 
     /**
@@ -455,6 +467,71 @@ Responde estrictamente un JSON válido:
             productos: prodsList,
             productosStr: prodsList.join(', '),
             previewUrl: dataUrl
+        };
+    }
+
+    /**
+     * Extrae datos combinados de RECETA y TICKET en UNA SOLA llamada a Gemini
+     * (Optimización máxima: 50% menos peticiones y procesamiento conjunto)
+     */
+    async function extractCompleteRecipeAndTicket(recetaSource, ticketSource) {
+        const [optReceta, optTicket] = await Promise.all([
+            optimizeImageForAI(recetaSource),
+            optimizeImageForAI(ticketSource)
+        ]);
+
+        const prompt = `Observa atentamente estas DOS imágenes:
+IMAGEN 1: RECETARIO OFICIAL I.A.S.E.P. (Obra Social de Formosa).
+Debes extraer:
+1. "nombre": APELLIDO Y NOMBRE del afiliado (aparece en el casillero superior impreso por computadora, por ejemplo: "ACOSTA FRANCISCA TERESA" o "ALMIRON ANTONIO ADRIAN"). Quita cualquier punto final o signo de puntuación.
+2. "afiliado": NUMERO DE CARNET / AFILIADO (aparece debajo del nombre, ej: "3-18437877-00").
+3. "productos_receta": Medicamentos de los troqueles adhesivos pegados abajo o prescritos.
+
+IMAGEN 2: TICKET FISCAL de la farmacia.
+Debes extraer:
+1. "importe": El importe TOTAL final a abonar (busca la línea 'TOTAL' o 'TOTAL $', por ejemplo: "TOTAL 82486,80" -> 82486.80 en número decimal estándar con punto).
+2. "productos_ticket": Medicamentos facturados en el ticket (omite líneas de 'BONIF.').
+
+Combina todos los medicamentos de ambas imágenes en una sola lista limpia "productos".
+
+Responde estrictamente un JSON válido con esta estructura exacta:
+{
+  "nombre": "APELLIDO Y NOMBRE EN MAYUSCULAS",
+  "afiliado": "NUMERO-DE-AFILIADO",
+  "importe": 82486.80,
+  "productos": [
+    "Turbulina 20 mg comp",
+    "Corbis 10 x 60 comp"
+  ]
+}`;
+
+        const result = await callGeminiVisionMulti([optReceta.base64Data, optTicket.base64Data], prompt);
+        let cleanNombre = (result.data?.nombre || '').toUpperCase().trim().replace(/[.,\-_/]+$/, '').trim();
+        let cleanAfiliado = (result.data?.afiliado || '').trim().replace(/[.,\-_/]+$/, '').trim();
+
+        let rawImp = result.data?.importe;
+        let importeNum = null;
+        if (typeof rawImp === 'number') {
+            importeNum = rawImp;
+        } else if (typeof rawImp === 'string') {
+            importeNum = parseFloat(rawImp.replace('$', '').replace(/\./g, '').replace(',', '.').trim());
+        }
+
+        const rawProds = result.data?.productos;
+        let prodsList = [];
+        if (Array.isArray(rawProds)) {
+            prodsList = rawProds.map(p => String(p).trim()).filter(p => p.length > 0);
+        } else if (typeof rawProds === 'string' && rawProds.trim()) {
+            prodsList = rawProds.split('\n').map(p => p.trim()).filter(p => p.length > 0);
+        }
+
+        return {
+            ...result,
+            nombre: cleanNombre,
+            afiliado: cleanAfiliado,
+            importe: isNaN(importeNum) ? null : importeNum,
+            productos: prodsList,
+            productosStr: prodsList.join(', ')
         };
     }
 
@@ -703,6 +780,7 @@ Responde estrictamente un JSON válido:
         optimizeImageForAI,
         extractRecipeData,
         extractTicketData,
+        extractCompleteRecipeAndTicket,
         startCamera,
         stopCamera,
         scanQrFromVideo,

@@ -25,8 +25,8 @@
         }
     </script>
     <!-- Neon y Scanner IA -->
-    <script src="neon-config.js?v=2.7"></script>
-    <script src="scanner-service.js?v=2.7"></script>
+    <script src="neon-config.js?v=3.0"></script>
+    <script src="scanner-service.js?v=3.0"></script>
     <!-- Registro Service Worker PWA -->
     <script>
         if ('serviceWorker' in navigator) {
@@ -445,27 +445,21 @@
                 </div>
             </div>
 
-            <!-- PASO 1: Captura de Receta -->
+            <!-- PASO 1: Captura de Receta Médica -->
             <div class="scanner-step-view" id="stepView1">
                 <div class="camera-viewport-box" id="cameraBoxReceta">
                     <video id="videoReceta" autoplay playsinline webkit-playsinline muted></video>
-                    <!-- Guía de encuadre para la receta -->
+                    <!-- Guía de encuadre para Receta -->
                     <div class="camera-overlay-frame recipe-frame">
                         <div class="frame-corner tl"></div>
                         <div class="frame-corner tr"></div>
                         <div class="frame-corner bl"></div>
                         <div class="frame-corner br"></div>
-                        <div class="frame-guide-text">Encuadra el recetario completo (con troqueles)</div>
-                    </div>
-                    <!-- Spinner de Procesamiento con IA -->
-                    <div class="ai-processing-overlay" id="aiProcessingReceta" style="display: none;">
-                        <div class="ai-spinner"></div>
-                        <span class="ai-processing-title" id="aiModelStatusReceta">Analizando con Gemini...</span>
-                        <span class="ai-processing-sub">Extrayendo Nombre, Carnet y Troqueles</span>
+                        <div class="frame-guide-text">Apunta al Recetario Oficial IASEP</div>
                     </div>
                 </div>
 
-                <!-- Botones de captura -->
+                <!-- Botones de captura Paso 1 -->
                 <div class="scanner-actions-bar" id="actionsBarReceta">
                     <input type="file" id="fileInputReceta" accept="image/*" capture="environment" style="display: none;">
                     <button type="button" class="btn-scan-action primary" id="btnCapturarReceta">
@@ -473,7 +467,7 @@
                             <circle cx="12" cy="12" r="10"></circle>
                             <circle cx="12" cy="12" r="3"></circle>
                         </svg>
-                        <span>TOMAR FOTO</span>
+                        <span>TOMAR FOTO RECETA</span>
                     </button>
                     <button type="button" class="btn-scan-action secondary" id="btnSubirFotoReceta" title="Subir desde galería o archivo">
                         <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
@@ -484,69 +478,45 @@
                         <span>Galería</span>
                     </button>
                 </div>
-
-                <!-- Tarjeta de Resultados Paso 1 (Editable) -->
-                <div class="scanner-card-result" id="cardResultReceta" style="display: none;">
-                    <div class="result-header">
-                        <span class="result-badge-ai" id="badgeAiModeloReceta">🤖 Gemini</span>
-                        <span class="result-badge-padron" id="badgePadronReceta">Verificando...</span>
-                    </div>
-                    <div class="form-group-compact">
-                        <label>APELLIDO Y NOMBRE:</label>
-                        <input type="text" id="inputScanNombre" class="input-scanner-edit" placeholder="Nombre completo">
-                    </div>
-                    <div class="form-group-compact">
-                        <label>NÚMERO DE CARNET:</label>
-                        <input type="text" id="inputScanAfiliado" class="input-scanner-edit" placeholder="3-XXXXXXXX-00">
-                    </div>
-                    <div class="form-group-compact" id="rowScanProdsReceta" style="display: none;">
-                        <label>MEDICAMENTOS DETECTADOS:</label>
-                        <div id="txtScanProdsPreview" style="font-size: 12px; color: var(--color-primary); font-weight: 500; background: rgba(56, 189, 248, 0.1); padding: 5px 8px; border-radius: 4px; line-height: 1.4;"></div>
-                    </div>
-                    <div class="result-actions-row">
-                        <button type="button" class="btn-mini-action" id="btnReintentarReceta">⟲ Volver a sacar</button>
-                        <button type="button" class="btn-next-action" id="btnAvanzarTicket">Paso 2: Ticket ➔</button>
-                    </div>
-                </div>
             </div>
 
-            <!-- PASO 2: Captura de Ticket (Lector QR AFIP + Fallback Foto) -->
+            <!-- PASO 2: Captura de Ticket (Foto con IA o Importe Manual) -->
             <div class="scanner-step-view" id="stepView2" style="display: none;">
+                <!-- Banner de confirmación de Receta en memoria -->
+                <div id="bannerRecetaLista" style="display: flex; justify-content: space-between; align-items: center; background: rgba(16, 185, 129, 0.15); border: 1px solid rgba(16, 185, 129, 0.3); border-radius: 8px; padding: 6px 12px; margin-bottom: 8px; font-size: 13px;">
+                    <span style="color: #10b981; font-weight: 600;">✓ Recetario capturado en memoria</span>
+                    <button type="button" id="btnRehacerReceta" style="background: none; border: none; color: #38bdf8; font-size: 12px; cursor: pointer; text-decoration: underline;">⟲ Volver a sacar</button>
+                </div>
+
                 <div class="camera-viewport-box" id="cameraBoxTicket">
                     <video id="videoTicket" autoplay playsinline webkit-playsinline muted></video>
-                    <!-- Guía de encuadre para QR / Ticket -->
-                    <div class="camera-overlay-frame ticket-frame" id="ticketQrReticle">
+                    <!-- Guía de encuadre para Ticket -->
+                    <div class="camera-overlay-frame ticket-frame" id="ticketReticle">
                         <div class="frame-corner tl"></div>
                         <div class="frame-corner tr"></div>
                         <div class="frame-corner bl"></div>
                         <div class="frame-corner br"></div>
-                        <div class="qr-scan-line"></div>
-                        <div class="frame-guide-text">Apunta al código QR AFIP o ticket completo</div>
+                        <div class="frame-guide-text">Apunta al Ticket (TOTAL de la compra)</div>
                     </div>
-                    <!-- Spinner de Procesamiento con IA (si se saca foto al total) -->
+                    <!-- Spinner de Procesamiento con IA unificada -->
                     <div class="ai-processing-overlay" id="aiProcessingTicket" style="display: none;">
                         <div class="ai-spinner"></div>
-                        <span class="ai-processing-title">Leyendo Total con Gemini...</span>
+                        <span class="ai-processing-title" id="aiProcessingTitleTicket">Analizando Receta y Ticket con Gemini...</span>
+                        <span class="ai-processing-sub">1 sola llamada a la IA • Máxima velocidad</span>
                     </div>
-                </div>
-
-                <!-- Barra de estado del QR -->
-                <div class="qr-live-status-bar" id="qrStatusIndicator">
-                    <span class="qr-pulse-dot"></span>
-                    <span id="qrStatusText">Buscando QR de AFIP... (0 peticiones IA)</span>
                 </div>
 
                 <!-- Acciones del Ticket -->
                 <div class="scanner-actions-bar" id="actionsBarTicket">
                     <input type="file" id="fileInputTicket" accept="image/*" capture="environment" style="display: none;">
-                    <button type="button" class="btn-scan-action secondary" id="btnCapturarTicketTotal" title="Si el ticket no tiene QR, tomar foto al Total con IA">
-                        <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                            <path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"></path>
-                            <circle cx="12" cy="13" r="4"></circle>
+                    <button type="button" class="btn-scan-action primary" id="btnCapturarTicketTotal" title="Tomar foto al ticket y analizar ambos juntos con IA">
+                        <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                            <circle cx="12" cy="12" r="10"></circle>
+                            <circle cx="12" cy="12" r="3"></circle>
                         </svg>
-                        <span>Foto a TOTAL</span>
+                        <span>TOMAR FOTO TICKET</span>
                     </button>
-                    <button type="button" class="btn-scan-action secondary" id="btnImporteManualTicket" title="Ingresar el importe escribiendo directamente sin usar IA">
+                    <button type="button" class="btn-scan-action secondary" id="btnImporteManualTicket" title="Ingresar importe escribiendo directamente">
                         <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
                             <path d="M12 20h9"></path>
                             <path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4L16.5 3.5z"></path>
@@ -558,26 +528,18 @@
                     </button>
                 </div>
 
-                <!-- Tarjeta de Resultados Paso 2 (Editable) -->
-                <div class="scanner-card-result" id="cardResultTicket" style="display: none;">
+                <!-- Formulario desplegable para ingreso manual de Ticket -->
+                <div class="scanner-card-result" id="cardManualTicket" style="display: none; margin-top: 8px;">
                     <div class="result-header">
-                        <span class="result-badge-ai" id="badgeOrigenImporte">QR AFIP</span>
-                        <span class="result-badge-success" id="badgeEstadoImporte">✓ Importe Detectado</span>
+                        <span class="result-badge-ai">✍️ Ingreso Manual de Ticket</span>
                     </div>
                     <div class="form-group-compact">
-                        <label id="lblImporteTicket">IMPORTE TOTAL DEL TICKET ($):</label>
-                        <div style="display: flex; gap: 8px; align-items: stretch; margin-top: 4px;">
-                            <input type="number" step="0.01" id="inputScanImporte" class="input-scanner-edit input-importe-destacado" placeholder="Ej: 82486.80" style="flex: 1; margin: 0;">
-                            <button type="button" class="btn-scan-action secondary" id="btnLeerConIaDesdeCard" style="padding: 0 14px; white-space: nowrap; font-size: 0.82rem; min-height: 48px; border-radius: 8px; display: none; align-items: center; justify-content: center; gap: 6px; background: rgba(99, 102, 241, 0.2); border: 1px solid rgba(99, 102, 241, 0.4); color: #818cf8; cursor: pointer;">
-                                <span>🤖 Leer con IA</span>
-                            </button>
-                        </div>
-                        <small id="txtAyudaImporte" style="display: block; font-size: 0.78rem; color: #94a3b8; margin-top: 6px;"></small>
+                        <label>IMPORTE TOTAL DEL TICKET ($):</label>
+                        <input type="number" step="0.01" id="inputScanImporteManual" class="input-scanner-edit input-importe-destacado" placeholder="Ej: 82486.80">
                     </div>
                     <div class="result-actions-row">
-                        <button type="button" class="btn-mini-action" id="btnVolverAReceta">⬅ Volver a Receta</button>
-                        <button type="button" class="btn-mini-action" id="btnReintentarTicket">⟲ Reintentar</button>
-                        <button type="button" class="btn-next-action" id="btnAvanzarConfirmacion">Paso 3: Confirmar ➔</button>
+                        <button type="button" class="btn-mini-action" id="btnCancelarManualTicket">Cancelar</button>
+                        <button type="button" class="btn-next-action" id="btnAvanzarConImporteManual">Procesar Receta con IA ➔</button>
                     </div>
                 </div>
             </div>
@@ -587,28 +549,34 @@
                 <div class="confirm-summary-card">
                     <div class="summary-item-header">
                         <span class="summary-tag">Resumen de Comprobante</span>
-                        <span class="summary-lote-badge" id="confirmLoteNombre">Lote Activo</span>
+                        <div style="display: flex; gap: 6px; align-items: center;">
+                            <span class="result-badge-ai" id="badgeAiModeloConfirm">🤖 Gemini</span>
+                            <span class="result-badge-padron" id="badgePadronReceta">Verificando...</span>
+                        </div>
                     </div>
-                    <div class="summary-row">
-                        <span class="summary-label">Afiliado:</span>
-                        <span class="summary-val-highlight" id="confirmNombre">-</span>
+
+                    <div class="form-group-compact" style="margin-top: 6px;">
+                        <label>APELLIDO Y NOMBRE:</label>
+                        <input type="text" id="confirmNombre" class="input-scanner-edit" placeholder="Nombre completo">
                     </div>
-                    <div class="summary-row">
-                        <span class="summary-label">Carnet N°:</span>
-                        <span class="summary-val" id="confirmAfiliado">-</span>
+
+                    <div class="form-group-compact">
+                        <label>NÚMERO DE CARNET:</label>
+                        <input type="text" id="confirmAfiliado" class="input-scanner-edit" placeholder="3-XXXXXXXX-00">
                     </div>
-                    <div class="summary-row summary-row-total">
-                        <span class="summary-label">Total Ticket:</span>
-                        <span class="summary-val-price" id="confirmImporte">$0.00</span>
+
+                    <div class="form-group-compact">
+                        <label>TOTAL DEL TICKET ($):</label>
+                        <input type="number" step="0.01" id="confirmImporte" class="input-scanner-edit input-importe-destacado" placeholder="Ej: 82486.80">
                     </div>
 
                     <!-- Medicamentos / Productos facturados -->
                     <div class="summary-productos-box">
                         <div class="summary-productos-header">
                             <span class="summary-label">Medicamentos / Productos:</span>
-                            <span class="summary-sublabel">Troqueles detectados por IA</span>
+                            <span class="summary-sublabel">Troqueles y ticket detectados</span>
                         </div>
-                        <textarea id="inputScanProductos" class="input-scanner-edit" rows="2" placeholder="Ej: Corbis 10 x 60 comp, Pampar 20 x 30 comp, Turbulina 20 x 30 comp"></textarea>
+                        <textarea id="inputScanProductos" class="input-scanner-edit" rows="2" placeholder="Ej: Corbis 10 x 60 comp, Turbulina 20 x 30 comp"></textarea>
                     </div>
 
                     <!-- Operador / Dispositivo -->
@@ -644,7 +612,7 @@
                         <span>GUARDAR Y SIGUIENTE RECETA</span>
                     </button>
                     <div class="confirm-sub-buttons">
-                        <button type="button" class="btn-secondary-flat" id="btnEditarDesdeConfirmacion">Modificar Datos</button>
+                        <button type="button" class="btn-secondary-flat" id="btnReintentarTodo">⟲ Volver a Escanear</button>
                         <button type="button" class="btn-secondary-flat" id="btnFinalizarScanner">Terminar Carga</button>
                     </div>
                 </div>
@@ -730,7 +698,7 @@
         <p>aolender | <a href="https://github.com/aolender1" target="_blank">GitHub</a></p>
     </footer>
 
-    <script src="script.js?v=2.9"></script>
+    <script src="script.js?v=3.0"></script>
     <!-- Script para manejar el cierre de sesion -->
     <script>
         document.getElementById('logoutBtn').addEventListener('click', function () {

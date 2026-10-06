@@ -1,4 +1,4 @@
-const CACHE_NAME = 'iasep-app-v2.9';
+const CACHE_NAME = 'iasep-app-v3.0';
 const ASSETS_TO_CACHE = [
   './',
   './index.html',

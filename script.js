@@ -1939,7 +1939,7 @@ document.addEventListener("DOMContentLoaded", function () {
     }
 
     // =========================================================================
-    // LÓGICA DEL ASISTENTE DE ESCÁNER (IA + QR AFIP) - PWA MÓVIL
+    // LÓGICA DEL ASISTENTE DE ESCÁNER (DOBLE CAPTURA + 1 LLAMADA IA) - PWA MÓVIL
     // =========================================================================
     const btnAbrirScanner = document.getElementById('btnAbrirScanner');
     const modalScanner = document.getElementById('modalScanner');
@@ -1952,238 +1952,88 @@ document.addEventListener("DOMContentLoaded", function () {
     const stepView2 = document.getElementById('stepView2');
     const stepView3 = document.getElementById('stepView3');
 
-    // Paso 1
+    // Paso 1: Receta
     const videoReceta = document.getElementById('videoReceta');
     const cameraBoxReceta = document.getElementById('cameraBoxReceta');
     const actionsBarReceta = document.getElementById('actionsBarReceta');
     const btnCapturarReceta = document.getElementById('btnCapturarReceta');
     const btnSubirFotoReceta = document.getElementById('btnSubirFotoReceta');
     const fileInputReceta = document.getElementById('fileInputReceta');
-    const aiProcessingReceta = document.getElementById('aiProcessingReceta');
-    const aiModelStatusReceta = document.getElementById('aiModelStatusReceta');
-    const cardResultReceta = document.getElementById('cardResultReceta');
-    const inputScanNombre = document.getElementById('inputScanNombre');
-    const inputScanAfiliado = document.getElementById('inputScanAfiliado');
-    const rowScanProdsReceta = document.getElementById('rowScanProdsReceta');
-    const txtScanProdsPreview = document.getElementById('txtScanProdsPreview');
-    const badgePadronReceta = document.getElementById('badgePadronReceta');
-    const badgeAiModeloReceta = document.getElementById('badgeAiModeloReceta');
-    const btnReintentarReceta = document.getElementById('btnReintentarReceta');
-    const btnAvanzarTicket = document.getElementById('btnAvanzarTicket');
 
-    // Paso 2
+    // Paso 2: Ticket
+    const bannerRecetaLista = document.getElementById('bannerRecetaLista');
+    const btnRehacerReceta = document.getElementById('btnRehacerReceta');
     const cameraBoxTicket = document.getElementById('cameraBoxTicket');
-    const actionsBarTicket = document.getElementById('actionsBarTicket');
     const videoTicket = document.getElementById('videoTicket');
+    const aiProcessingTicket = document.getElementById('aiProcessingTicket');
+    const aiProcessingTitleTicket = document.getElementById('aiProcessingTitleTicket');
+    const actionsBarTicket = document.getElementById('actionsBarTicket');
     const btnCapturarTicketTotal = document.getElementById('btnCapturarTicketTotal');
     const btnImporteManualTicket = document.getElementById('btnImporteManualTicket');
     const btnSubirFotoTicket = document.getElementById('btnSubirFotoTicket');
     const fileInputTicket = document.getElementById('fileInputTicket');
-    const aiProcessingTicket = document.getElementById('aiProcessingTicket');
-    const qrStatusIndicator = document.getElementById('qrStatusIndicator');
-    const qrStatusText = document.getElementById('qrStatusText');
-    const cardResultTicket = document.getElementById('cardResultTicket');
-    const badgeOrigenImporte = document.getElementById('badgeOrigenImporte');
-    const badgeEstadoImporte = document.getElementById('badgeEstadoImporte');
-    const btnLeerConIaDesdeCard = document.getElementById('btnLeerConIaDesdeCard');
-    const txtAyudaImporte = document.getElementById('txtAyudaImporte');
-    const inputScanImporte = document.getElementById('inputScanImporte');
-    const btnVolverAReceta = document.getElementById('btnVolverAReceta');
-    const btnReintentarTicket = document.getElementById('btnReintentarTicket');
-    const btnAvanzarConfirmacion = document.getElementById('btnAvanzarConfirmacion');
+    const cardManualTicket = document.getElementById('cardManualTicket');
+    const inputScanImporteManual = document.getElementById('inputScanImporteManual');
+    const btnCancelarManualTicket = document.getElementById('btnCancelarManualTicket');
+    const btnAvanzarConImporteManual = document.getElementById('btnAvanzarConImporteManual');
 
-    // Paso 3
+    // Paso 3: Confirmación
+    const badgeAiModeloConfirm = document.getElementById('badgeAiModeloConfirm');
+    const badgePadronReceta = document.getElementById('badgePadronReceta');
     const confirmNombre = document.getElementById('confirmNombre');
     const confirmAfiliado = document.getElementById('confirmAfiliado');
     const confirmImporte = document.getElementById('confirmImporte');
+    const inputScanProductos = document.getElementById('inputScanProductos');
     const confirmCargoAfiliado = document.getElementById('confirmCargoAfiliado');
     const confirmCargoFarmacia = document.getElementById('confirmCargoFarmacia');
     const confirmCargoOS = document.getElementById('confirmCargoOS');
-    const inputScanProductos = document.getElementById('inputScanProductos');
     const btnGuardarYSiguiente = document.getElementById('btnGuardarYSiguiente');
-    const btnEditarDesdeConfirmacion = document.getElementById('btnEditarDesdeConfirmacion');
+    const btnReintentarTodo = document.getElementById('btnReintentarTodo');
     const btnFinalizarScanner = document.getElementById('btnFinalizarScanner');
 
+    // Variables en memoria para almacenar las imágenes antes del envío unificado
+    let capturedRecetaSource = null;
+    let capturedTicketSource = null;
     let currentScannerStep = 1;
-    let qrScanInterval = null;
 
-    function irAPaso(paso) {
-        currentScannerStep = paso;
+    /**
+     * Captura instantánea de un fotograma del video en memoria (sin retraso de red)
+     */
+    function captureVideoFrame(videoEl) {
+        if (!videoEl || !videoEl.videoWidth || !videoEl.videoHeight) return null;
+        const canvas = document.createElement('canvas');
+        canvas.width = videoEl.videoWidth;
+        canvas.height = videoEl.videoHeight;
+        const ctx = canvas.getContext('2d');
+        ctx.drawImage(videoEl, 0, 0, canvas.width, canvas.height);
+        return canvas.toDataURL('image/jpeg', 0.85);
+    }
 
-        stepPill1.classList.remove('active', 'done');
-        stepPill2.classList.remove('active', 'done');
-        stepPill3.classList.remove('active', 'done');
-
-        if (paso === 1) {
-            stepPill1.classList.add('active');
-            stepView1.style.display = 'flex';
-            stepView2.style.display = 'none';
-            stepView3.style.display = 'none';
-            if (cameraBoxReceta) cameraBoxReceta.classList.remove('compact-preview');
-            if (actionsBarReceta) actionsBarReceta.style.display = 'flex';
-            detenerEscaneoQrTicket();
-        } else if (paso === 2) {
-            stepPill1.classList.add('done');
-            stepPill2.classList.add('active');
-            stepView1.style.display = 'none';
-            stepView2.style.display = 'flex';
-            stepView3.style.display = 'none';
-            if (cameraBoxTicket) cameraBoxTicket.classList.remove('compact-preview');
-            if (actionsBarTicket) actionsBarTicket.style.display = 'flex';
-            if (qrStatusIndicator) {
-                qrStatusIndicator.style.display = 'flex';
-                qrStatusText.textContent = 'Buscando QR de AFIP... (0 peticiones IA)';
-                qrStatusIndicator.style.background = '';
-            }
-            iniciarEscaneoQrTicket();
-        } else if (paso === 3) {
-            stepPill1.classList.add('done');
-            stepPill2.classList.add('done');
-            stepPill3.classList.add('active');
-            stepView1.style.display = 'none';
-            stepView2.style.display = 'none';
-            stepView3.style.display = 'flex';
-            detenerEscaneoQrTicket();
-            ScannerService.stopCamera(videoTicket);
+    /**
+     * Calcula y actualiza el desglose de liquidación (75% / 12.5% / 12.5%)
+     */
+    function actualizarDesgloseConfirmacion(importeVal) {
+        const imp = typeof importeVal === 'number' ? importeVal : parseFloat(importeVal);
+        if (!isNaN(imp) && imp > 0) {
+            const totalCalculado = (imp * 100 / 75);
+            if (confirmCargoAfiliado) confirmCargoAfiliado.textContent = `$${imp.toFixed(2)}`;
+            if (confirmCargoFarmacia) confirmCargoFarmacia.textContent = `$${(totalCalculado * 0.125).toFixed(2)}`;
+            if (confirmCargoOS) confirmCargoOS.textContent = `$${(totalCalculado * 0.125).toFixed(2)}`;
+        } else {
+            if (confirmCargoAfiliado) confirmCargoAfiliado.textContent = '$0.00';
+            if (confirmCargoFarmacia) confirmCargoFarmacia.textContent = '$0.00';
+            if (confirmCargoOS) confirmCargoOS.textContent = '$0.00';
         }
     }
 
-    if (btnAbrirScanner) {
-        btnAbrirScanner.addEventListener('click', async () => {
-            if (!ScannerService.getApiKey()) {
-                mostrarNotificacion('Configura tu API Key', 'Por favor ingresa tu API Key de Google Gemini en el botón de Configuración ⚙️ antes de escanear.', 'error');
-                if (modalGeminiConfig) modalGeminiConfig.style.display = 'block';
-                return;
-            }
-
-            modalScanner.style.display = 'block';
-            document.body.style.overflow = 'hidden';
-            cardResultReceta.style.display = 'none';
-            cardResultTicket.style.display = 'none';
-            if (cameraBoxReceta) cameraBoxReceta.classList.remove('compact-preview');
-            if (cameraBoxTicket) cameraBoxTicket.classList.remove('compact-preview');
-            if (actionsBarReceta) actionsBarReceta.style.display = 'flex';
-            if (actionsBarTicket) actionsBarTicket.style.display = 'flex';
-            inputScanNombre.value = '';
-            inputScanAfiliado.value = '';
-            inputScanImporte.value = '';
-            inputScanImporte.placeholder = 'Ej: 82486.80';
-            if (txtAyudaImporte) txtAyudaImporte.textContent = '';
-            if (btnLeerConIaDesdeCard) btnLeerConIaDesdeCard.style.display = 'none';
-            if (inputScanProductos) inputScanProductos.value = '';
-
-            irAPaso(1);
-            try {
-                await ScannerService.startCamera(videoReceta);
-            } catch (err) {
-                mostrarNotificacion('Cámara', err.message, 'error');
-            }
-        });
-    }
-
-    if (btnCerrarScanner) {
-        btnCerrarScanner.addEventListener('click', cerrarModalScanner);
-    }
-    if (btnFinalizarScanner) {
-        btnFinalizarScanner.addEventListener('click', cerrarModalScanner);
-    }
-
-    function cerrarModalScanner() {
-        detenerEscaneoQrTicket();
-        ScannerService.stopCamera(videoReceta);
-        ScannerService.stopCamera(videoTicket);
-        if (modalScanner) modalScanner.style.display = 'none';
-        document.body.style.overflow = '';
-        cargarRegistrosDeLoteActivo();
-    }
-
-    // --- PASO 1: Receta ---
-    if (btnCapturarReceta) {
-        btnCapturarReceta.addEventListener('click', async () => {
-            aiProcessingReceta.style.display = 'flex';
-            aiModelStatusReceta.textContent = `Analizando con ${ScannerService.getSelectedModel()}...`;
-            try {
-                const res = await ScannerService.extractRecipeData(videoReceta);
-                aiProcessingReceta.style.display = 'none';
-                inputScanNombre.value = (res.nombre || '').replace(/[.,\-_/]+$/, '').trim();
-                inputScanAfiliado.value = (res.afiliado || '').replace(/[.,\-_/]+$/, '').trim();
-                if (inputScanProductos) inputScanProductos.value = res.productosStr || '';
-                if (rowScanProdsReceta && txtScanProdsPreview) {
-                    if (res.productosStr) {
-                        txtScanProdsPreview.textContent = res.productosStr;
-                        rowScanProdsReceta.style.display = 'block';
-                    } else {
-                        rowScanProdsReceta.style.display = 'none';
-                    }
-                }
-                badgeAiModeloReceta.textContent = `🤖 ${res.modelUsed}`;
-                
-                verificarAfiliadoEnBase(res.nombre, res.afiliado);
-                cardResultReceta.style.display = 'flex';
-                if (cameraBoxReceta) cameraBoxReceta.classList.add('compact-preview');
-                if (actionsBarReceta) actionsBarReceta.style.display = 'none';
-                cardResultReceta.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
-            } catch (err) {
-                aiProcessingReceta.style.display = 'none';
-                mostrarNotificacion('Error de Extracción', err.message, 'error');
-                cardResultReceta.style.display = 'flex';
-                if (cameraBoxReceta) cameraBoxReceta.classList.add('compact-preview');
-                if (actionsBarReceta) actionsBarReceta.style.display = 'none';
-            }
-        });
-    }
-
-    if (btnSubirFotoReceta) {
-        btnSubirFotoReceta.addEventListener('click', () => {
-            if (fileInputReceta) fileInputReceta.click();
-        });
-    }
-
-    if (fileInputReceta) {
-        fileInputReceta.addEventListener('change', async (e) => {
-            const file = e.target.files[0];
-            if (!file) return;
-            const img = new Image();
-            img.onload = async () => {
-                aiProcessingReceta.style.display = 'flex';
-                aiModelStatusReceta.textContent = `Analizando con ${ScannerService.getSelectedModel()}...`;
-                try {
-                    const res = await ScannerService.extractRecipeData(img);
-                    aiProcessingReceta.style.display = 'none';
-                    inputScanNombre.value = (res.nombre || '').replace(/[.,\-_/]+$/, '').trim();
-                    inputScanAfiliado.value = (res.afiliado || '').replace(/[.,\-_/]+$/, '').trim();
-                    if (inputScanProductos) inputScanProductos.value = res.productosStr || '';
-                    if (rowScanProdsReceta && txtScanProdsPreview) {
-                        if (res.productosStr) {
-                            txtScanProdsPreview.textContent = res.productosStr;
-                            rowScanProdsReceta.style.display = 'block';
-                        } else {
-                            rowScanProdsReceta.style.display = 'none';
-                        }
-                    }
-                    badgeAiModeloReceta.textContent = `🤖 ${res.modelUsed}`;
-                    verificarAfiliadoEnBase(res.nombre, res.afiliado);
-                    cardResultReceta.style.display = 'flex';
-                    if (cameraBoxReceta) cameraBoxReceta.classList.add('compact-preview');
-                    if (actionsBarReceta) actionsBarReceta.style.display = 'none';
-                    cardResultReceta.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
-                } catch (err) {
-                    aiProcessingReceta.style.display = 'none';
-                    mostrarNotificacion('Error de Extracción', err.message, 'error');
-                    cardResultReceta.style.display = 'flex';
-                    if (cameraBoxReceta) cameraBoxReceta.classList.add('compact-preview');
-                    if (actionsBarReceta) actionsBarReceta.style.display = 'none';
-                }
-            };
-            img.src = URL.createObjectURL(file);
-        });
-    }
-
+    /**
+     * Verifica si el afiliado existe en el padrón local de la farmacia
+     */
     function verificarAfiliadoEnBase(nombre, afiliado) {
         let encontrado = null;
         if (baseDatos && baseDatos.length > 0) {
             if (afiliado) {
-                const cleanAfil = afiliado.replace(/[^0-9]/g, '');
+                const cleanAfil = afiliado.toString().replace(/[^0-9]/g, '');
                 encontrado = baseDatos.find(c => {
                     if (!c || c.NUMERO === undefined || c.NUMERO === null) return false;
                     const clean = c.NUMERO.toString().replace(/[^0-9]/g, '');
@@ -2195,237 +2045,226 @@ document.addEventListener("DOMContentLoaded", function () {
             }
         }
 
-        if (encontrado) {
-            badgePadronReceta.textContent = '✓ Afiliado en Padrón';
-            badgePadronReceta.className = 'result-badge-padron match';
-            if (encontrado.NOMBRE) inputScanNombre.value = encontrado.NOMBRE.toString().replace(/[.,\-_/]+$/, '').trim();
-            if (encontrado.NUMERO) inputScanAfiliado.value = encontrado.NUMERO.toString();
-        } else {
-            badgePadronReceta.textContent = 'ℹ️ Nuevo Afiliado';
-            badgePadronReceta.className = 'result-badge-padron new';
-            inputScanNombre.value = inputScanNombre.value.replace(/[.,\-_/]+$/, '').trim();
-        }
-    }
-
-    if (btnReintentarReceta) {
-        btnReintentarReceta.addEventListener('click', () => {
-            cardResultReceta.style.display = 'none';
-            if (cameraBoxReceta) cameraBoxReceta.classList.remove('compact-preview');
-            if (actionsBarReceta) actionsBarReceta.style.display = 'flex';
-            if (rowScanProdsReceta) rowScanProdsReceta.style.display = 'none';
-            inputScanNombre.value = '';
-            inputScanAfiliado.value = '';
-            if (inputScanProductos) inputScanProductos.value = '';
-        });
-    }
-
-    if (btnAvanzarTicket) {
-        btnAvanzarTicket.addEventListener('click', async () => {
-            const nombre = inputScanNombre.value.replace(/[.,\-_/]+$/, '').trim();
-            inputScanNombre.value = nombre;
-            if (!nombre) {
-                mostrarNotificacion('Aviso', 'Por favor ingresa o confirma el nombre del afiliado.', 'error');
-                return;
+        if (badgePadronReceta) {
+            if (encontrado) {
+                badgePadronReceta.textContent = '✓ Afiliado en Padrón';
+                badgePadronReceta.className = 'result-badge-padron match';
+            } else {
+                badgePadronReceta.textContent = 'ℹ️ Nuevo Afiliado';
+                badgePadronReceta.className = 'result-badge-padron new';
             }
+        }
+        return encontrado;
+    }
+
+    /**
+     * Transición entre los pasos del asistente
+     */
+    async function irAPaso(paso) {
+        currentScannerStep = paso;
+
+        if (stepPill1) stepPill1.classList.remove('active', 'done');
+        if (stepPill2) stepPill2.classList.remove('active', 'done');
+        if (stepPill3) stepPill3.classList.remove('active', 'done');
+
+        if (paso === 1) {
+            if (stepPill1) stepPill1.classList.add('active');
+            if (stepView1) stepView1.style.display = 'flex';
+            if (stepView2) stepView2.style.display = 'none';
+            if (stepView3) stepView3.style.display = 'none';
+
+            // Apagar cámara ticket y encender cámara receta
+            ScannerService.stopCamera(videoTicket);
+            try {
+                await ScannerService.startCamera(videoReceta);
+            } catch (err) {
+                console.warn('Error al iniciar cámara de receta:', err);
+            }
+        } else if (paso === 2) {
+            if (stepPill1) stepPill1.classList.add('done');
+            if (stepPill2) stepPill2.classList.add('active');
+            if (stepView1) stepView1.style.display = 'none';
+            if (stepView2) stepView2.style.display = 'flex';
+            if (stepView3) stepView3.style.display = 'none';
+
+            // Ocultar card de manual y spinner al iniciar paso 2
+            if (cardManualTicket) cardManualTicket.style.display = 'none';
+            if (aiProcessingTicket) aiProcessingTicket.style.display = 'none';
+
+            // Apagar cámara receta y encender cámara ticket
             ScannerService.stopCamera(videoReceta);
-            irAPaso(2);
             try {
                 await ScannerService.startCamera(videoTicket);
             } catch (err) {
-                console.warn('Cámara ticket:', err);
+                console.warn('Error al iniciar cámara de ticket:', err);
             }
-        });
+        } else if (paso === 3) {
+            if (stepPill1) stepPill1.classList.add('done');
+            if (stepPill2) stepPill2.classList.add('done');
+            if (stepPill3) stepPill3.classList.add('active');
+            if (stepView1) stepView1.style.display = 'none';
+            if (stepView2) stepView2.style.display = 'none';
+            if (stepView3) stepView3.style.display = 'flex';
+
+            // Apagar ambas cámaras para ahorrar batería
+            ScannerService.stopCamera(videoReceta);
+            ScannerService.stopCamera(videoTicket);
+        }
     }
 
-    // --- PASO 2: Ticket (QR AFIP + Fallback) ---
-    let isScanningQr = false;
-
-    function iniciarEscaneoQrTicket() {
-        if (qrScanInterval) clearInterval(qrScanInterval);
-        isScanningQr = false;
-        if (qrStatusText) qrStatusText.textContent = 'Buscando QR de AFIP... (0 peticiones IA)';
-        if (qrStatusIndicator) {
-            qrStatusIndicator.style.background = 'rgba(16, 185, 129, 0.12)';
-            qrStatusIndicator.style.display = 'flex';
-        }
-
-        qrScanInterval = setInterval(async () => {
-            if (currentScannerStep !== 2 || modalScanner.style.display === 'none') {
-                detenerEscaneoQrTicket();
+    if (btnAbrirScanner) {
+        btnAbrirScanner.addEventListener('click', async () => {
+            if (!ScannerService.getApiKey()) {
+                mostrarNotificacion('Configura tu API Key', 'Por favor ingresa tu API Key de Google Gemini en Configuración ⚙️ antes de escanear.', 'error');
+                if (modalGeminiConfig) modalGeminiConfig.style.display = 'block';
                 return;
             }
 
-            if (isScanningQr) return;
-            isScanningQr = true;
+            modalScanner.style.display = 'block';
+            document.body.style.overflow = 'hidden';
 
-            try {
-                const qrData = await ScannerService.scanQrFromVideo(videoTicket);
-                if (qrData) {
-                    if (qrData.importe) {
-                        detenerEscaneoQrTicket();
-                        if (navigator.vibrate) {
-                            try { navigator.vibrate(100); } catch (e) {}
-                        }
-                        inputScanImporte.value = qrData.importe.toFixed(2);
-                        badgeOrigenImporte.textContent = '✓ QR Factura AFIP';
-                        badgeOrigenImporte.style.background = 'rgba(16, 185, 129, 0.2)';
-                        badgeOrigenImporte.style.color = '#10b981';
-                        if (badgeEstadoImporte) {
-                            badgeEstadoImporte.className = 'result-badge-success';
-                            badgeEstadoImporte.textContent = '✓ Importe Detectado';
-                            badgeEstadoImporte.style.display = 'inline-block';
-                        }
-                        if (btnLeerConIaDesdeCard) btnLeerConIaDesdeCard.style.display = 'none';
-                        if (txtAyudaImporte) txtAyudaImporte.textContent = 'Importe extraído directamente del QR de Factura Electrónica.';
-                        cardResultTicket.style.display = 'flex';
-                        if (cameraBoxTicket) cameraBoxTicket.classList.add('compact-preview');
-                        if (actionsBarTicket) actionsBarTicket.style.display = 'none';
-                        if (qrStatusIndicator) qrStatusIndicator.style.display = 'none';
-                    } else if (qrData.qrRaw) {
-                        detenerEscaneoQrTicket();
-                        if (navigator.vibrate) {
-                            try { navigator.vibrate(100); } catch (e) {}
-                        }
-                        inputScanImporte.value = '';
-                        inputScanImporte.placeholder = 'Ej: 82486.80';
-                        badgeOrigenImporte.textContent = 'ℹ️ QR Data Fiscal (F960)';
-                        badgeOrigenImporte.style.background = 'rgba(245, 158, 11, 0.2)';
-                        badgeOrigenImporte.style.color = '#f59e0b';
-                        if (badgeEstadoImporte) {
-                            badgeEstadoImporte.className = 'result-badge-warning';
-                            badgeEstadoImporte.textContent = '✍️ Ingresar Total';
-                            badgeEstadoImporte.style.display = 'inline-block';
-                        }
-                        if (btnLeerConIaDesdeCard) btnLeerConIaDesdeCard.style.display = 'inline-flex';
-                        if (txtAyudaImporte) {
-                            txtAyudaImporte.textContent = 'Este ticket tiene QR Data Fiscal (solo identifica al comercio, no lleva monto). Ingresa el Total a mano o pulsa "Leer con IA".';
-                        }
-                        cardResultTicket.style.display = 'flex';
-                        if (cameraBoxTicket) cameraBoxTicket.classList.add('compact-preview');
-                        if (actionsBarTicket) actionsBarTicket.style.display = 'none';
-                        if (qrStatusIndicator) qrStatusIndicator.style.display = 'none';
-                        inputScanImporte.focus();
-                        console.log('QR Raw detectado sin importe extraíble:', qrData.qrRaw);
-                    }
-                }
-            } catch (e) {
-                console.warn('Escaneo QR:', e);
-            } finally {
-                isScanningQr = false;
-            }
-        }, 150);
-    }
+            // Resetear estado
+            capturedRecetaSource = null;
+            capturedTicketSource = null;
+            if (cardManualTicket) cardManualTicket.style.display = 'none';
+            if (inputScanImporteManual) inputScanImporteManual.value = '';
+            if (confirmNombre) confirmNombre.value = '';
+            if (confirmAfiliado) confirmAfiliado.value = '';
+            if (confirmImporte) confirmImporte.value = '';
+            if (inputScanProductos) inputScanProductos.value = '';
+            actualizarDesgloseConfirmacion(0);
 
-    function detenerEscaneoQrTicket() {
-        if (qrScanInterval) {
-            clearInterval(qrScanInterval);
-            qrScanInterval = null;
-        }
-        isScanningQr = false;
-    }
-
-    if (btnImporteManualTicket) {
-        btnImporteManualTicket.addEventListener('click', () => {
-            detenerEscaneoQrTicket();
-            badgeOrigenImporte.textContent = '✍️ Ingreso Manual';
-            badgeOrigenImporte.style.background = 'rgba(107, 114, 128, 0.2)';
-            badgeOrigenImporte.style.color = '#9ca3af';
-            if (badgeEstadoImporte) badgeEstadoImporte.style.display = 'none';
-            if (btnLeerConIaDesdeCard) btnLeerConIaDesdeCard.style.display = 'inline-flex';
-            if (txtAyudaImporte) txtAyudaImporte.textContent = 'Ingresa el importe total del ticket o pulsa "Leer con IA".';
-            inputScanImporte.value = '';
-            inputScanImporte.placeholder = 'Ej: 82486.80';
-            cardResultTicket.style.display = 'flex';
-            if (cameraBoxTicket) cameraBoxTicket.classList.add('compact-preview');
-            if (actionsBarTicket) actionsBarTicket.style.display = 'none';
-            if (qrStatusIndicator) qrStatusIndicator.style.display = 'none';
-            inputScanImporte.focus();
+            irAPaso(1);
         });
     }
 
-    if (btnLeerConIaDesdeCard) {
-        btnLeerConIaDesdeCard.addEventListener('click', async () => {
-            aiProcessingTicket.style.display = 'flex';
-            try {
-                const res = await ScannerService.extractTicketData(videoTicket);
-                aiProcessingTicket.style.display = 'none';
-                if (res.importe !== null && !isNaN(res.importe)) {
-                    inputScanImporte.value = res.importe.toFixed(2);
-                    if (inputScanProductos && !inputScanProductos.value.trim() && res.productosStr) {
-                        inputScanProductos.value = res.productosStr;
-                    }
-                    badgeOrigenImporte.textContent = `🤖 Gemini (${res.modelUsed})`;
-                    badgeOrigenImporte.style.background = 'rgba(99, 102, 241, 0.2)';
-                    badgeOrigenImporte.style.color = '#6366f1';
-                    if (badgeEstadoImporte) {
-                        badgeEstadoImporte.className = 'result-badge-success';
-                        badgeEstadoImporte.textContent = '✓ Total Detectado con IA';
-                        badgeEstadoImporte.style.display = 'inline-block';
-                    }
-                    if (txtAyudaImporte) txtAyudaImporte.textContent = 'Total leído automáticamente del ticket.';
-                    btnLeerConIaDesdeCard.style.display = 'none';
-                } else {
-                    mostrarNotificacion('Aviso', 'No se pudo leer el Total automáticamente del ticket. Ingrésalo a mano.', 'error');
-                    inputScanImporte.focus();
-                }
-            } catch (err) {
-                aiProcessingTicket.style.display = 'none';
-                mostrarNotificacion('Error', err.message, 'error');
-                inputScanImporte.focus();
+    if (btnCerrarScanner) {
+        btnCerrarScanner.addEventListener('click', cerrarModalScanner);
+    }
+    if (btnFinalizarScanner) {
+        btnFinalizarScanner.addEventListener('click', cerrarModalScanner);
+    }
+
+    function cerrarModalScanner() {
+        ScannerService.stopCamera(videoReceta);
+        ScannerService.stopCamera(videoTicket);
+        capturedRecetaSource = null;
+        capturedTicketSource = null;
+        if (modalScanner) modalScanner.style.display = 'none';
+        document.body.style.overflow = '';
+        cargarRegistrosDeLoteActivo();
+    }
+
+    // --- PASO 1: Captura de Receta en Memoria (0s de espera, sin llamada a IA) ---
+    if (btnCapturarReceta) {
+        btnCapturarReceta.addEventListener('click', () => {
+            const frame = captureVideoFrame(videoReceta);
+            if (!frame) {
+                mostrarNotificacion('Cámara', 'No se pudo capturar la imagen. Asegúrate de enfocar el recetario.', 'error');
+                return;
             }
+            capturedRecetaSource = frame;
+            if (navigator.vibrate) {
+                try { navigator.vibrate(60); } catch (e) {}
+            }
+            // Pasa directamente a Paso 2 (Ticket) de forma instantánea
+            irAPaso(2);
         });
     }
 
+    if (btnSubirFotoReceta) {
+        btnSubirFotoReceta.addEventListener('click', () => {
+            if (fileInputReceta) fileInputReceta.click();
+        });
+    }
+
+    if (fileInputReceta) {
+        fileInputReceta.addEventListener('change', (e) => {
+            const file = e.target.files[0];
+            if (!file) return;
+            const reader = new FileReader();
+            reader.onload = (evt) => {
+                capturedRecetaSource = evt.target.result;
+                irAPaso(2);
+            };
+            reader.readAsDataURL(file);
+        });
+    }
+
+    // --- PASO 2: Ticket (Foto con IA o Importe Manual) ---
+    if (btnRehacerReceta) {
+        btnRehacerReceta.addEventListener('click', () => {
+            capturedRecetaSource = null;
+            irAPaso(1);
+        });
+    }
+
+    // Opción A: Tomar Foto Ticket y Analizar Ambos en 1 Sola Llamada a Gemini
     if (btnCapturarTicketTotal) {
         btnCapturarTicketTotal.addEventListener('click', async () => {
-            detenerEscaneoQrTicket();
-            aiProcessingTicket.style.display = 'flex';
+            if (!capturedRecetaSource) {
+                mostrarNotificacion('Aviso', 'Falta la foto de la receta. Volviendo al Paso 1...', 'error');
+                irAPaso(1);
+                return;
+            }
+
+            const frame = captureVideoFrame(videoTicket);
+            if (!frame) {
+                mostrarNotificacion('Cámara', 'No se pudo capturar la imagen del ticket.', 'error');
+                return;
+            }
+            capturedTicketSource = frame;
+
+            // Detener cámara del ticket durante el análisis para liberar recursos
+            ScannerService.stopCamera(videoTicket);
+
+            // Mostrar indicador de análisis unificado
+            if (aiProcessingTicket) aiProcessingTicket.style.display = 'flex';
+            if (aiProcessingTitleTicket) {
+                aiProcessingTitleTicket.textContent = `Analizando Receta y Ticket con ${ScannerService.getSelectedModel()}...`;
+            }
+
             try {
-                const res = await ScannerService.extractTicketData(videoTicket);
-                aiProcessingTicket.style.display = 'none';
-                if (res.importe !== null && !isNaN(res.importe)) {
-                    inputScanImporte.value = res.importe.toFixed(2);
-                    if (inputScanProductos && !inputScanProductos.value.trim() && res.productosStr) {
-                        inputScanProductos.value = res.productosStr;
-                    }
-                    badgeOrigenImporte.textContent = `🤖 Gemini (${res.modelUsed})`;
-                    badgeOrigenImporte.style.background = 'rgba(99, 102, 241, 0.2)';
-                    badgeOrigenImporte.style.color = '#6366f1';
-                    if (badgeEstadoImporte) {
-                        badgeEstadoImporte.className = 'result-badge-success';
-                        badgeEstadoImporte.textContent = '✓ Total Detectado con IA';
-                        badgeEstadoImporte.style.display = 'inline-block';
-                    }
-                    if (btnLeerConIaDesdeCard) btnLeerConIaDesdeCard.style.display = 'none';
-                    if (txtAyudaImporte) txtAyudaImporte.textContent = 'Total leído automáticamente del ticket.';
-                    cardResultTicket.style.display = 'flex';
-                    if (cameraBoxTicket) cameraBoxTicket.classList.add('compact-preview');
-                    if (actionsBarTicket) actionsBarTicket.style.display = 'none';
-                    if (qrStatusIndicator) qrStatusIndicator.style.display = 'none';
-                } else {
-                    mostrarNotificacion('Aviso', 'No se pudo leer el Total automáticamente. Ingrésalo manualmente abajo.', 'error');
-                    badgeOrigenImporte.textContent = '✍️ Ingreso Manual';
-                    if (badgeEstadoImporte) {
-                        badgeEstadoImporte.className = 'result-badge-warning';
-                        badgeEstadoImporte.textContent = '⚠️ Ingrese Total';
-                        badgeEstadoImporte.style.display = 'inline-block';
-                    }
-                    if (btnLeerConIaDesdeCard) btnLeerConIaDesdeCard.style.display = 'inline-flex';
-                    if (txtAyudaImporte) txtAyudaImporte.textContent = 'Ingresa el importe total a mano.';
-                    cardResultTicket.style.display = 'flex';
-                    if (cameraBoxTicket) cameraBoxTicket.classList.add('compact-preview');
-                    if (actionsBarTicket) actionsBarTicket.style.display = 'none';
-                    if (qrStatusIndicator) qrStatusIndicator.style.display = 'none';
-                    inputScanImporte.focus();
+                // 1 SOLA LLAMADA A GEMINI CON AMBAS IMÁGENES NATIVAS
+                const res = await ScannerService.extractCompleteRecipeAndTicket(capturedRecetaSource, capturedTicketSource);
+                if (aiProcessingTicket) aiProcessingTicket.style.display = 'none';
+
+                // Llenar campos de Confirmación (Paso 3)
+                const nombreLimpio = (res.nombre || '').replace(/[.,\-_/]+$/, '').trim();
+                const afiliadoLimpio = (res.afiliado || '').replace(/[.,\-_/]+$/, '').trim();
+                const importeNum = (res.importe !== null && !isNaN(res.importe)) ? res.importe : null;
+
+                if (confirmNombre) confirmNombre.value = nombreLimpio;
+                if (confirmAfiliado) confirmAfiliado.value = afiliadoLimpio;
+                if (confirmImporte) confirmImporte.value = importeNum !== null ? importeNum.toFixed(2) : '';
+                if (inputScanProductos) inputScanProductos.value = res.productosStr || '';
+
+                if (badgeAiModeloConfirm) {
+                    badgeAiModeloConfirm.textContent = `🤖 ${res.modelUsed}`;
+                }
+
+                if (lblDispositivoConfirm) {
+                    lblDispositivoConfirm.textContent = obtenerNombreOperador();
+                }
+
+                verificarAfiliadoEnBase(nombreLimpio, afiliadoLimpio);
+                actualizarDesgloseConfirmacion(importeNum || 0);
+
+                if (navigator.vibrate) {
+                    try { navigator.vibrate(100); } catch (e) {}
+                }
+
+                irAPaso(3);
+
+                if (importeNum === null) {
+                    mostrarNotificacion('Aviso', 'No se detectó el TOTAL en el ticket. Por favor ingrésalo en la casilla Total.', 'error');
+                    if (confirmImporte) confirmImporte.focus();
                 }
             } catch (err) {
-                aiProcessingTicket.style.display = 'none';
-                mostrarNotificacion('Error', err.message, 'error');
-                cardResultTicket.style.display = 'flex';
-                if (cameraBoxTicket) cameraBoxTicket.classList.add('compact-preview');
-                if (actionsBarTicket) actionsBarTicket.style.display = 'none';
-                if (qrStatusIndicator) qrStatusIndicator.style.display = 'none';
-                inputScanImporte.focus();
+                if (aiProcessingTicket) aiProcessingTicket.style.display = 'none';
+                mostrarNotificacion('Error en IA', err.message, 'error');
+                irAPaso(3);
+                if (confirmImporte) confirmImporte.focus();
             }
         });
     }
@@ -2437,140 +2276,159 @@ document.addEventListener("DOMContentLoaded", function () {
     }
 
     if (fileInputTicket) {
-        fileInputTicket.addEventListener('change', async (e) => {
+        fileInputTicket.addEventListener('change', (e) => {
             const file = e.target.files[0];
             if (!file) return;
-            const img = new Image();
-            img.onload = async () => {
-                detenerEscaneoQrTicket();
-                aiProcessingTicket.style.display = 'flex';
+            const reader = new FileReader();
+            reader.onload = async (evt) => {
+                capturedTicketSource = evt.target.result;
+                ScannerService.stopCamera(videoTicket);
+
+                if (aiProcessingTicket) aiProcessingTicket.style.display = 'flex';
+                if (aiProcessingTitleTicket) {
+                    aiProcessingTitleTicket.textContent = `Analizando con ${ScannerService.getSelectedModel()}...`;
+                }
+
                 try {
-                    const res = await ScannerService.extractTicketData(img);
-                    aiProcessingTicket.style.display = 'none';
-                    if (res.importe !== null && !isNaN(res.importe)) {
-                        inputScanImporte.value = res.importe.toFixed(2);
-                        if (inputScanProductos && !inputScanProductos.value.trim() && res.productosStr) {
-                            inputScanProductos.value = res.productosStr;
-                        }
-                        badgeOrigenImporte.textContent = `🤖 Gemini (${res.modelUsed})`;
-                        badgeOrigenImporte.style.background = 'rgba(99, 102, 241, 0.2)';
-                        badgeOrigenImporte.style.color = '#6366f1';
-                        if (badgeEstadoImporte) {
-                            badgeEstadoImporte.className = 'result-badge-success';
-                            badgeEstadoImporte.textContent = '✓ Total Detectado con IA';
-                            badgeEstadoImporte.style.display = 'inline-block';
-                        }
-                        if (btnLeerConIaDesdeCard) btnLeerConIaDesdeCard.style.display = 'none';
-                        if (txtAyudaImporte) txtAyudaImporte.textContent = 'Total leído automáticamente del ticket.';
-                        cardResultTicket.style.display = 'flex';
-                        if (cameraBoxTicket) cameraBoxTicket.classList.add('compact-preview');
-                        if (actionsBarTicket) actionsBarTicket.style.display = 'none';
-                        if (qrStatusIndicator) qrStatusIndicator.style.display = 'none';
-                    } else {
-                        mostrarNotificacion('Aviso', 'Ingrese el importe en la casilla.', 'error');
-                        cardResultTicket.style.display = 'flex';
-                        if (cameraBoxTicket) cameraBoxTicket.classList.add('compact-preview');
-                        if (actionsBarTicket) actionsBarTicket.style.display = 'none';
-                        if (qrStatusIndicator) qrStatusIndicator.style.display = 'none';
-                    }
+                    const res = await ScannerService.extractCompleteRecipeAndTicket(capturedRecetaSource, capturedTicketSource);
+                    if (aiProcessingTicket) aiProcessingTicket.style.display = 'none';
+
+                    const nombreLimpio = (res.nombre || '').replace(/[.,\-_/]+$/, '').trim();
+                    const afiliadoLimpio = (res.afiliado || '').replace(/[.,\-_/]+$/, '').trim();
+                    const importeNum = (res.importe !== null && !isNaN(res.importe)) ? res.importe : null;
+
+                    if (confirmNombre) confirmNombre.value = nombreLimpio;
+                    if (confirmAfiliado) confirmAfiliado.value = afiliadoLimpio;
+                    if (confirmImporte) confirmImporte.value = importeNum !== null ? importeNum.toFixed(2) : '';
+                    if (inputScanProductos) inputScanProductos.value = res.productosStr || '';
+
+                    if (badgeAiModeloConfirm) badgeAiModeloConfirm.textContent = `🤖 ${res.modelUsed}`;
+                    if (lblDispositivoConfirm) lblDispositivoConfirm.textContent = obtenerNombreOperador();
+
+                    verificarAfiliadoEnBase(nombreLimpio, afiliadoLimpio);
+                    actualizarDesgloseConfirmacion(importeNum || 0);
+
+                    irAPaso(3);
                 } catch (err) {
-                    aiProcessingTicket.style.display = 'none';
-                    mostrarNotificacion('Error', err.message, 'error');
-                    cardResultTicket.style.display = 'flex';
-                    if (cameraBoxTicket) cameraBoxTicket.classList.add('compact-preview');
-                    if (actionsBarTicket) actionsBarTicket.style.display = 'none';
-                    if (qrStatusIndicator) qrStatusIndicator.style.display = 'none';
+                    if (aiProcessingTicket) aiProcessingTicket.style.display = 'none';
+                    mostrarNotificacion('Error en IA', err.message, 'error');
+                    irAPaso(3);
                 }
             };
-            img.src = URL.createObjectURL(file);
+            reader.readAsDataURL(file);
         });
     }
 
-    if (btnReintentarTicket) {
-        btnReintentarTicket.addEventListener('click', () => {
-            cardResultTicket.style.display = 'none';
-            inputScanImporte.value = '';
-            if (txtAyudaImporte) txtAyudaImporte.textContent = '';
-            if (btnLeerConIaDesdeCard) btnLeerConIaDesdeCard.style.display = 'none';
-            if (cameraBoxTicket) cameraBoxTicket.classList.remove('compact-preview');
-            if (actionsBarTicket) actionsBarTicket.style.display = 'flex';
-            if (qrStatusIndicator) {
-                qrStatusIndicator.style.display = 'flex';
-                qrStatusText.textContent = 'Buscando QR de AFIP... (0 peticiones IA)';
-                qrStatusIndicator.style.background = '';
-            }
-            iniciarEscaneoQrTicket();
-        });
-    }
-
-    if (btnVolverAReceta) {
-        btnVolverAReceta.addEventListener('click', async () => {
-            ScannerService.stopCamera(videoTicket);
-            if (cameraBoxTicket) cameraBoxTicket.classList.remove('compact-preview');
-            irAPaso(1);
-            try {
-                await ScannerService.startCamera(videoReceta);
-            } catch (err) {
-                console.warn(err);
+    // Opción B: Ingreso Manual de Ticket
+    if (btnImporteManualTicket) {
+        btnImporteManualTicket.addEventListener('click', () => {
+            if (cardManualTicket) {
+                const isHidden = cardManualTicket.style.display === 'none' || !cardManualTicket.style.display;
+                cardManualTicket.style.display = isHidden ? 'block' : 'none';
+                if (isHidden && inputScanImporteManual) {
+                    inputScanImporteManual.focus();
+                }
             }
         });
     }
 
-    if (btnAvanzarConfirmacion) {
-        btnAvanzarConfirmacion.addEventListener('click', () => {
-            detenerEscaneoQrTicket();
-            const nombre = inputScanNombre.value.replace(/[.,\-_/]+$/, '').trim();
-            inputScanNombre.value = nombre;
-            const afiliado = inputScanAfiliado.value.replace(/[.,\-_/]+$/, '').trim();
-            inputScanAfiliado.value = afiliado;
-            const importe = parseFloat(inputScanImporte.value);
+    if (btnCancelarManualTicket) {
+        btnCancelarManualTicket.addEventListener('click', () => {
+            if (cardManualTicket) cardManualTicket.style.display = 'none';
+        });
+    }
 
-            if (!nombre) {
-                mostrarNotificacion('Aviso', 'Falta el nombre del afiliado.', 'error');
-                return;
-            }
-            if (isNaN(importe) || importe <= 0) {
+    if (btnAvanzarConImporteManual) {
+        btnAvanzarConImporteManual.addEventListener('click', async () => {
+            const manualImp = parseFloat(inputScanImporteManual ? inputScanImporteManual.value : '');
+            if (isNaN(manualImp) || manualImp <= 0) {
                 mostrarNotificacion('Aviso', 'Por favor ingresa un importe válido para el ticket.', 'error');
+                if (inputScanImporteManual) inputScanImporteManual.focus();
                 return;
             }
 
-            irAPaso(3);
-            confirmNombre.textContent = nombre;
-            confirmAfiliado.textContent = afiliado || 'Sin número';
-            confirmImporte.textContent = `$${importe.toFixed(2)}`;
-
-            if (lblDispositivoConfirm) {
-                lblDispositivoConfirm.textContent = obtenerNombreOperador();
+            ScannerService.stopCamera(videoTicket);
+            if (aiProcessingTicket) aiProcessingTicket.style.display = 'flex';
+            if (aiProcessingTitleTicket) {
+                aiProcessingTitleTicket.textContent = `Extrayendo datos de Receta con ${ScannerService.getSelectedModel()}...`;
             }
 
-            const totalCalculado = (importe * 100 / 75);
-            confirmCargoAfiliado.textContent = `$${importe.toFixed(2)}`;
-            confirmCargoFarmacia.textContent = `$${(totalCalculado * 0.125).toFixed(2)}`;
-            confirmCargoOS.textContent = `$${(totalCalculado * 0.125).toFixed(2)}`;
+            try {
+                // Al tener el importe manual, solo se procesa la receta con la IA
+                const res = await ScannerService.extractRecipeData(capturedRecetaSource);
+                if (aiProcessingTicket) aiProcessingTicket.style.display = 'none';
+
+                const nombreLimpio = (res.nombre || '').replace(/[.,\-_/]+$/, '').trim();
+                const afiliadoLimpio = (res.afiliado || '').replace(/[.,\-_/]+$/, '').trim();
+
+                if (confirmNombre) confirmNombre.value = nombreLimpio;
+                if (confirmAfiliado) confirmAfiliado.value = afiliadoLimpio;
+                if (confirmImporte) confirmImporte.value = manualImp.toFixed(2);
+                if (inputScanProductos) inputScanProductos.value = res.productosStr || '';
+
+                if (badgeAiModeloConfirm) badgeAiModeloConfirm.textContent = `🤖 ${res.modelUsed}`;
+                if (lblDispositivoConfirm) lblDispositivoConfirm.textContent = obtenerNombreOperador();
+
+                verificarAfiliadoEnBase(nombreLimpio, afiliadoLimpio);
+                actualizarDesgloseConfirmacion(manualImp);
+
+                irAPaso(3);
+            } catch (err) {
+                if (aiProcessingTicket) aiProcessingTicket.style.display = 'none';
+                mostrarNotificacion('Error en Receta', err.message, 'error');
+                if (confirmImporte) confirmImporte.value = manualImp.toFixed(2);
+                actualizarDesgloseConfirmacion(manualImp);
+                irAPaso(3);
+            }
         });
     }
 
-    // --- PASO 3: Guardar y Siguiente ---
-    if (btnEditarDesdeConfirmacion) {
-        btnEditarDesdeConfirmacion.addEventListener('click', async () => {
-            irAPaso(2);
-            try {
-                await ScannerService.startCamera(videoTicket);
-            } catch (err) {
-                console.warn(err);
-            }
+    // --- PASO 3: Confirmación y Guardado Rápido ---
+    if (confirmImporte) {
+        confirmImporte.addEventListener('input', () => {
+            const imp = parseFloat(confirmImporte.value);
+            actualizarDesgloseConfirmacion(imp);
+        });
+    }
+
+    if (confirmNombre) {
+        confirmNombre.addEventListener('input', () => {
+            verificarAfiliadoEnBase(confirmNombre.value, confirmAfiliado ? confirmAfiliado.value : '');
+        });
+    }
+
+    if (confirmAfiliado) {
+        confirmAfiliado.addEventListener('input', () => {
+            verificarAfiliadoEnBase(confirmNombre ? confirmNombre.value : '', confirmAfiliado.value);
+        });
+    }
+
+
+    if (btnReintentarTodo) {
+        btnReintentarTodo.addEventListener('click', () => {
+            capturedRecetaSource = null;
+            capturedTicketSource = null;
+            irAPaso(1);
         });
     }
 
     if (btnGuardarYSiguiente) {
         btnGuardarYSiguiente.addEventListener('click', async () => {
-            const nombre = inputScanNombre.value.replace(/[.,\-_/]+$/, '').trim();
-            const afiliado = inputScanAfiliado.value.replace(/[.,\-_/]+$/, '').trim();
-            const importe = parseFloat(inputScanImporte.value);
+            const nombre = confirmNombre ? confirmNombre.value.replace(/[.,\-_/]+$/, '').trim() : '';
+            const afiliado = confirmAfiliado ? confirmAfiliado.value.replace(/[.,\-_/]+$/, '').trim() : '';
+            const rawImporte = confirmImporte ? confirmImporte.value : '';
+            const importe = parseFloat(rawImporte);
             const productos = inputScanProductos ? inputScanProductos.value.trim() : '';
 
-            if (!nombre || isNaN(importe) || importe <= 0) {
-                mostrarNotificacion('Aviso', 'Datos incompletos para guardar.', 'error');
+            if (!nombre) {
+                mostrarNotificacion('Aviso', 'Por favor ingresa el nombre del afiliado.', 'error');
+                if (confirmNombre) confirmNombre.focus();
+                return;
+            }
+
+            if (isNaN(importe) || importe <= 0) {
+                mostrarNotificacion('Aviso', 'Por favor ingresa el total del ticket.', 'error');
+                if (confirmImporte) confirmImporte.focus();
                 return;
             }
 
@@ -2584,15 +2442,19 @@ document.addEventListener("DOMContentLoaded", function () {
                 let guardado = null;
 
                 if (loteActivo && loteActivo.id) {
-                    guardado = await guardarRegistroEnNeon({
-                        lote_id: loteActivo.id,
-                        farmacia_email: email,
-                        nombre,
-                        afiliado,
-                        importe,
-                        productos,
-                        cargado_por: operador
-                    });
+                    try {
+                        guardado = await guardarRegistroEnNeon({
+                            lote_id: loteActivo.id,
+                            farmacia_email: email,
+                            nombre,
+                            afiliado,
+                            importe,
+                            productos,
+                            cargado_por: operador
+                        });
+                    } catch (errNeon) {
+                        console.warn('Error al guardar en Neon, guardando local:', errNeon);
+                    }
                 }
 
                 data.push({
@@ -2604,6 +2466,7 @@ document.addEventListener("DOMContentLoaded", function () {
                     cargado_por: operador
                 });
 
+                // Registrar en padrón local si es nuevo cliente
                 const existeEnBase = baseDatos.some(c => c.NOMBRE && c.NOMBRE.trim().toLowerCase() === nombre.toLowerCase());
                 if (!existeEnBase) {
                     if (!nuevosClientes.some(c => c.Cliente && c.Cliente.trim().toLowerCase() === nombre.toLowerCase())) {
@@ -2625,20 +2488,18 @@ document.addEventListener("DOMContentLoaded", function () {
                 actualizarTabla();
                 mostrarNotificacion('Guardado', `Comprobante de ${nombre} registrado con éxito.`, 'success');
 
-                // Limpiar inputs y reiniciar wizard para la siguiente receta
-                inputScanNombre.value = '';
-                inputScanAfiliado.value = '';
-                inputScanImporte.value = '';
+                // Limpiar formulario y variables en memoria
+                capturedRecetaSource = null;
+                capturedTicketSource = null;
+                if (confirmNombre) confirmNombre.value = '';
+                if (confirmAfiliado) confirmAfiliado.value = '';
+                if (confirmImporte) confirmImporte.value = '';
                 if (inputScanProductos) inputScanProductos.value = '';
-                cardResultReceta.style.display = 'none';
-                cardResultTicket.style.display = 'none';
+                if (inputScanImporteManual) inputScanImporteManual.value = '';
+                actualizarDesgloseConfirmacion(0);
 
+                // Volver a Paso 1 inmediatamente para la siguiente receta
                 irAPaso(1);
-                try {
-                    await ScannerService.startCamera(videoReceta);
-                } catch (err) {
-                    console.warn(err);
-                }
             } catch (e) {
                 console.error('Error al guardar:', e);
                 mostrarNotificacion('Error', 'No se pudo guardar: ' + e.message, 'error');
