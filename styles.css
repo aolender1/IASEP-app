@@ -1100,6 +1100,16 @@ body.dark-theme {
     color: white;
 }
 
+.boton-mini-danger {
+    background: rgba(239, 68, 68, 0.15);
+    color: #ef4444;
+}
+
+.boton-mini-danger:hover {
+    background: #ef4444;
+    color: white;
+}
+
 .boton-icono-header {
     background: none;
     border: 1px solid var(--color-border);

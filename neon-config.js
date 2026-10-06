@@ -373,6 +373,45 @@ async function crearLoteEnNeon(nombre, email) {
 }
 
 /**
+ * Elimina un lote y todos sus comprobantes asociados en Neon DB
+ */
+async function eliminarLoteEnNeon(loteId) {
+    let token = await obtenerTokenValido();
+    if (!token || !loteId) throw new Error('No hay sesión activa o ID de lote inválido');
+
+    try {
+        let res = await fetch(`${NEON_DATA_URL}lotes?id=eq.${loteId}`, {
+            method: 'DELETE',
+            headers: {
+                'Authorization': `Bearer ${token}`
+            }
+        });
+
+        if (res.status === 400 || res.status === 401) {
+            token = await refrescarTokenNeon();
+            if (token) {
+                res = await fetch(`${NEON_DATA_URL}lotes?id=eq.${loteId}`, {
+                    method: 'DELETE',
+                    headers: {
+                        'Authorization': `Bearer ${token}`
+                    }
+                });
+            }
+        }
+
+        if (!res.ok) {
+            const err = await res.json().catch(() => ({}));
+            throw new Error(err.message || `Error al eliminar lote HTTP ${res.status}`);
+        }
+
+        return true;
+    } catch (e) {
+        console.error('Error al eliminar lote en Neon:', e);
+        throw e;
+    }
+}
+
+/**
  * Obtiene el lote activo para la farmacia (o crea uno con el mes/año actual si no existe)
  */
 async function obtenerLoteActivoOInicial(email) {
@@ -544,13 +583,13 @@ async function obtenerClientesFarmacia(email) {
     if (!token || !email) return [];
 
     try {
-        let res = await fetch(`${NEON_DATA_URL}clientes?farmacia_email=eq.${encodeURIComponent(email)}&order=nombre.asc`, {
+        let res = await fetch(`${NEON_DATA_URL}clientes?farmacia_email=eq.${encodeURIComponent(email)}&order=nombre.asc&limit=10000`, {
             headers: { 'Authorization': `Bearer ${token}` }
         });
         if (res.status === 400 || res.status === 401) {
             token = await refrescarTokenNeon();
             if (token) {
-                res = await fetch(`${NEON_DATA_URL}clientes?farmacia_email=eq.${encodeURIComponent(email)}&order=nombre.asc`, {
+                res = await fetch(`${NEON_DATA_URL}clientes?farmacia_email=eq.${encodeURIComponent(email)}&order=nombre.asc&limit=10000`, {
                     headers: { 'Authorization': `Bearer ${token}` }
                 });
             }
@@ -580,7 +619,7 @@ async function guardarClienteEnNeon(cliente, email) {
     if (!payload.nombre) return null;
 
     try {
-        let res = await fetch(`${NEON_DATA_URL}clientes`, {
+        let res = await fetch(`${NEON_DATA_URL}clientes?on_conflict=farmacia_email,nombre,numero`, {
             method: 'POST',
             headers: {
                 'Authorization': `Bearer ${token}`,
@@ -593,7 +632,7 @@ async function guardarClienteEnNeon(cliente, email) {
         if (res.status === 400 || res.status === 401) {
             token = await refrescarTokenNeon();
             if (token) {
-                res = await fetch(`${NEON_DATA_URL}clientes`, {
+                res = await fetch(`${NEON_DATA_URL}clientes?on_conflict=farmacia_email,nombre,numero`, {
                     method: 'POST',
                     headers: {
                         'Authorization': `Bearer ${token}`,
@@ -636,7 +675,7 @@ async function sincronizarLoteClientesNeon(clientesArray, email, onProgress) {
         if (chunk.length === 0) continue;
 
         try {
-            let res = await fetch(`${NEON_DATA_URL}clientes`, {
+            let res = await fetch(`${NEON_DATA_URL}clientes?on_conflict=farmacia_email,nombre,numero`, {
                 method: 'POST',
                 headers: {
                     'Authorization': `Bearer ${token}`,
@@ -649,7 +688,7 @@ async function sincronizarLoteClientesNeon(clientesArray, email, onProgress) {
             if (res.status === 400 || res.status === 401) {
                 token = await refrescarTokenNeon();
                 if (token) {
-                    res = await fetch(`${NEON_DATA_URL}clientes`, {
+                    res = await fetch(`${NEON_DATA_URL}clientes?on_conflict=farmacia_email,nombre,numero`, {
                         method: 'POST',
                         headers: {
                             'Authorization': `Bearer ${token}`,

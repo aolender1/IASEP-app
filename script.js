@@ -571,14 +571,50 @@ document.addEventListener("DOMContentLoaded", function () {
             if (clientesNeon && clientesNeon.length > 0) {
                 baseDatos = clientesNeon.map((c, i) => ({
                     ID: i + 1,
-                    NOMBRE: c.nombre,
-                    NUMERO: c.numero,
+                    NOMBRE: (c.nombre || '').replace(/[.,\-_/]+$/, '').trim(),
+                    NUMERO: (c.numero || '').toString().trim(),
                     ES_NUEVO: c.es_nuevo
                 }));
+            }
+
+            // También fusionar clientes que ya han sido registrados en comprobantes históricos de Neon
+            try {
+                let token = await obtenerTokenValido();
+                if (token) {
+                    let resRegs = await fetch(`${NEON_DATA_URL}registros?farmacia_email=eq.${encodeURIComponent(email)}&select=nombre,afiliado&limit=10000`, {
+                        headers: { 'Authorization': `Bearer ${token}` }
+                    });
+                    if (resRegs.ok) {
+                        const pastClients = await resRegs.json();
+                        pastClients.forEach(r => {
+                            if (!r.nombre) return;
+                            const rNombre = r.nombre.replace(/[.,\-_/]+$/, '').trim();
+                            const rAfil = (r.afiliado || '').toString().trim();
+                            const yaExiste = baseDatos.some(b => {
+                                const cleanB = (b.NUMERO || '').replace(/[^0-9]/g, '');
+                                const cleanR = rAfil.replace(/[^0-9]/g, '');
+                                return (cleanB && cleanR && cleanB === cleanR) || (b.NOMBRE && b.NOMBRE.toLowerCase() === rNombre.toLowerCase());
+                            });
+                            if (!yaExiste) {
+                                baseDatos.push({
+                                    ID: baseDatos.length + 1,
+                                    NOMBRE: rNombre,
+                                    NUMERO: rAfil,
+                                    ES_NUEVO: false
+                                });
+                            }
+                        });
+                    }
+                }
+            } catch (errRegs) {
+                console.warn('Complementando clientes de registros:', errRegs);
+            }
+
+            if (baseDatos.length > 0) {
                 try {
                     localStorage.setItem('clientes_padron', JSON.stringify(baseDatos));
                 } catch (e) {}
-                console.log(`Padrón sincronizado con Neon DB: ${baseDatos.length} clientes.`);
+                console.log(`Padrón completo sincronizado con Neon DB: ${baseDatos.length} clientes.`);
             }
         } catch (err) {
             console.warn('Error al sincronizar clientes desde Neon:', err);
@@ -1716,6 +1752,14 @@ document.addEventListener("DOMContentLoaded", function () {
         }
     }
 
+    const btnEliminarLote = document.getElementById('btnEliminarLote');
+    const modalEliminarLote = document.getElementById('modalEliminarLote');
+    const btnCerrarEliminarLote = document.getElementById('btnCerrarEliminarLote');
+    const btnCancelarEliminarLote = document.getElementById('btnCancelarEliminarLote');
+    const btnConfirmarEliminarLote = document.getElementById('btnConfirmarEliminarLote');
+    const lblNombreLoteAEliminar = document.getElementById('lblNombreLoteAEliminar');
+    let loteIdAEliminar = null;
+
     if (btnNuevoLote) {
         btnNuevoLote.addEventListener('click', () => {
             if (modalNuevoLote) {
@@ -1728,6 +1772,13 @@ document.addEventListener("DOMContentLoaded", function () {
 
     if (btnCerrarNuevoLote) {
         btnCerrarNuevoLote.addEventListener('click', () => {
+            if (modalNuevoLote) modalNuevoLote.style.display = 'none';
+        });
+    }
+
+    const btnCancelarNuevoLote = document.getElementById('btnCancelarNuevoLote');
+    if (btnCancelarNuevoLote) {
+        btnCancelarNuevoLote.addEventListener('click', () => {
             if (modalNuevoLote) modalNuevoLote.style.display = 'none';
         });
     }
@@ -1750,6 +1801,62 @@ document.addEventListener("DOMContentLoaded", function () {
                 mostrarNotificacion('Lote Creado', `Se activó el lote "${nombre}".`, 'success');
             } catch (err) {
                 mostrarNotificacion('Error', 'No se pudo crear el lote: ' + err.message, 'error');
+            }
+        });
+    }
+
+    if (btnEliminarLote) {
+        btnEliminarLote.addEventListener('click', () => {
+            const loteActivo = getLoteActivo();
+            if (!loteActivo || !loteActivo.id) {
+                mostrarNotificacion('Aviso', 'No hay ningún lote seleccionado para eliminar.', 'error');
+                return;
+            }
+            loteIdAEliminar = loteActivo.id;
+            if (lblNombreLoteAEliminar) {
+                lblNombreLoteAEliminar.textContent = `"${loteActivo.nombre}"`;
+            }
+            if (modalEliminarLote) {
+                modalEliminarLote.style.display = 'block';
+            }
+        });
+    }
+
+    if (btnCerrarEliminarLote) {
+        btnCerrarEliminarLote.addEventListener('click', () => {
+            if (modalEliminarLote) modalEliminarLote.style.display = 'none';
+        });
+    }
+    if (btnCancelarEliminarLote) {
+        btnCancelarEliminarLote.addEventListener('click', () => {
+            if (modalEliminarLote) modalEliminarLote.style.display = 'none';
+        });
+    }
+
+    if (btnConfirmarEliminarLote) {
+        btnConfirmarEliminarLote.addEventListener('click', async () => {
+            if (!loteIdAEliminar) return;
+            btnConfirmarEliminarLote.disabled = true;
+            btnConfirmarEliminarLote.textContent = 'Eliminando...';
+
+            try {
+                const loteActivo = getLoteActivo();
+                const nombreEliminado = loteActivo ? loteActivo.nombre : '';
+                await eliminarLoteEnNeon(loteIdAEliminar);
+                localStorage.removeItem('lote_activo_id');
+                loteActivoGlobal = null;
+
+                if (modalEliminarLote) modalEliminarLote.style.display = 'none';
+                await cargarLotesDropdown();
+                await cargarRegistrosDeLoteActivo();
+                mostrarNotificacion('Lote Eliminado', `El lote "${nombreEliminado}" fue eliminado correctamente.`, 'success');
+            } catch (err) {
+                console.error('Error al eliminar lote:', err);
+                mostrarNotificacion('Error', 'No se pudo eliminar el lote: ' + err.message, 'error');
+            } finally {
+                btnConfirmarEliminarLote.disabled = false;
+                btnConfirmarEliminarLote.textContent = 'Sí, Eliminar Lote';
+                loteIdAEliminar = null;
             }
         });
     }
@@ -2026,22 +2133,64 @@ document.addEventListener("DOMContentLoaded", function () {
         }
     }
 
+    function extractDniCore(numStr) {
+        if (!numStr) return '';
+        const digits = numStr.toString().replace(/[^0-9]/g, '');
+        if (digits.length >= 10) {
+            // En formato carnet IASEP 3-XXXXXXXX-00 o 3XXXXXXXX00, el DNI son los dígitos centrales
+            return digits.slice(1, -2);
+        }
+        return digits;
+    }
+
+    function normalizeClientName(str) {
+        if (!str) return '';
+        return str.toString().toUpperCase()
+            .normalize("NFD").replace(/[\u0300-\u036f]/g, "") // Quitar tildes
+            .replace(/[^A-Z0-9\s]/g, ' ')
+            .replace(/\s+/g, ' ')
+            .trim();
+    }
+
     /**
      * Verifica si el afiliado existe en el padrón local de la farmacia
      */
     function verificarAfiliadoEnBase(nombre, afiliado) {
         let encontrado = null;
+        const normNombre = normalizeClientName(nombre);
+        const cleanAfil = afiliado ? afiliado.toString().replace(/[^0-9]/g, '') : '';
+        const dniAfil = extractDniCore(afiliado);
+
         if (baseDatos && baseDatos.length > 0) {
-            if (afiliado) {
-                const cleanAfil = afiliado.toString().replace(/[^0-9]/g, '');
+            // 1. Búsqueda por Carnet o DNI
+            if (cleanAfil || dniAfil) {
                 encontrado = baseDatos.find(c => {
                     if (!c || c.NUMERO === undefined || c.NUMERO === null) return false;
                     const clean = c.NUMERO.toString().replace(/[^0-9]/g, '');
-                    return cleanAfil && clean === cleanAfil;
+                    const dniClean = extractDniCore(c.NUMERO);
+                    if (cleanAfil && clean && cleanAfil === clean) return true;
+                    if (dniAfil && dniClean && dniAfil.length >= 6 && dniAfil === dniClean) return true;
+                    if (dniAfil && clean && clean.length >= 6 && (clean === dniAfil || clean.includes(dniAfil))) return true;
+                    if (cleanAfil && dniClean && dniClean.length >= 6 && cleanAfil.includes(dniClean)) return true;
+                    return false;
                 });
             }
-            if (!encontrado && nombre) {
-                encontrado = baseDatos.find(c => c.NOMBRE && c.NOMBRE.toString().toLowerCase() === nombre.toLowerCase());
+
+            // 2. Búsqueda por Nombre normalizado
+            if (!encontrado && normNombre) {
+                encontrado = baseDatos.find(c => {
+                    if (!c || !c.NOMBRE) return false;
+                    const normC = normalizeClientName(c.NOMBRE);
+                    if (normC === normNombre) return true;
+                    // Coincidencia por palabras si tiene al menos apellido y nombre
+                    const partsA = normNombre.split(' ').filter(p => p.length > 2);
+                    const partsB = normC.split(' ').filter(p => p.length > 2);
+                    if (partsA.length >= 2 && partsB.length >= 2) {
+                        const coincideTodos = partsA.every(p => partsB.includes(p));
+                        if (coincideTodos) return true;
+                    }
+                    return false;
+                });
             }
         }
 
