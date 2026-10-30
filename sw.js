@@ -1,4 +1,4 @@
-const CACHE_NAME = 'iasep-app-v3.2';
+const CACHE_NAME = 'iasep-app-v3.3';
 const ASSETS_TO_CACHE = [
   './',
   './index.html',
@@ -44,7 +44,7 @@ self.addEventListener('fetch', (event) => {
   const url = new URL(event.request.url);
 
   // Evitar interceptar llamadas directas a APIs en la nube
-  if (url.hostname.includes('neon.tech') || url.hostname.includes('googleapis.com')) {
+  if (url.hostname.includes('neon.tech') || url.hostname.includes('googleapis.com') || url.hostname.includes('openrouter.ai')) {
     return;
   }
 

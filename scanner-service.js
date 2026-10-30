@@ -393,8 +393,15 @@ const ScannerService = (function () {
         }
 
         const content = [{ type: 'text', text: promptText }];
-        for (const b64 of base64ImagesArray) {
+        for (let i = 0; i < base64ImagesArray.length; i++) {
+            const b64 = base64ImagesArray[i];
             const imgUrl = (typeof b64 === 'string' && b64.startsWith('data:')) ? b64 : `data:image/jpeg;base64,${b64}`;
+            if (base64ImagesArray.length > 1) {
+                content.push({
+                    type: 'text',
+                    text: i === 0 ? '--- IMAGEN 1: RECETARIO OFICIAL IASEP ---' : '--- IMAGEN 2: TICKET FISCAL ---'
+                });
+            }
             content.push({
                 type: 'image_url',
                 image_url: {

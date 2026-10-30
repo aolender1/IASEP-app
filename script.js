@@ -2311,8 +2311,11 @@ document.addEventListener("DOMContentLoaded", function () {
 
     if (btnAbrirScanner) {
         btnAbrirScanner.addEventListener('click', async () => {
-            if (!ScannerService.getApiKey()) {
-                mostrarNotificacion('Configura tu API Key', 'Por favor ingresa tu API Key de Google Gemini en Configuración ⚙️ antes de escanear.', 'error');
+            const currentModel = ScannerService.getSelectedModel();
+            const provider = ScannerService.getModelProvider ? ScannerService.getModelProvider(currentModel) : 'gemini';
+            const hasKey = provider === 'openrouter' ? ScannerService.getOpenRouterApiKey() : ScannerService.getApiKey();
+            if (!hasKey) {
+                mostrarNotificacion('Configura tu API Key', `Por favor ingresa tu API Key de ${provider === 'openrouter' ? 'OpenRouter' : 'Google Gemini'} en Configuración ⚙️ antes de escanear.`, 'error');
                 if (modalGeminiConfig) modalGeminiConfig.style.display = 'block';
                 return;
             }
