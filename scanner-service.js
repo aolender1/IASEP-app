@@ -394,10 +394,11 @@ const ScannerService = (function () {
 
         const content = [{ type: 'text', text: promptText }];
         for (const b64 of base64ImagesArray) {
+            const imgUrl = (typeof b64 === 'string' && b64.startsWith('data:')) ? b64 : `data:image/jpeg;base64,${b64}`;
             content.push({
                 type: 'image_url',
                 image_url: {
-                    url: `data:image/jpeg;base64,${b64}`
+                    url: imgUrl
                 }
             });
         }
@@ -411,7 +412,8 @@ const ScannerService = (function () {
                 }
             ],
             temperature: 0.1,
-            max_tokens: 800,
+            max_tokens: 3500,
+            reasoning: { effort: 'low' },
             response_format: { type: 'json_object' }
         };
 
@@ -442,8 +444,27 @@ const ScannerService = (function () {
         }
 
         const data = await response.json();
-        const textResponse = data.choices?.[0]?.message?.content;
+        const choice = data.choices?.[0];
+        let textResponse = choice?.message?.content;
+
+        // Si content vino vacío pero hubo razonamiento, intentar extraer JSON del razonamiento
+        if (!textResponse && choice?.message?.reasoning) {
+            try {
+                const parsedFromReasoning = parseJsonResponseSafe(choice.message.reasoning);
+                return {
+                    success: true,
+                    data: parsedFromReasoning,
+                    modelUsed: model
+                };
+            } catch (e) {
+                // Continuar a la validación de error si no se pudo parsear
+            }
+        }
+
         if (!textResponse) {
+            if (choice?.finish_reason === 'length') {
+                throw new Error('El modelo de OpenRouter superó el límite de tokens durante el análisis visual. Por favor intenta nuevamente.');
+            }
             throw new Error('La respuesta de OpenRouter no contiene texto.');
         }
 
@@ -933,7 +954,8 @@ Responde estrictamente un JSON válido con esta estructura exacta:
                         messages: [
                             { role: 'user', content: 'Responde estrictamente un JSON válido: {"status":"ok"}' }
                         ],
-                        max_tokens: 50,
+                        max_tokens: 350,
+                        reasoning: { effort: 'low' },
                         response_format: { type: 'json_object' }
                     })
                 });
