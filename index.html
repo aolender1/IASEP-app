@@ -146,7 +146,7 @@
                 <span id="lblNombreDispositivo">Celular 1</span>
             </button>
             <!-- Botón Configuración Gemini -->
-            <button id="btnAbrirConfigGemini" class="theme-toggle" title="Configurar API Key Gemini y Modelos">
+            <button id="btnAbrirConfigGemini" class="theme-toggle" title="Configurar IA (DeepSeek / Gemini)">
                 <svg xmlns="http://www.w3.org/2000/svg" width="19" height="19" viewBox="0 0 24 24" fill="none"
                     stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
                     <circle cx="12" cy="12" r="3"></circle>
@@ -507,7 +507,7 @@
                     <!-- Spinner de Procesamiento con IA unificada -->
                     <div class="ai-processing-overlay" id="aiProcessingTicket" style="display: none;">
                         <div class="ai-spinner"></div>
-                        <span class="ai-processing-title" id="aiProcessingTitleTicket">Analizando Receta y Ticket con Gemini...</span>
+                        <span class="ai-processing-title" id="aiProcessingTitleTicket">Analizando Receta y Ticket con IA...</span>
                         <span class="ai-processing-sub">1 sola llamada a la IA • Máxima velocidad</span>
                     </div>
                 </div>
@@ -556,7 +556,7 @@
                     <div class="summary-item-header">
                         <span class="summary-tag">Resumen de Comprobante</span>
                         <div style="display: flex; gap: 6px; align-items: center;">
-                            <span class="result-badge-ai" id="badgeAiModeloConfirm">🤖 Gemini</span>
+                            <span class="result-badge-ai" id="badgeAiModeloConfirm">⚡ IA</span>
                             <span class="result-badge-padron" id="badgePadronReceta">Verificando...</span>
                         </div>
                     </div>
@@ -626,30 +626,47 @@
         </div>
     </div>
 
-    <!-- ==================== MODAL DE CONFIGURACIÓN GEMINI IA ==================== -->
+    <!-- ==================== MODAL DE CONFIGURACIÓN INTELIGENCIA ARTIFICIAL (IA) ==================== -->
     <div id="modalGeminiConfig" class="modal">
-        <div class="modal-content" style="max-width: 520px;">
-            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px;">
-                <h2 style="margin-bottom: 0;">Configuración de IA (Gemini)</h2>
+        <div class="modal-content" style="max-width: 540px;">
+            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px;">
+                <h2 style="margin-bottom: 0;">Configuración de IA (DeepSeek / Gemini)</h2>
                 <span class="close" id="btnCerrarConfigGemini">&times;</span>
             </div>
-            <div style="margin-bottom: 16px; font-size: 14px; color: var(--color-text-secondary); line-height: 1.5;">
-                Ingresa tu clave de API de <strong>Google AI Studio</strong> para habilitar la extracción visual de recetas y tickets.
-                <a href="https://aistudio.google.com/app/apikey" target="_blank" style="color: var(--color-primary); font-weight: 600; text-decoration: underline;">
-                    Obtener clave gratis aquí ↗
-                </a>
-            </div>
             <div style="margin-bottom: 14px; padding: 10px 12px; border-radius: 6px; background: rgba(0, 229, 163, 0.12); border: 1px solid rgba(0, 229, 163, 0.3); font-size: 13px; color: var(--color-text); line-height: 1.4;">
-                ☁️ <strong>Sincronización en la Nube:</strong> La clave y el modelo se guardan en la cuenta de tu farmacia en Neon DB. Al iniciar sesión desde tus celulares, se sincronizarán automáticamente sin tener que volver a escribirlos.
+                ☁️ <strong>Sincronización en la Nube:</strong> Las claves y el modelo se guardan en la cuenta de tu farmacia en Neon DB. Al iniciar sesión desde tus celulares, se sincronizarán automáticamente sin tener que volver a escribirlos.
             </div>
             <form id="formGeminiConfig">
-                <label for="cfgGeminiApiKey">API Key de Google Gemini:</label>
-                <input type="password" id="cfgGeminiApiKey" placeholder="AIzaSy..." style="margin-bottom: 12px;" required>
+                <!-- API Key OpenRouter (DeepSeek) -->
+                <div style="margin-bottom: 14px;">
+                    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 4px;">
+                        <label for="cfgOpenRouterApiKey" style="font-weight: 600; font-size: 13px; margin: 0;">API Key de OpenRouter (DeepSeek V4.1):</label>
+                        <a href="https://openrouter.ai/settings/keys" target="_blank" style="color: var(--color-primary); font-size: 12px; font-weight: 500; text-decoration: underline;">
+                            Obtener clave aquí ↗
+                        </a>
+                    </div>
+                    <input type="password" id="cfgOpenRouterApiKey" placeholder="sk-or-v1-..." style="width: 100%; margin-bottom: 2px;">
+                    <span style="font-size: 11px; color: var(--color-text-secondary);">Para usar DeepSeek V4.1 Flash (ultra rápido, pago por uso en OpenRouter).</span>
+                </div>
 
-                <label for="cfgGeminiModel">Modelo de Inteligencia Artificial (Flash-Lite de Alta Velocidad):</label>
+                <!-- API Key Google Gemini -->
+                <div style="margin-bottom: 14px;">
+                    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 4px;">
+                        <label for="cfgGeminiApiKey" style="font-weight: 600; font-size: 13px; margin: 0;">API Key de Google Gemini:</label>
+                        <a href="https://aistudio.google.com/app/apikey" target="_blank" style="color: var(--color-primary); font-size: 12px; font-weight: 500; text-decoration: underline;">
+                            Obtener clave aquí ↗
+                        </a>
+                    </div>
+                    <input type="password" id="cfgGeminiApiKey" placeholder="AIzaSy..." style="width: 100%; margin-bottom: 2px;">
+                    <span style="font-size: 11px; color: var(--color-text-secondary);">Para usar modelos Gemini Flash Lite de Google AI Studio.</span>
+                </div>
+
+                <!-- Modelo Seleccionado -->
+                <label for="cfgGeminiModel" style="font-weight: 600; font-size: 13px;">Modelo de Inteligencia Artificial para Escaneo:</label>
                 <select id="cfgGeminiModel" class="input-grande" style="margin-bottom: 16px; padding: 10px; width: 100%; border-radius: var(--border-radius-sm); border: 1px solid var(--color-border); background: var(--color-surface); color: var(--color-text);">
-                    <option value="gemini-3.5-flash-lite">Gemini 3.5 Flash Lite (Recomendado - Ultra Rápido)</option>
-                    <option value="gemini-3.1-flash-lite">Gemini 3.1 Flash Lite (Ultra Rápido)</option>
+                    <option value="deepseek/deepseek-v4.1-flash-1017">⚡ DeepSeek V4.1 Flash 1017 (OpenRouter - Ultra Rápido)</option>
+                    <option value="gemini-3.5-flash-lite">Gemini 3.5 Flash Lite (Google AI Studio)</option>
+                    <option value="gemini-3.1-flash-lite">Gemini 3.1 Flash Lite (Google AI Studio)</option>
                 </select>
 
                 <label for="cfgDispositivoNombre">Identificador de este Dispositivo / Operador (opcional):</label>

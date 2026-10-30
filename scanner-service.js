@@ -6,10 +6,11 @@
  */
 
 const ScannerService = (function () {
-    // Modelos soportados (únicamente versiones Flash-Lite de máxima velocidad y menor latencia)
+    // Modelos soportados (OpenRouter y Gemini Flash-Lite de máxima velocidad y menor latencia)
     const SUPPORTED_MODELS = [
-        { id: 'gemini-3.5-flash-lite', name: 'Gemini 3.5 Flash Lite (Recomendado - Ultra Rápido)' },
-        { id: 'gemini-3.1-flash-lite', name: 'Gemini 3.1 Flash Lite (Ultra Rápido)' }
+        { id: 'deepseek/deepseek-v4.1-flash-1017', name: 'DeepSeek V4.1 Flash 1017 (OpenRouter - Ultra Rápido)', provider: 'openrouter' },
+        { id: 'gemini-3.5-flash-lite', name: 'Gemini 3.5 Flash Lite (Google AI Studio)', provider: 'gemini' },
+        { id: 'gemini-3.1-flash-lite', name: 'Gemini 3.1 Flash Lite (Google AI Studio)', provider: 'gemini' }
     ];
 
     let currentStream = null;
@@ -54,6 +55,32 @@ const ScannerService = (function () {
     }
 
     /**
+     * Obtener clave de API de OpenRouter guardada
+     */
+    function getOpenRouterApiKey() {
+        return localStorage.getItem('openrouter_api_key') || '';
+    }
+
+    /**
+     * Guardar clave de API de OpenRouter
+     */
+    function setOpenRouterApiKey(key) {
+        if (key) {
+            localStorage.setItem('openrouter_api_key', key.trim());
+        } else {
+            localStorage.removeItem('openrouter_api_key');
+        }
+    }
+
+    /**
+     * Identificar el proveedor (openrouter o gemini) de un modelo
+     */
+    function getModelProvider(modelId) {
+        const found = SUPPORTED_MODELS.find(m => m.id === modelId);
+        return found ? found.provider : (modelId && modelId.startsWith('deepseek') ? 'openrouter' : 'gemini');
+    }
+
+    /**
      * Obtener modelo seleccionado o el predeterminado
      */
     function getSelectedModel() {
@@ -61,7 +88,7 @@ const ScannerService = (function () {
         if (stored && SUPPORTED_MODELS.some(m => m.id === stored)) {
             return stored;
         }
-        return 'gemini-3.5-flash-lite';
+        return 'deepseek/deepseek-v4.1-flash-1017';
     }
 
     /**
@@ -336,6 +363,99 @@ const ScannerService = (function () {
     }
 
     /**
+     * Sanitiza y parsea respuestas JSON devueltas por modelos de IA
+     */
+    function parseJsonResponseSafe(text) {
+        if (!text || typeof text !== 'string') {
+            throw new Error('Respuesta vacía del modelo de IA.');
+        }
+        let clean = text.trim();
+        // Eliminar bloques de código markdown ```json ... ``` o ``` ... ```
+        if (clean.startsWith('```')) {
+            clean = clean.replace(/^```(?:json)?\s*/i, '').replace(/\s*```$/, '').trim();
+        }
+        // Buscar el primer '{' y último '}' si aún hay texto alrededor
+        const firstBrace = clean.indexOf('{');
+        const lastBrace = clean.lastIndexOf('}');
+        if (firstBrace !== -1 && lastBrace !== -1 && lastBrace >= firstBrace) {
+            clean = clean.substring(firstBrace, lastBrace + 1);
+        }
+        return JSON.parse(clean);
+    }
+
+    /**
+     * Llama a la API de OpenRouter con una o múltiples imágenes (visión multimodal OpenAI-compatible)
+     */
+    async function callOpenRouterVisionMulti(base64ImagesArray, promptText, model = 'deepseek/deepseek-v4.1-flash-1017') {
+        const apiKey = getOpenRouterApiKey();
+        if (!apiKey) {
+            throw new Error('No se ha configurado la API Key de OpenRouter. Ve a Configuración ⚙️ para ingresarla.');
+        }
+
+        const content = [{ type: 'text', text: promptText }];
+        for (const b64 of base64ImagesArray) {
+            content.push({
+                type: 'image_url',
+                image_url: {
+                    url: `data:image/jpeg;base64,${b64}`
+                }
+            });
+        }
+
+        const payload = {
+            model: model,
+            messages: [
+                {
+                    role: 'user',
+                    content: content
+                }
+            ],
+            temperature: 0.1,
+            max_tokens: 800,
+            response_format: { type: 'json_object' }
+        };
+
+        const response = await fetch('https://openrouter.ai/api/v1/chat/completions', {
+            method: 'POST',
+            headers: {
+                'Authorization': `Bearer ${apiKey}`,
+                'Content-Type': 'application/json',
+                'HTTP-Referer': window.location.origin || 'https://iasep.farmacia',
+                'X-Title': 'IASEP Farmacia App'
+            },
+            body: JSON.stringify(payload)
+        });
+
+        if (!response.ok) {
+            const errJson = await response.json().catch(() => ({}));
+            const errMsg = errJson.error?.message || response.statusText;
+            if (response.status === 401) {
+                throw new Error('Clave de API de OpenRouter inválida o no autorizada (401). Verifica tu clave en Configuración ⚙️');
+            }
+            if (response.status === 402) {
+                throw new Error('Saldo insuficiente en tu cuenta de OpenRouter (402). Por favor recarga créditos en openrouter.ai');
+            }
+            if (response.status === 429) {
+                throw new Error('Límite de peticiones (Rate Limit) alcanzado en OpenRouter (429). Intenta nuevamente.');
+            }
+            throw new Error(`Error OpenRouter (${response.status}): ${errMsg}`);
+        }
+
+        const data = await response.json();
+        const textResponse = data.choices?.[0]?.message?.content;
+        if (!textResponse) {
+            throw new Error('La respuesta de OpenRouter no contiene texto.');
+        }
+
+        const parsed = parseJsonResponseSafe(textResponse);
+        return {
+            success: true,
+            data: parsed,
+            modelUsed: model
+        };
+    }
+
+    /**
      * Llama a la API de Gemini con una o múltiples imágenes (visión multimodal nativa)
      */
     async function callGeminiVisionMulti(base64ImagesArray, promptText, preferredModel = null) {
@@ -345,9 +465,10 @@ const ScannerService = (function () {
         }
 
         const modelToUse = preferredModel || getSelectedModel();
+        const geminiModels = SUPPORTED_MODELS.filter(m => m.provider === 'gemini').map(m => m.id);
         const modelsToTry = [
             modelToUse,
-            ...SUPPORTED_MODELS.map(m => m.id).filter(id => id !== modelToUse)
+            ...geminiModels.filter(id => id !== modelToUse)
         ];
 
         let lastError = null;
@@ -397,7 +518,7 @@ const ScannerService = (function () {
                     throw new Error('La respuesta de Gemini no contiene datos de texto.');
                 }
 
-                const parsed = JSON.parse(textResponse);
+                const parsed = parseJsonResponseSafe(textResponse);
                 return {
                     success: true,
                     data: parsed,
@@ -413,10 +534,23 @@ const ScannerService = (function () {
     }
 
     /**
-     * Llama a Gemini con una sola imagen (wrapper retrocompatible)
+     * Enrutador unificado de visión AI: despacha a OpenRouter o Gemini según el modelo
+     */
+    async function callAIVisionMulti(base64ImagesArray, promptText, preferredModel = null) {
+        const modelToUse = preferredModel || getSelectedModel();
+        const provider = getModelProvider(modelToUse);
+        if (provider === 'openrouter') {
+            return callOpenRouterVisionMulti(base64ImagesArray, promptText, modelToUse);
+        } else {
+            return callGeminiVisionMulti(base64ImagesArray, promptText, modelToUse);
+        }
+    }
+
+    /**
+     * Llama al motor de visión con una sola imagen (wrapper retrocompatible)
      */
     async function callGeminiVision(base64Image, promptText, preferredModel = null) {
-        return callGeminiVisionMulti([base64Image], promptText, preferredModel);
+        return callAIVisionMulti([base64Image], promptText, preferredModel);
     }
 
     /**
@@ -549,7 +683,7 @@ Responde estrictamente un JSON válido con esta estructura exacta:
   ]
 }`;
 
-        const result = await callGeminiVisionMulti([optReceta.base64Data, optTicket.base64Data], prompt);
+        const result = await callAIVisionMulti([optReceta.base64Data, optTicket.base64Data], prompt);
         let cleanNombre = (result.data?.nombre || '').toUpperCase().trim().replace(/[.,\-_/]+$/, '').trim();
         let cleanAfiliado = formatCarnetIasep((result.data?.afiliado || '').trim());
 
@@ -777,13 +911,55 @@ Responde estrictamente un JSON válido con esta estructura exacta:
     }
 
     /**
-     * Probar conexión con la API Key de Gemini
+     * Probar conexión con la API Key correspondiente según el modelo (OpenRouter o Gemini)
      */
     async function testApiKey(apiKey, modelId = null) {
         if (!apiKey) return { success: false, message: 'La clave no puede estar vacía.' };
         const model = modelId || getSelectedModel();
-        const url = `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${apiKey}`;
+        const provider = getModelProvider(model);
 
+        if (provider === 'openrouter') {
+            try {
+                const response = await fetch('https://openrouter.ai/api/v1/chat/completions', {
+                    method: 'POST',
+                    headers: {
+                        'Authorization': `Bearer ${apiKey.trim()}`,
+                        'Content-Type': 'application/json',
+                        'HTTP-Referer': window.location.origin || 'https://iasep.farmacia',
+                        'X-Title': 'IASEP Farmacia App'
+                    },
+                    body: JSON.stringify({
+                        model: model,
+                        messages: [
+                            { role: 'user', content: 'Responde estrictamente un JSON válido: {"status":"ok"}' }
+                        ],
+                        max_tokens: 50,
+                        response_format: { type: 'json_object' }
+                    })
+                });
+
+                if (!response.ok) {
+                    const err = await response.json().catch(() => ({}));
+                    return {
+                        success: false,
+                        message: err.error?.message || `Error HTTP ${response.status} en OpenRouter`
+                    };
+                }
+
+                return {
+                    success: true,
+                    message: `¡Conexión exitosa con OpenRouter (${model})!`
+                };
+            } catch (e) {
+                return {
+                    success: false,
+                    message: e.message || 'Error de red al conectar con OpenRouter.'
+                };
+            }
+        }
+
+        // Caso Google Gemini:
+        const url = `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${apiKey.trim()}`;
         try {
             const response = await fetch(url, {
                 method: 'POST',
@@ -818,10 +994,16 @@ Responde estrictamente un JSON válido con esta estructura exacta:
         SUPPORTED_MODELS,
         getApiKey,
         setApiKey,
+        getOpenRouterApiKey,
+        setOpenRouterApiKey,
+        getModelProvider,
         getSelectedModel,
         setSelectedModel,
         parseAfipQr,
         optimizeImageForAI,
+        callOpenRouterVisionMulti,
+        callGeminiVisionMulti,
+        callAIVisionMulti,
         extractRecipeData,
         extractTicketData,
         extractCompleteRecipeAndTicket,

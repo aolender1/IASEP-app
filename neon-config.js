@@ -211,10 +211,13 @@ async function cargarDatosFarmacia() {
     const email = obtenerEmailUsuario();
     if (email) {
         farmaciaInfoGlobal = await obtenerDatosFarmacia(email);
-        // Si la base de datos ya tiene la API Key y modelo de Gemini para esta cuenta, sincronizarlos
+        // Si la base de datos ya tiene la API Key y modelo de Gemini/OpenRouter para esta cuenta, sincronizarlos
         if (farmaciaInfoGlobal) {
             if (farmaciaInfoGlobal.gemini_api_key) {
                 localStorage.setItem('gemini_api_key', farmaciaInfoGlobal.gemini_api_key);
+            }
+            if (farmaciaInfoGlobal.openrouter_api_key) {
+                localStorage.setItem('openrouter_api_key', farmaciaInfoGlobal.openrouter_api_key);
             }
             if (farmaciaInfoGlobal.gemini_model) {
                 localStorage.setItem('gemini_selected_model', farmaciaInfoGlobal.gemini_model);
@@ -225,12 +228,20 @@ async function cargarDatosFarmacia() {
 }
 
 /**
- * Guarda la API Key y modelo de Gemini en la cuenta de la farmacia en Neon DB
+ * Guarda la API Key de Gemini, API Key de OpenRouter y modelo en la cuenta de la farmacia en Neon DB
  */
-async function guardarConfiguracionGeminiEnNeon(apiKey, model) {
+async function guardarConfiguracionGeminiEnNeon(apiKey, model, openrouterKey = null) {
     let token = await obtenerTokenValido();
     const email = obtenerEmailUsuario();
     if (!token || !email) return false;
+
+    const openRouterVal = openrouterKey !== null ? openrouterKey : (localStorage.getItem('openrouter_api_key') || null);
+
+    const updatePayload = {
+        gemini_api_key: apiKey,
+        gemini_model: model,
+        openrouter_api_key: openRouterVal
+    };
 
     try {
         let res = await fetch(`${NEON_DATA_URL}farmacias?email=eq.${encodeURIComponent(email)}`, {
@@ -240,10 +251,7 @@ async function guardarConfiguracionGeminiEnNeon(apiKey, model) {
                 'Content-Type': 'application/json',
                 'Prefer': 'return=representation'
             },
-            body: JSON.stringify({
-                gemini_api_key: apiKey,
-                gemini_model: model
-            })
+            body: JSON.stringify(updatePayload)
         });
 
         if (res.status === 400 || res.status === 401) {
@@ -256,10 +264,7 @@ async function guardarConfiguracionGeminiEnNeon(apiKey, model) {
                         'Content-Type': 'application/json',
                         'Prefer': 'return=representation'
                     },
-                    body: JSON.stringify({
-                        gemini_api_key: apiKey,
-                        gemini_model: model
-                    })
+                    body: JSON.stringify(updatePayload)
                 });
             }
         }
@@ -268,6 +273,7 @@ async function guardarConfiguracionGeminiEnNeon(apiKey, model) {
             if (farmaciaInfoGlobal) {
                 farmaciaInfoGlobal.gemini_api_key = apiKey;
                 farmaciaInfoGlobal.gemini_model = model;
+                farmaciaInfoGlobal.openrouter_api_key = openRouterVal;
             }
             return true;
         } else {
@@ -279,6 +285,9 @@ async function guardarConfiguracionGeminiEnNeon(apiKey, model) {
         return false;
     }
 }
+
+// Alias descriptivo
+const guardarConfiguracionIAEnNeon = guardarConfiguracionGeminiEnNeon;
 
 /**
  * Obtiene el email del usuario actual (desde session o localStorage)

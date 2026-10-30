@@ -1918,6 +1918,7 @@ document.addEventListener("DOMContentLoaded", function () {
     const btnCerrarConfigGemini = document.getElementById('btnCerrarConfigGemini');
     const formGeminiConfig = document.getElementById('formGeminiConfig');
     const cfgGeminiApiKey = document.getElementById('cfgGeminiApiKey');
+    const cfgOpenRouterApiKey = document.getElementById('cfgOpenRouterApiKey');
     const cfgGeminiModel = document.getElementById('cfgGeminiModel');
     const cfgDispositivoNombre = document.getElementById('cfgDispositivoNombre');
     const btnProbarKeyGemini = document.getElementById('btnProbarKeyGemini');
@@ -1926,6 +1927,7 @@ document.addEventListener("DOMContentLoaded", function () {
     if (btnAbrirConfigGemini) {
         btnAbrirConfigGemini.addEventListener('click', () => {
             if (cfgGeminiApiKey) cfgGeminiApiKey.value = ScannerService.getApiKey();
+            if (cfgOpenRouterApiKey) cfgOpenRouterApiKey.value = ScannerService.getOpenRouterApiKey();
             if (cfgGeminiModel) cfgGeminiModel.value = ScannerService.getSelectedModel();
             if (cfgDispositivoNombre) cfgDispositivoNombre.value = localStorage.getItem('nombre_dispositivo') || '';
             if (cfgTestStatus) cfgTestStatus.style.display = 'none';
@@ -1941,14 +1943,32 @@ document.addEventListener("DOMContentLoaded", function () {
 
     if (btnProbarKeyGemini) {
         btnProbarKeyGemini.addEventListener('click', async () => {
-            const key = cfgGeminiApiKey.value.trim();
             const model = cfgGeminiModel.value;
-            if (!key) {
-                cfgTestStatus.style.display = 'block';
-                cfgTestStatus.style.background = 'rgba(239, 68, 68, 0.15)';
-                cfgTestStatus.style.color = 'var(--color-delete)';
-                cfgTestStatus.textContent = 'Por favor ingresa la clave de API primero.';
-                return;
+            const provider = ScannerService.getModelProvider ? ScannerService.getModelProvider(model) : (model.startsWith('deepseek') ? 'openrouter' : 'gemini');
+
+            let key = '';
+            let providerName = '';
+
+            if (provider === 'openrouter') {
+                key = cfgOpenRouterApiKey ? cfgOpenRouterApiKey.value.trim() : '';
+                providerName = 'OpenRouter';
+                if (!key) {
+                    cfgTestStatus.style.display = 'block';
+                    cfgTestStatus.style.background = 'rgba(239, 68, 68, 0.15)';
+                    cfgTestStatus.style.color = 'var(--color-delete)';
+                    cfgTestStatus.textContent = 'Por favor ingresa la clave de OpenRouter primero.';
+                    return;
+                }
+            } else {
+                key = cfgGeminiApiKey ? cfgGeminiApiKey.value.trim() : '';
+                providerName = 'Google AI Studio';
+                if (!key) {
+                    cfgTestStatus.style.display = 'block';
+                    cfgTestStatus.style.background = 'rgba(239, 68, 68, 0.15)';
+                    cfgTestStatus.style.color = 'var(--color-delete)';
+                    cfgTestStatus.textContent = 'Por favor ingresa la clave de Google Gemini primero.';
+                    return;
+                }
             }
 
             btnProbarKeyGemini.disabled = true;
@@ -1956,7 +1976,7 @@ document.addEventListener("DOMContentLoaded", function () {
             cfgTestStatus.style.display = 'block';
             cfgTestStatus.style.background = 'rgba(99, 102, 241, 0.15)';
             cfgTestStatus.style.color = 'var(--color-primary)';
-            cfgTestStatus.textContent = 'Conectando con Google AI Studio...';
+            cfgTestStatus.textContent = `Conectando con ${providerName}...`;
 
             const testRes = await ScannerService.testApiKey(key, model);
             btnProbarKeyGemini.disabled = false;
@@ -1977,9 +1997,12 @@ document.addEventListener("DOMContentLoaded", function () {
     if (formGeminiConfig) {
         formGeminiConfig.addEventListener('submit', async (e) => {
             e.preventDefault();
-            const key = cfgGeminiApiKey.value.trim();
+            const geminiKey = cfgGeminiApiKey ? cfgGeminiApiKey.value.trim() : '';
+            const openRouterKey = cfgOpenRouterApiKey ? cfgOpenRouterApiKey.value.trim() : '';
             const model = cfgGeminiModel.value;
-            ScannerService.setApiKey(key);
+
+            ScannerService.setApiKey(geminiKey);
+            ScannerService.setOpenRouterApiKey(openRouterKey);
             ScannerService.setSelectedModel(model);
 
             if (cfgDispositivoNombre) {
@@ -1992,12 +2015,12 @@ document.addEventListener("DOMContentLoaded", function () {
                 actualizarNombreDispositivoUI();
             }
 
-            // Sincronizar clave y modelo en la base de datos de Neon para que los celulares la obtengan automáticamente
-            const guardadoDb = await guardarConfiguracionGeminiEnNeon(key, model);
+            // Sincronizar claves y modelo en Neon DB
+            const guardadoDb = await guardarConfiguracionGeminiEnNeon(geminiKey, model, openRouterKey);
 
             if (modalGeminiConfig) modalGeminiConfig.style.display = 'none';
             if (guardadoDb) {
-                mostrarNotificacion('Configuración Guardada', `API Key sincronizada en la nube para ${model}.`, 'success');
+                mostrarNotificacion('Configuración Guardada', `Configuración sincronizada en la nube para ${model}.`, 'success');
             } else {
                 mostrarNotificacion('Configuración Guardada', `Configuración guardada localmente para ${model}.`, 'success');
             }
@@ -2421,7 +2444,7 @@ document.addEventListener("DOMContentLoaded", function () {
                 if (inputScanProductos) inputScanProductos.value = res.productosStr || '';
 
                 if (badgeAiModeloConfirm) {
-                    badgeAiModeloConfirm.textContent = `🤖 ${res.modelUsed}`;
+                    badgeAiModeloConfirm.textContent = (res.modelUsed && res.modelUsed.includes('deepseek')) ? '⚡ DeepSeek V4.1' : `🤖 ${res.modelUsed}`;
                 }
 
                 if (lblDispositivoConfirm) {
@@ -2490,7 +2513,7 @@ document.addEventListener("DOMContentLoaded", function () {
                     if (confirmImporte) confirmImporte.value = importeNum !== null ? importeNum.toFixed(2) : '';
                     if (inputScanProductos) inputScanProductos.value = res.productosStr || '';
 
-                    if (badgeAiModeloConfirm) badgeAiModeloConfirm.textContent = `🤖 ${res.modelUsed}`;
+                    if (badgeAiModeloConfirm) badgeAiModeloConfirm.textContent = (res.modelUsed && res.modelUsed.includes('deepseek')) ? '⚡ DeepSeek V4.1' : `🤖 ${res.modelUsed}`;
                     if (lblDispositivoConfirm) lblDispositivoConfirm.textContent = obtenerNombreOperador();
 
                     verificarAfiliadoEnBase(nombreLimpio, afiliadoLimpio);
@@ -2561,7 +2584,7 @@ document.addEventListener("DOMContentLoaded", function () {
                 if (confirmImporte) confirmImporte.value = manualImp.toFixed(2);
                 if (inputScanProductos) inputScanProductos.value = res.productosStr || '';
 
-                if (badgeAiModeloConfirm) badgeAiModeloConfirm.textContent = `🤖 ${res.modelUsed}`;
+                if (badgeAiModeloConfirm) badgeAiModeloConfirm.textContent = (res.modelUsed && res.modelUsed.includes('deepseek')) ? '⚡ DeepSeek V4.1' : `🤖 ${res.modelUsed}`;
                 if (lblDispositivoConfirm) lblDispositivoConfirm.textContent = obtenerNombreOperador();
 
                 verificarAfiliadoEnBase(nombreLimpio, afiliadoLimpio);
