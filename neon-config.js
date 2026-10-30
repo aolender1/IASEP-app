@@ -87,8 +87,8 @@ async function neonLogin(email, password) {
                 'Content-Type': 'application/json',
                 'Origin': window.location.origin || 'https://aolender1.github.io'
             },
-            body: JSON.stringify({ 
-                email, 
+            body: JSON.stringify({
+                email,
                 password
             })
         });
@@ -99,10 +99,10 @@ async function neonLogin(email, password) {
         }
 
         const data = await response.json();
-        
+
         // Intentar obtener el token de los headers primero
         let jwtToken = response.headers.get('set-auth-jwt') || response.headers.get('x-auth-jwt');
-        
+
         // Si no está en los headers, lo pedimos explícitamente a get-session
         if (!jwtToken) {
             try {
@@ -137,7 +137,7 @@ async function neonLogin(email, password) {
         sessionStorage.setItem('userEmail', email);
         localStorage.setItem('isLoggedIn', 'true');
         localStorage.setItem('userEmail', email);
-        
+
         return data;
     } catch (error) {
         console.error('Error de login Neon:', error);
@@ -447,7 +447,7 @@ async function obtenerLoteActivoOInicial(email) {
     const meses = ['Enero', 'Febrero', 'Marzo', 'Abril', 'Mayo', 'Junio', 'Julio', 'Agosto', 'Septiembre', 'Octubre', 'Noviembre', 'Diciembre'];
     const now = new Date();
     const nombreLoteDefault = `${meses[now.getMonth()]} ${now.getFullYear()}`;
-    
+
     try {
         const nuevo = await crearLoteEnNeon(nombreLoteDefault, email);
         loteActivoGlobal = nuevo;

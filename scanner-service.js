@@ -27,12 +27,12 @@ const ScannerService = (function () {
             }).catch(() => {
                 try {
                     barcodeDetectorInstance = new window.BarcodeDetector({ formats: ['qr_code'] });
-                } catch (e) {}
+                } catch (e) { }
             });
         } else {
             try {
                 barcodeDetectorInstance = new window.BarcodeDetector({ formats: ['qr_code'] });
-            } catch (e) {}
+            } catch (e) { }
         }
     }
 
@@ -150,7 +150,7 @@ const ScannerService = (function () {
         let clean = str;
         try {
             clean = decodeURIComponent(clean);
-        } catch (e) {}
+        } catch (e) { }
         let base64 = clean.replace(/-/g, '+').replace(/_/g, '/');
         while (base64.length % 4) {
             base64 += '=';
@@ -218,7 +218,7 @@ const ScannerService = (function () {
             if (pParam) {
                 let decodedJson = decodeBase64Safe(pParam);
                 if (!decodedJson.includes('{')) {
-                    try { decodedJson = decodeBase64Safe(decodeURIComponent(pParam)); } catch (e) {}
+                    try { decodedJson = decodeBase64Safe(decodeURIComponent(pParam)); } catch (e) { }
                 }
                 if (decodedJson.includes('{')) {
                     try {
@@ -273,7 +273,7 @@ const ScannerService = (function () {
                             };
                         }
                     }
-                } catch (e) {}
+                } catch (e) { }
             }
 
             // 4. JSON plano directo
