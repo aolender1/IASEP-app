@@ -171,6 +171,16 @@ async function runTests() {
         console.log('✓ Test 5 pasado: prompts sin ejemplos reales hardcodeados que causen alucinaciones.');
     }
 
+    // Test 6: Los inputs de Galería no deben llevar atributo capture (que fuerza cámara en móviles)
+    {
+        const indexHtml = fs.readFileSync('index.html', 'utf8');
+        const recetaInput = indexHtml.match(/<input[^>]*id="fileInputReceta"[^>]*>/i);
+        const ticketInput = indexHtml.match(/<input[^>]*id="fileInputTicket"[^>]*>/i);
+        assert(recetaInput && !/\bcapture\s*=/i.test(recetaInput[0]), 'fileInputReceta no debe tener atributo capture para permitir elegir desde galería');
+        assert(ticketInput && !/\bcapture\s*=/i.test(ticketInput[0]), 'fileInputTicket no debe tener atributo capture para permitir elegir desde galería');
+        console.log('✓ Test 6 pasado: inputs de Galería abren selector de galería sin forzar cámara.');
+    }
+
     console.log('--- TODAS LAS PRUEBAS DE SCANNER CAMERA & STATE PASARON ---');
 }
 

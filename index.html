@@ -12,7 +12,7 @@
     <meta name="apple-mobile-web-app-capable" content="yes">
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
     <link rel="icon" type="image/x-icon" href="assets/favicon.ico">
-    <link rel="stylesheet" href="styles.css?v=3.4">
+    <link rel="stylesheet" href="styles.css?v=3.5">
     <!-- Librerías externas -->
     <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.4/xlsx.full.min.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
@@ -25,8 +25,8 @@
         }
     </script>
     <!-- Neon y Scanner IA -->
-    <script src="neon-config.js?v=3.4"></script>
-    <script src="scanner-service.js?v=3.4"></script>
+    <script src="neon-config.js?v=3.5"></script>
+    <script src="scanner-service.js?v=3.5"></script>
     <!-- Registro Service Worker PWA -->
     <script>
         if ('serviceWorker' in navigator) {
@@ -475,7 +475,7 @@
 
                 <!-- Botones de captura Paso 1 -->
                 <div class="scanner-actions-bar" id="actionsBarReceta">
-                    <input type="file" id="fileInputReceta" accept="image/*" capture="environment" style="display: none;">
+                    <input type="file" id="fileInputReceta" accept="image/*" style="display: none;">
                     <button type="button" class="btn-scan-action primary" id="btnCapturarReceta">
                         <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
                             <circle cx="12" cy="12" r="10"></circle>
@@ -522,7 +522,7 @@
 
                 <!-- Acciones del Ticket -->
                 <div class="scanner-actions-bar" id="actionsBarTicket">
-                    <input type="file" id="fileInputTicket" accept="image/*" capture="environment" style="display: none;">
+                    <input type="file" id="fileInputTicket" accept="image/*" style="display: none;">
                     <button type="button" class="btn-scan-action primary" id="btnCapturarTicketTotal" title="Tomar foto al ticket y analizar ambos juntos con IA">
                         <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
                             <circle cx="12" cy="12" r="10"></circle>
@@ -790,7 +790,7 @@
         <p>aolender | <a href="https://github.com/aolender1" target="_blank">GitHub</a></p>
     </footer>
 
-    <script src="script.js?v=3.4"></script>
+    <script src="script.js?v=3.5"></script>
     <!-- Script para manejar el cierre de sesion -->
     <script>
         document.getElementById('logoutBtn').addEventListener('click', function () {
