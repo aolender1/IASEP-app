@@ -571,8 +571,11 @@ document.addEventListener("DOMContentLoaded", function () {
             if (clientesNeon && clientesNeon.length > 0) {
                 baseDatos = clientesNeon.map((c, i) => ({
                     ID: i + 1,
+                    DB_ID: c.id !== undefined ? c.id : null,
                     NOMBRE: (c.nombre || '').replace(/[.,\-_/]+$/, '').trim(),
                     NUMERO: typeof formatCarnetIasep === 'function' ? formatCarnetIasep(c.numero || '') : (c.numero || '').toString().trim(),
+                    RAW_NOMBRE: c.nombre || '',
+                    RAW_NUMERO: c.numero || '',
                     ES_NUEVO: c.es_nuevo
                 }));
             }
@@ -599,8 +602,11 @@ document.addEventListener("DOMContentLoaded", function () {
                             if (!yaExiste) {
                                 baseDatos.push({
                                     ID: baseDatos.length + 1,
+                                    DB_ID: null,
                                     NOMBRE: rNombre,
                                     NUMERO: rAfil,
+                                    RAW_NOMBRE: rNombre,
+                                    RAW_NUMERO: rAfil,
                                     ES_NUEVO: false
                                 });
                             }
@@ -1905,7 +1911,8 @@ document.addEventListener("DOMContentLoaded", function () {
 
     // Sincronización automática suave cada 15 segundos para trabajo multi-dispositivo
     setInterval(() => {
-        if (!document.hidden && (!modalScanner || modalScanner.style.display !== 'block')) {
+        const editDialogOpen = modalEditarCliente && modalEditarCliente.open;
+        if (!document.hidden && (!modalScanner || modalScanner.style.display !== 'block') && !editDialogOpen) {
             cargarRegistrosDeLoteActivo();
         }
     }, 15000);
@@ -2144,18 +2151,59 @@ document.addEventListener("DOMContentLoaded", function () {
     let capturedRecetaSource = null;
     let capturedTicketSource = null;
     let currentScannerStep = 1;
+    let activeScanSessionId = 0;
+    let isProcessingAI = false;
 
     /**
-     * Captura instantánea de un fotograma del video en memoria (sin retraso de red)
+     * Captura instantánea de un fotograma fresco del video en vivo y libera el canvas temporal
      */
     function captureVideoFrame(videoEl) {
-        if (!videoEl || !videoEl.videoWidth || !videoEl.videoHeight) return null;
+        if (typeof ScannerService.captureFrame === 'function') {
+            return ScannerService.captureFrame(videoEl, 0.85);
+        }
+        if (!videoEl || !videoEl.srcObject || videoEl.readyState < 2 || !videoEl.videoWidth || !videoEl.videoHeight) return null;
         const canvas = document.createElement('canvas');
         canvas.width = videoEl.videoWidth;
         canvas.height = videoEl.videoHeight;
         const ctx = canvas.getContext('2d');
         ctx.drawImage(videoEl, 0, 0, canvas.width, canvas.height);
-        return canvas.toDataURL('image/jpeg', 0.85);
+        const dataUrl = canvas.toDataURL('image/jpeg', 0.85);
+        canvas.width = 0;
+        canvas.height = 0;
+        return dataUrl;
+    }
+
+    function clearConfirmationFields() {
+        if (confirmNombre) confirmNombre.value = '';
+        if (confirmAfiliado) confirmAfiliado.value = '';
+        if (confirmImporte) confirmImporte.value = '';
+        if (inputScanProductos) inputScanProductos.value = '';
+        actualizarDesgloseConfirmacion(0);
+    }
+
+    function setTicketActionButtonsDisabled(disabled) {
+        if (btnCapturarTicketTotal) btnCapturarTicketTotal.disabled = disabled;
+        if (btnSubirFotoTicket) btnSubirFotoTicket.disabled = disabled;
+        if (btnImporteManualTicket) btnImporteManualTicket.disabled = disabled;
+        if (btnAvanzarConImporteManual) btnAvanzarConImporteManual.disabled = disabled;
+    }
+
+    /**
+     * Reinicia completamente el estado del escáner e invalida cualquier petición IA pendiente
+     */
+    function resetScannerState() {
+        activeScanSessionId++;
+        isProcessingAI = false;
+        capturedRecetaSource = null;
+        capturedTicketSource = null;
+        if (cardManualTicket) cardManualTicket.style.display = 'none';
+        if (aiProcessingTicket) aiProcessingTicket.style.display = 'none';
+        if (inputScanImporteManual) inputScanImporteManual.value = '';
+        if (fileInputReceta) fileInputReceta.value = '';
+        if (fileInputTicket) fileInputTicket.value = '';
+        clearConfirmationFields();
+        setTicketActionButtonsDisabled(false);
+        if (btnCapturarReceta) btnCapturarReceta.disabled = false;
     }
 
     /**
@@ -2218,8 +2266,8 @@ document.addEventListener("DOMContentLoaded", function () {
                     const dniClean = extractDniCore(c.NUMERO);
                     if (cleanAfil && clean && cleanAfil === clean) return true;
                     if (dniAfil && dniClean && dniAfil.length >= 6 && dniAfil === dniClean) return true;
-                    if (dniAfil && clean && clean.length >= 6 && (clean === dniAfil || clean.includes(dniAfil))) return true;
-                    if (cleanAfil && dniClean && dniClean.length >= 6 && cleanAfil.includes(dniClean)) return true;
+                    if (dniAfil && dniAfil.length >= 6 && clean && clean.length >= 6 && (clean === dniAfil || clean.includes(dniAfil))) return true;
+                    if (cleanAfil && cleanAfil.length >= 6 && dniClean && dniClean.length >= 6 && cleanAfil.includes(dniClean)) return true;
                     return false;
                 });
             }
@@ -2270,12 +2318,26 @@ document.addEventListener("DOMContentLoaded", function () {
             if (stepView2) stepView2.style.display = 'none';
             if (stepView3) stepView3.style.display = 'none';
 
+            // Bloquear captura mientras se reinicia la cámara para evitar fotogramas residuales o en negro
+            if (btnCapturarReceta) btnCapturarReceta.disabled = true;
+
             // Apagar cámara ticket y encender cámara receta
             ScannerService.stopCamera(videoTicket);
             try {
-                await ScannerService.startCamera(videoReceta);
+                const started = await ScannerService.startCamera(videoReceta);
+                if (!started || currentScannerStep !== 1 || !modalScanner || modalScanner.style.display !== 'block') {
+                    if (currentScannerStep !== 1 || !modalScanner || modalScanner.style.display !== 'block') {
+                        ScannerService.stopCamera(videoReceta);
+                    }
+                    return;
+                }
             } catch (err) {
                 console.warn('Error al iniciar cámara de receta:', err);
+                mostrarNotificacion('Cámara', err.message || 'No se pudo iniciar la cámara de receta. Puedes usar Galería.', 'error');
+            } finally {
+                if (btnCapturarReceta && currentScannerStep === 1) {
+                    btnCapturarReceta.disabled = false;
+                }
             }
         } else if (paso === 2) {
             if (stepPill1) stepPill1.classList.add('done');
@@ -2287,13 +2349,25 @@ document.addEventListener("DOMContentLoaded", function () {
             // Ocultar card de manual y spinner al iniciar paso 2
             if (cardManualTicket) cardManualTicket.style.display = 'none';
             if (aiProcessingTicket) aiProcessingTicket.style.display = 'none';
+            if (btnCapturarTicketTotal) btnCapturarTicketTotal.disabled = true;
 
             // Apagar cámara receta y encender cámara ticket
             ScannerService.stopCamera(videoReceta);
             try {
-                await ScannerService.startCamera(videoTicket);
+                const started = await ScannerService.startCamera(videoTicket);
+                if (!started || currentScannerStep !== 2 || !modalScanner || modalScanner.style.display !== 'block') {
+                    if (currentScannerStep !== 2 || !modalScanner || modalScanner.style.display !== 'block') {
+                        ScannerService.stopCamera(videoTicket);
+                    }
+                    return;
+                }
             } catch (err) {
                 console.warn('Error al iniciar cámara de ticket:', err);
+                mostrarNotificacion('Cámara', err.message || 'No se pudo iniciar la cámara del ticket. Puedes usar Galería o Manual.', 'error');
+            } finally {
+                if (btnCapturarTicketTotal && currentScannerStep === 2 && !isProcessingAI) {
+                    btnCapturarTicketTotal.disabled = false;
+                }
             }
         } else if (paso === 3) {
             if (stepPill1) stepPill1.classList.add('done');
@@ -2303,7 +2377,7 @@ document.addEventListener("DOMContentLoaded", function () {
             if (stepView2) stepView2.style.display = 'none';
             if (stepView3) stepView3.style.display = 'flex';
 
-            // Apagar ambas cámaras para ahorrar batería
+            // Apagar ambas cámaras para ahorrar batería y liberar el hardware
             ScannerService.stopCamera(videoReceta);
             ScannerService.stopCamera(videoTicket);
         }
@@ -2323,17 +2397,7 @@ document.addEventListener("DOMContentLoaded", function () {
             modalScanner.style.display = 'block';
             document.body.style.overflow = 'hidden';
 
-            // Resetear estado
-            capturedRecetaSource = null;
-            capturedTicketSource = null;
-            if (cardManualTicket) cardManualTicket.style.display = 'none';
-            if (inputScanImporteManual) inputScanImporteManual.value = '';
-            if (confirmNombre) confirmNombre.value = '';
-            if (confirmAfiliado) confirmAfiliado.value = '';
-            if (confirmImporte) confirmImporte.value = '';
-            if (inputScanProductos) inputScanProductos.value = '';
-            actualizarDesgloseConfirmacion(0);
-
+            resetScannerState();
             irAPaso(1);
         });
     }
@@ -2346,10 +2410,9 @@ document.addEventListener("DOMContentLoaded", function () {
     }
 
     function cerrarModalScanner() {
+        resetScannerState();
         ScannerService.stopCamera(videoReceta);
         ScannerService.stopCamera(videoTicket);
-        capturedRecetaSource = null;
-        capturedTicketSource = null;
         if (modalScanner) modalScanner.style.display = 'none';
         document.body.style.overflow = '';
         cargarRegistrosDeLoteActivo();
@@ -2358,12 +2421,15 @@ document.addEventListener("DOMContentLoaded", function () {
     // --- PASO 1: Captura de Receta en Memoria (0s de espera, sin llamada a IA) ---
     if (btnCapturarReceta) {
         btnCapturarReceta.addEventListener('click', () => {
+            if (isProcessingAI) return;
             const frame = captureVideoFrame(videoReceta);
             if (!frame) {
-                mostrarNotificacion('Cámara', 'No se pudo capturar la imagen. Asegúrate de enfocar el recetario.', 'error');
+                mostrarNotificacion('Cámara', 'La cámara todavía se está preparando. Espera un instante y vuelve a tocar "TOMAR FOTO RECETA".', 'error');
                 return;
             }
             capturedRecetaSource = frame;
+            capturedTicketSource = null;
+            clearConfirmationFields();
             if (navigator.vibrate) {
                 try { navigator.vibrate(60); } catch (e) {}
             }
@@ -2374,17 +2440,23 @@ document.addEventListener("DOMContentLoaded", function () {
 
     if (btnSubirFotoReceta) {
         btnSubirFotoReceta.addEventListener('click', () => {
-            if (fileInputReceta) fileInputReceta.click();
+            if (fileInputReceta) {
+                fileInputReceta.value = '';
+                fileInputReceta.click();
+            }
         });
     }
 
     if (fileInputReceta) {
         fileInputReceta.addEventListener('change', (e) => {
             const file = e.target.files[0];
+            e.target.value = '';
             if (!file) return;
             const reader = new FileReader();
             reader.onload = (evt) => {
                 capturedRecetaSource = evt.target.result;
+                capturedTicketSource = null;
+                clearConfirmationFields();
                 irAPaso(2);
             };
             reader.readAsDataURL(file);
@@ -2394,14 +2466,46 @@ document.addEventListener("DOMContentLoaded", function () {
     // --- PASO 2: Ticket (Foto con IA o Importe Manual) ---
     if (btnRehacerReceta) {
         btnRehacerReceta.addEventListener('click', () => {
-            capturedRecetaSource = null;
+            resetScannerState();
             irAPaso(1);
         });
     }
 
-    // Opción A: Tomar Foto Ticket y Analizar Ambos en 1 Sola Llamada a Gemini
+    function poblarConfirmacionDesdeIA(res, importeOverride = null) {
+        let nombreLimpio = (res.nombre || '').replace(/[.,\-_/]+$/, '').trim();
+        let afiliadoLimpio = typeof formatCarnetIasep === 'function' ? formatCarnetIasep(res.afiliado || '') : (res.afiliado || '').replace(/[.,\-_/]+$/, '').trim();
+        const importeNum = importeOverride !== null
+            ? importeOverride
+            : ((res.importe !== null && !isNaN(res.importe)) ? res.importe : null);
+
+        // Enriquecer con los datos oficiales si coincide en el padrón
+        const afiliadoPadron = verificarAfiliadoEnBase(nombreLimpio, afiliadoLimpio);
+        if (afiliadoPadron) {
+            if (afiliadoPadron.NUMERO) afiliadoLimpio = afiliadoPadron.NUMERO;
+            if (afiliadoPadron.NOMBRE) nombreLimpio = afiliadoPadron.NOMBRE;
+        }
+
+        if (confirmNombre) confirmNombre.value = nombreLimpio;
+        if (confirmAfiliado) confirmAfiliado.value = afiliadoLimpio;
+        if (confirmImporte) confirmImporte.value = importeNum !== null ? importeNum.toFixed(2) : '';
+        if (inputScanProductos) inputScanProductos.value = res.productosStr || '';
+
+        if (badgeAiModeloConfirm) {
+            badgeAiModeloConfirm.textContent = (res.modelUsed && res.modelUsed.includes('deepseek')) ? '⚡ DeepSeek V4.1' : `🤖 ${res.modelUsed}`;
+        }
+        if (lblDispositivoConfirm) {
+            lblDispositivoConfirm.textContent = obtenerNombreOperador();
+        }
+
+        verificarAfiliadoEnBase(nombreLimpio, afiliadoLimpio);
+        actualizarDesgloseConfirmacion(importeNum || 0);
+        return importeNum;
+    }
+
+    // Opción A: Tomar Foto Ticket y Analizar Ambos en 1 Sola Llamada a IA
     if (btnCapturarTicketTotal) {
         btnCapturarTicketTotal.addEventListener('click', async () => {
+            if (isProcessingAI) return;
             if (!capturedRecetaSource) {
                 mostrarNotificacion('Aviso', 'Falta la foto de la receta. Volviendo al Paso 1...', 'error');
                 irAPaso(1);
@@ -2410,10 +2514,17 @@ document.addEventListener("DOMContentLoaded", function () {
 
             const frame = captureVideoFrame(videoTicket);
             if (!frame) {
-                mostrarNotificacion('Cámara', 'No se pudo capturar la imagen del ticket.', 'error');
+                mostrarNotificacion('Cámara', 'La cámara todavía se está preparando. Espera un instante e intenta de nuevo.', 'error');
                 return;
             }
             capturedTicketSource = frame;
+
+            const recetaImg = capturedRecetaSource;
+            const ticketImg = capturedTicketSource;
+            const mySessionId = ++activeScanSessionId;
+            isProcessingAI = true;
+            setTicketActionButtonsDisabled(true);
+            clearConfirmationFields();
 
             // Detener cámara del ticket durante el análisis para liberar recursos
             ScannerService.stopCamera(videoTicket);
@@ -2425,37 +2536,12 @@ document.addEventListener("DOMContentLoaded", function () {
             }
 
             try {
-                // 1 SOLA LLAMADA A GEMINI CON AMBAS IMÁGENES NATIVAS
-                const res = await ScannerService.extractCompleteRecipeAndTicket(capturedRecetaSource, capturedTicketSource);
+                // 1 SOLA LLAMADA A LA IA CON AMBAS IMÁGENES FRESCAS
+                const res = await ScannerService.extractCompleteRecipeAndTicket(recetaImg, ticketImg);
+                if (mySessionId !== activeScanSessionId) return;
+
                 if (aiProcessingTicket) aiProcessingTicket.style.display = 'none';
-
-                // Llenar campos de Confirmación (Paso 3)
-                let nombreLimpio = (res.nombre || '').replace(/[.,\-_/]+$/, '').trim();
-                let afiliadoLimpio = typeof formatCarnetIasep === 'function' ? formatCarnetIasep(res.afiliado || '') : (res.afiliado || '').replace(/[.,\-_/]+$/, '').trim();
-                const importeNum = (res.importe !== null && !isNaN(res.importe)) ? res.importe : null;
-
-                // Enriquecer con los datos oficiales si coincide en el padrón
-                const afiliadoPadron = verificarAfiliadoEnBase(nombreLimpio, afiliadoLimpio);
-                if (afiliadoPadron) {
-                    if (afiliadoPadron.NUMERO) afiliadoLimpio = afiliadoPadron.NUMERO;
-                    if (afiliadoPadron.NOMBRE) nombreLimpio = afiliadoPadron.NOMBRE;
-                }
-
-                if (confirmNombre) confirmNombre.value = nombreLimpio;
-                if (confirmAfiliado) confirmAfiliado.value = afiliadoLimpio;
-                if (confirmImporte) confirmImporte.value = importeNum !== null ? importeNum.toFixed(2) : '';
-                if (inputScanProductos) inputScanProductos.value = res.productosStr || '';
-
-                if (badgeAiModeloConfirm) {
-                    badgeAiModeloConfirm.textContent = (res.modelUsed && res.modelUsed.includes('deepseek')) ? '⚡ DeepSeek V4.1' : `🤖 ${res.modelUsed}`;
-                }
-
-                if (lblDispositivoConfirm) {
-                    lblDispositivoConfirm.textContent = obtenerNombreOperador();
-                }
-
-                verificarAfiliadoEnBase(nombreLimpio, afiliadoLimpio);
-                actualizarDesgloseConfirmacion(importeNum || 0);
+                const importeNum = poblarConfirmacionDesdeIA(res);
 
                 if (navigator.vibrate) {
                     try { navigator.vibrate(100); } catch (e) {}
@@ -2468,27 +2554,52 @@ document.addEventListener("DOMContentLoaded", function () {
                     if (confirmImporte) confirmImporte.focus();
                 }
             } catch (err) {
+                if (mySessionId !== activeScanSessionId) return;
                 if (aiProcessingTicket) aiProcessingTicket.style.display = 'none';
+                clearConfirmationFields();
                 mostrarNotificacion('Error en IA', err.message, 'error');
                 irAPaso(3);
                 if (confirmImporte) confirmImporte.focus();
+            } finally {
+                if (mySessionId === activeScanSessionId) {
+                    isProcessingAI = false;
+                    setTicketActionButtonsDisabled(false);
+                }
             }
         });
     }
 
     if (btnSubirFotoTicket) {
         btnSubirFotoTicket.addEventListener('click', () => {
-            if (fileInputTicket) fileInputTicket.click();
+            if (isProcessingAI) return;
+            if (fileInputTicket) {
+                fileInputTicket.value = '';
+                fileInputTicket.click();
+            }
         });
     }
 
     if (fileInputTicket) {
         fileInputTicket.addEventListener('change', (e) => {
             const file = e.target.files[0];
-            if (!file) return;
+            e.target.value = '';
+            if (!file || isProcessingAI) return;
+            if (!capturedRecetaSource) {
+                mostrarNotificacion('Aviso', 'Falta la foto de la receta. Volviendo al Paso 1...', 'error');
+                irAPaso(1);
+                return;
+            }
             const reader = new FileReader();
             reader.onload = async (evt) => {
+                if (isProcessingAI) return;
                 capturedTicketSource = evt.target.result;
+                const recetaImg = capturedRecetaSource;
+                const ticketImg = capturedTicketSource;
+                const mySessionId = ++activeScanSessionId;
+                isProcessingAI = true;
+                setTicketActionButtonsDisabled(true);
+                clearConfirmationFields();
+
                 ScannerService.stopCamera(videoTicket);
 
                 if (aiProcessingTicket) aiProcessingTicket.style.display = 'flex';
@@ -2497,36 +2608,23 @@ document.addEventListener("DOMContentLoaded", function () {
                 }
 
                 try {
-                    const res = await ScannerService.extractCompleteRecipeAndTicket(capturedRecetaSource, capturedTicketSource);
+                    const res = await ScannerService.extractCompleteRecipeAndTicket(recetaImg, ticketImg);
+                    if (mySessionId !== activeScanSessionId) return;
+
                     if (aiProcessingTicket) aiProcessingTicket.style.display = 'none';
-
-                    let nombreLimpio = (res.nombre || '').replace(/[.,\-_/]+$/, '').trim();
-                    let afiliadoLimpio = typeof formatCarnetIasep === 'function' ? formatCarnetIasep(res.afiliado || '') : (res.afiliado || '').replace(/[.,\-_/]+$/, '').trim();
-                    const importeNum = (res.importe !== null && !isNaN(res.importe)) ? res.importe : null;
-
-                    // Enriquecer con los datos oficiales si coincide en el padrón
-                    const afiliadoPadron = verificarAfiliadoEnBase(nombreLimpio, afiliadoLimpio);
-                    if (afiliadoPadron) {
-                        if (afiliadoPadron.NUMERO) afiliadoLimpio = afiliadoPadron.NUMERO;
-                        if (afiliadoPadron.NOMBRE) nombreLimpio = afiliadoPadron.NOMBRE;
-                    }
-
-                    if (confirmNombre) confirmNombre.value = nombreLimpio;
-                    if (confirmAfiliado) confirmAfiliado.value = afiliadoLimpio;
-                    if (confirmImporte) confirmImporte.value = importeNum !== null ? importeNum.toFixed(2) : '';
-                    if (inputScanProductos) inputScanProductos.value = res.productosStr || '';
-
-                    if (badgeAiModeloConfirm) badgeAiModeloConfirm.textContent = (res.modelUsed && res.modelUsed.includes('deepseek')) ? '⚡ DeepSeek V4.1' : `🤖 ${res.modelUsed}`;
-                    if (lblDispositivoConfirm) lblDispositivoConfirm.textContent = obtenerNombreOperador();
-
-                    verificarAfiliadoEnBase(nombreLimpio, afiliadoLimpio);
-                    actualizarDesgloseConfirmacion(importeNum || 0);
-
+                    poblarConfirmacionDesdeIA(res);
                     irAPaso(3);
                 } catch (err) {
+                    if (mySessionId !== activeScanSessionId) return;
                     if (aiProcessingTicket) aiProcessingTicket.style.display = 'none';
+                    clearConfirmationFields();
                     mostrarNotificacion('Error en IA', err.message, 'error');
                     irAPaso(3);
+                } finally {
+                    if (mySessionId === activeScanSessionId) {
+                        isProcessingAI = false;
+                        setTicketActionButtonsDisabled(false);
+                    }
                 }
             };
             reader.readAsDataURL(file);
@@ -2554,12 +2652,24 @@ document.addEventListener("DOMContentLoaded", function () {
 
     if (btnAvanzarConImporteManual) {
         btnAvanzarConImporteManual.addEventListener('click', async () => {
+            if (isProcessingAI) return;
+            if (!capturedRecetaSource) {
+                mostrarNotificacion('Aviso', 'Falta la foto de la receta. Volviendo al Paso 1...', 'error');
+                irAPaso(1);
+                return;
+            }
             const manualImp = parseFloat(inputScanImporteManual ? inputScanImporteManual.value : '');
             if (isNaN(manualImp) || manualImp <= 0) {
                 mostrarNotificacion('Aviso', 'Por favor ingresa un importe válido para el ticket.', 'error');
                 if (inputScanImporteManual) inputScanImporteManual.focus();
                 return;
             }
+
+            const recetaImg = capturedRecetaSource;
+            const mySessionId = ++activeScanSessionId;
+            isProcessingAI = true;
+            setTicketActionButtonsDisabled(true);
+            clearConfirmationFields();
 
             ScannerService.stopCamera(videoTicket);
             if (aiProcessingTicket) aiProcessingTicket.style.display = 'flex';
@@ -2569,37 +2679,25 @@ document.addEventListener("DOMContentLoaded", function () {
 
             try {
                 // Al tener el importe manual, solo se procesa la receta con la IA
-                const res = await ScannerService.extractRecipeData(capturedRecetaSource);
+                const res = await ScannerService.extractRecipeData(recetaImg);
+                if (mySessionId !== activeScanSessionId) return;
+
                 if (aiProcessingTicket) aiProcessingTicket.style.display = 'none';
-
-                let nombreLimpio = (res.nombre || '').replace(/[.,\-_/]+$/, '').trim();
-                let afiliadoLimpio = typeof formatCarnetIasep === 'function' ? formatCarnetIasep(res.afiliado || '') : (res.afiliado || '').replace(/[.,\-_/]+$/, '').trim();
-
-                // Enriquecer con los datos oficiales si coincide en el padrón
-                const afiliadoPadron = verificarAfiliadoEnBase(nombreLimpio, afiliadoLimpio);
-                if (afiliadoPadron) {
-                    if (afiliadoPadron.NUMERO) afiliadoLimpio = afiliadoPadron.NUMERO;
-                    if (afiliadoPadron.NOMBRE) nombreLimpio = afiliadoPadron.NOMBRE;
-                }
-
-                if (confirmNombre) confirmNombre.value = nombreLimpio;
-                if (confirmAfiliado) confirmAfiliado.value = afiliadoLimpio;
-                if (confirmImporte) confirmImporte.value = manualImp.toFixed(2);
-                if (inputScanProductos) inputScanProductos.value = res.productosStr || '';
-
-                if (badgeAiModeloConfirm) badgeAiModeloConfirm.textContent = (res.modelUsed && res.modelUsed.includes('deepseek')) ? '⚡ DeepSeek V4.1' : `🤖 ${res.modelUsed}`;
-                if (lblDispositivoConfirm) lblDispositivoConfirm.textContent = obtenerNombreOperador();
-
-                verificarAfiliadoEnBase(nombreLimpio, afiliadoLimpio);
-                actualizarDesgloseConfirmacion(manualImp);
-
+                poblarConfirmacionDesdeIA(res, manualImp);
                 irAPaso(3);
             } catch (err) {
+                if (mySessionId !== activeScanSessionId) return;
                 if (aiProcessingTicket) aiProcessingTicket.style.display = 'none';
+                clearConfirmationFields();
                 mostrarNotificacion('Error en Receta', err.message, 'error');
                 if (confirmImporte) confirmImporte.value = manualImp.toFixed(2);
                 actualizarDesgloseConfirmacion(manualImp);
                 irAPaso(3);
+            } finally {
+                if (mySessionId === activeScanSessionId) {
+                    isProcessingAI = false;
+                    setTicketActionButtonsDisabled(false);
+                }
             }
         });
     }
@@ -2645,8 +2743,7 @@ document.addEventListener("DOMContentLoaded", function () {
 
     if (btnReintentarTodo) {
         btnReintentarTodo.addEventListener('click', () => {
-            capturedRecetaSource = null;
-            capturedTicketSource = null;
+            resetScannerState();
             irAPaso(1);
         });
     }
@@ -2712,31 +2809,35 @@ document.addEventListener("DOMContentLoaded", function () {
                     if (!nuevosClientes.some(c => c.Cliente && c.Cliente.trim().toLowerCase() === nombre.toLowerCase())) {
                         nuevosClientes.push({ Cliente: nombre, Afiliado: afiliado });
                     }
-                    baseDatos.push({
+                    const nuevoRegistroCliente = {
                         ID: baseDatos.length + 1,
+                        DB_ID: null,
                         NOMBRE: nombre,
                         NUMERO: afiliado,
+                        RAW_NOMBRE: nombre,
+                        RAW_NUMERO: afiliado,
                         ES_NUEVO: true
-                    });
+                    };
+                    baseDatos.push(nuevoRegistroCliente);
                     try { localStorage.setItem('clientes_padron', JSON.stringify(baseDatos)); } catch (e) {}
 
                     if (email && typeof guardarClienteEnNeon === 'function') {
-                        guardarClienteEnNeon({ nombre, numero: afiliado, es_nuevo: true }, email).catch(console.warn);
+                        guardarClienteEnNeon({ nombre, numero: afiliado, es_nuevo: true }, email)
+                            .then((savedClient) => {
+                                if (savedClient && savedClient.id !== undefined) {
+                                    nuevoRegistroCliente.DB_ID = savedClient.id;
+                                    try { localStorage.setItem('clientes_padron', JSON.stringify(baseDatos)); } catch (e) {}
+                                }
+                            })
+                            .catch(console.warn);
                     }
                 }
 
                 actualizarTabla();
                 mostrarNotificacion('Guardado', `Comprobante de ${nombre} registrado con éxito.`, 'success');
 
-                // Limpiar formulario y variables en memoria
-                capturedRecetaSource = null;
-                capturedTicketSource = null;
-                if (confirmNombre) confirmNombre.value = '';
-                if (confirmAfiliado) confirmAfiliado.value = '';
-                if (confirmImporte) confirmImporte.value = '';
-                if (inputScanProductos) inputScanProductos.value = '';
-                if (inputScanImporteManual) inputScanImporteManual.value = '';
-                actualizarDesgloseConfirmacion(0);
+                // Limpiar completamente estado, inputs, imágenes y tokens antes del siguiente escaneo
+                resetScannerState();
 
                 // Volver a Paso 1 inmediatamente para la siguiente receta
                 irAPaso(1);
@@ -2746,6 +2847,317 @@ document.addEventListener("DOMContentLoaded", function () {
             } finally {
                 btnGuardarYSiguiente.disabled = false;
                 btnGuardarYSiguiente.innerHTML = `<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"></polyline></svg><span>GUARDAR Y SIGUIENTE RECETA</span>`;
+            }
+        });
+    }
+
+    // =========================================================================
+    // MODAL EDITAR CLIENTES EN BASE DE DATOS (NEON DB + LOTE ACTIVO)
+    // =========================================================================
+    const btnEditarClientesDB = document.getElementById('btnEditarClientesDB');
+    const modalEditarCliente = document.getElementById('modalEditarCliente');
+    const btnCerrarEditarCliente = document.getElementById('btnCerrarEditarCliente');
+    const buscarClienteEditar = document.getElementById('buscarClienteEditar');
+    const editarClienteCount = document.getElementById('editarClienteCount');
+    const listaClientesEditar = document.getElementById('listaClientesEditar');
+    const formEditarCliente = document.getElementById('formEditarCliente');
+    const btnLimpiarSeleccionCliente = document.getElementById('btnLimpiarSeleccionCliente');
+    const editarClienteNombre = document.getElementById('editarClienteNombre');
+    const editarClienteNumero = document.getElementById('editarClienteNumero');
+    const editarClienteLoteAviso = document.getElementById('editarClienteLoteAviso');
+    const btnCancelarEditarCliente = document.getElementById('btnCancelarEditarCliente');
+    const btnGuardarEditarCliente = document.getElementById('btnGuardarEditarCliente');
+
+    let clienteEnEdicion = null;
+
+    // Fallback de light-dismiss para navegadores sin soporte nativo de <dialog closedby="any">
+    if (typeof HTMLDialogElement !== 'undefined' && !('closedBy' in HTMLDialogElement.prototype)) {
+        const isOutsideDialog = (e, dialog) => {
+            const r = dialog.getBoundingClientRect();
+            return e.clientX < r.left || e.clientX > r.right || e.clientY < r.top || e.clientY > r.bottom;
+        };
+        document.querySelectorAll('dialog[closedby="any"]').forEach((dialog) => {
+            let pressedOutside = false;
+            dialog.addEventListener('pointerdown', (e) => {
+                pressedOutside = isOutsideDialog(e, dialog);
+            });
+            dialog.addEventListener('pointerup', (e) => {
+                if (pressedOutside && isOutsideDialog(e, dialog) && dialog.open) {
+                    dialog.close();
+                }
+            });
+        });
+    }
+
+    function encontrarComprobantesClienteEnLote(cliente) {
+        if (!cliente || !Array.isArray(data) || data.length === 0) return [];
+        const normTargetName = normalizeClientName(cliente.NOMBRE || '');
+        const cleanTargetNum = (cliente.NUMERO || '').toString().replace(/[^0-9]/g, '');
+
+        return data.filter((item) => {
+            const normItemName = normalizeClientName(item.nombre || '');
+            const cleanItemNum = (item.afiliado || '').toString().replace(/[^0-9]/g, '');
+            const matchByName = normTargetName && normItemName && normItemName === normTargetName;
+            const matchByNum = cleanTargetNum.length >= 6 && cleanItemNum.length >= 6 && cleanItemNum === cleanTargetNum;
+            return matchByName || matchByNum;
+        });
+    }
+
+    function limpiarSeleccionClienteEditar() {
+        clienteEnEdicion = null;
+        if (formEditarCliente) formEditarCliente.hidden = true;
+        if (editarClienteNombre) editarClienteNombre.value = '';
+        if (editarClienteNumero) editarClienteNumero.value = '';
+        if (editarClienteLoteAviso) {
+            editarClienteLoteAviso.hidden = true;
+            editarClienteLoteAviso.textContent = '';
+        }
+        renderizarListaClientesEditar(buscarClienteEditar ? buscarClienteEditar.value : '');
+    }
+
+    function seleccionarClienteParaEditar(cliente) {
+        clienteEnEdicion = cliente;
+        if (editarClienteNombre) editarClienteNombre.value = cliente.NOMBRE || '';
+        if (editarClienteNumero) editarClienteNumero.value = cliente.NUMERO || '';
+        if (formEditarCliente) formEditarCliente.hidden = false;
+
+        const comprobantesLote = encontrarComprobantesClienteEnLote(cliente);
+        if (editarClienteLoteAviso) {
+            if (comprobantesLote.length > 0) {
+                const plural = comprobantesLote.length === 1 ? 'comprobante' : 'comprobantes';
+                editarClienteLoteAviso.textContent = `Se actualizarán automáticamente ${comprobantesLote.length} ${plural} ya cargados de este cliente en el lote activo.`;
+                editarClienteLoteAviso.hidden = false;
+            } else {
+                editarClienteLoteAviso.hidden = true;
+                editarClienteLoteAviso.textContent = '';
+            }
+        }
+
+        renderizarListaClientesEditar(buscarClienteEditar ? buscarClienteEditar.value : '');
+        if (editarClienteNumero) editarClienteNumero.focus();
+    }
+
+    function renderizarListaClientesEditar(filtro = '') {
+        if (!listaClientesEditar) return;
+        const query = (filtro || '').trim();
+        const normQuery = normalizeClientName(query);
+        const cleanDigits = query.replace(/[^0-9]/g, '');
+
+        const filtrados = (baseDatos || []).filter((c) => {
+            if (!c || !c.NOMBRE) return false;
+            if (!query) return true;
+            const normNom = normalizeClientName(c.NOMBRE);
+            const numStr = (c.NUMERO || '').toString().toLowerCase();
+            const numDigits = numStr.replace(/[^0-9]/g, '');
+            return normNom.includes(normQuery) ||
+                numStr.includes(query.toLowerCase()) ||
+                (cleanDigits.length > 0 && numDigits.includes(cleanDigits));
+        });
+
+        const totalPadron = (baseDatos || []).length;
+        if (editarClienteCount) {
+            if (query) {
+                editarClienteCount.textContent = `${filtrados.length} coincidencia${filtrados.length !== 1 ? 's' : ''} de ${totalPadron} clientes`;
+            } else {
+                editarClienteCount.textContent = `${totalPadron} cliente${totalPadron !== 1 ? 's' : ''} en padrón (mostrando primeros ${Math.min(filtrados.length, 60)})`;
+            }
+        }
+
+        listaClientesEditar.innerHTML = '';
+
+        if (filtrados.length === 0) {
+            const emptyDiv = document.createElement('div');
+            emptyDiv.className = 'editar-cliente-empty';
+            emptyDiv.textContent = query
+                ? 'No se encontraron clientes con ese nombre o número.'
+                : 'No hay clientes cargados en la base de datos.';
+            listaClientesEditar.appendChild(emptyDiv);
+            return;
+        }
+
+        const subset = filtrados.slice(0, 60);
+        subset.forEach((cliente) => {
+            const itemBtn = document.createElement('button');
+            itemBtn.type = 'button';
+            itemBtn.className = 'editar-cliente-item';
+            if (clienteEnEdicion === cliente) {
+                itemBtn.classList.add('selected');
+            }
+
+            const spanNombre = document.createElement('span');
+            spanNombre.className = 'editar-cliente-item-nombre';
+            spanNombre.textContent = cliente.NOMBRE || '';
+
+            const spanNumero = document.createElement('span');
+            spanNumero.className = 'editar-cliente-item-numero';
+            spanNumero.textContent = cliente.NUMERO || 'Sin N°';
+
+            itemBtn.appendChild(spanNombre);
+            itemBtn.appendChild(spanNumero);
+            itemBtn.addEventListener('click', () => seleccionarClienteParaEditar(cliente));
+            listaClientesEditar.appendChild(itemBtn);
+        });
+    }
+
+    if (btnEditarClientesDB && modalEditarCliente) {
+        btnEditarClientesDB.addEventListener('click', async () => {
+            clienteEnEdicion = null;
+            if (buscarClienteEditar) buscarClienteEditar.value = '';
+            if (formEditarCliente) formEditarCliente.hidden = true;
+            if (editarClienteLoteAviso) editarClienteLoteAviso.hidden = true;
+
+            renderizarListaClientesEditar('');
+            modalEditarCliente.showModal();
+
+            // Refrescar padrón desde Neon en segundo plano para contar con DB_ID y cambios recientes
+            try {
+                await sincronizarClientesDesdeNeon();
+                if (modalEditarCliente.open && !clienteEnEdicion) {
+                    renderizarListaClientesEditar(buscarClienteEditar ? buscarClienteEditar.value : '');
+                }
+            } catch (e) {
+                console.warn('Error al refrescar clientes para edición:', e);
+            }
+        });
+    }
+
+    if (modalEditarCliente) {
+        modalEditarCliente.addEventListener('close', () => {
+            modalEditarCliente.returnValue = '';
+            clienteEnEdicion = null;
+        });
+    }
+
+    if (btnCerrarEditarCliente && modalEditarCliente) {
+        btnCerrarEditarCliente.addEventListener('click', () => modalEditarCliente.close());
+    }
+
+    if (btnCancelarEditarCliente && modalEditarCliente) {
+        btnCancelarEditarCliente.addEventListener('click', () => modalEditarCliente.close());
+    }
+
+    if (btnLimpiarSeleccionCliente) {
+        btnLimpiarSeleccionCliente.addEventListener('click', () => {
+            limpiarSeleccionClienteEditar();
+            if (buscarClienteEditar) buscarClienteEditar.focus();
+        });
+    }
+
+    if (buscarClienteEditar) {
+        buscarClienteEditar.addEventListener('input', () => {
+            renderizarListaClientesEditar(buscarClienteEditar.value);
+        });
+    }
+
+    if (editarClienteNumero) {
+        editarClienteNumero.addEventListener('blur', () => {
+            const raw = editarClienteNumero.value.trim();
+            if (raw && typeof formatCarnetIasep === 'function') {
+                editarClienteNumero.value = formatCarnetIasep(raw);
+            }
+        });
+    }
+
+    if (formEditarCliente) {
+        formEditarCliente.addEventListener('submit', async (e) => {
+            e.preventDefault();
+            if (!clienteEnEdicion) return;
+
+            const nuevoNombre = (editarClienteNombre ? editarClienteNombre.value : '').trim().replace(/[.,\-_/]+$/, '').trim().toUpperCase();
+            const rawNum = (editarClienteNumero ? editarClienteNumero.value : '').trim();
+            const nuevoNumero = typeof formatCarnetIasep === 'function' ? formatCarnetIasep(rawNum) : rawNum;
+
+            if (!nuevoNombre) {
+                mostrarNotificacion('Aviso', 'El nombre del cliente no puede estar vacío.', 'error');
+                if (editarClienteNombre) editarClienteNombre.focus();
+                return;
+            }
+            if (!nuevoNumero) {
+                mostrarNotificacion('Aviso', 'El número de afiliado no puede estar vacío.', 'error');
+                if (editarClienteNumero) editarClienteNumero.focus();
+                return;
+            }
+
+            if (btnGuardarEditarCliente) {
+                btnGuardarEditarCliente.disabled = true;
+                btnGuardarEditarCliente.textContent = 'Guardando...';
+            }
+
+            try {
+                const email = obtenerEmailUsuario();
+                const oldNombre = clienteEnEdicion.RAW_NOMBRE || clienteEnEdicion.NOMBRE || '';
+                const oldNumero = clienteEnEdicion.RAW_NUMERO || clienteEnEdicion.NUMERO || '';
+                const comprobantesLote = encontrarComprobantesClienteEnLote(clienteEnEdicion);
+
+                // 1. Actualizar padrón en Neon DB
+                let updatedRow = null;
+                if (typeof actualizarClienteEnNeon === 'function') {
+                    const resDb = await actualizarClienteEnNeon({
+                        id: clienteEnEdicion.DB_ID ?? null,
+                        oldNombre,
+                        oldNumero,
+                        nombre: nuevoNombre,
+                        numero: nuevoNumero
+                    }, email);
+                    updatedRow = resDb ? resDb.updated : null;
+                }
+
+                // 2. Actualizar memoria local (baseDatos, nuevosClientes y localStorage)
+                const oldNormName = normalizeClientName(clienteEnEdicion.NOMBRE || '');
+                clienteEnEdicion.NOMBRE = nuevoNombre;
+                clienteEnEdicion.NUMERO = nuevoNumero;
+                clienteEnEdicion.RAW_NOMBRE = nuevoNombre;
+                clienteEnEdicion.RAW_NUMERO = nuevoNumero;
+                if (updatedRow && updatedRow.id !== undefined) {
+                    clienteEnEdicion.DB_ID = updatedRow.id;
+                }
+
+                nuevosClientes.forEach((nc) => {
+                    if (normalizeClientName(nc.Cliente || '') === oldNormName) {
+                        nc.Cliente = nuevoNombre;
+                        nc.Afiliado = nuevoNumero;
+                    }
+                });
+
+                try {
+                    localStorage.setItem('clientes_padron', JSON.stringify(baseDatos));
+                } catch (errCache) {}
+
+                // 3. Actualizar automáticamente los comprobantes ya cargados en el lote activo
+                let comprobantesActualizados = 0;
+                if (comprobantesLote.length > 0) {
+                    const idsEnNeon = comprobantesLote.map(r => r.id).filter(id => id !== undefined && id !== null);
+                    if (idsEnNeon.length > 0 && typeof actualizarRegistrosDeClienteEnNeon === 'function') {
+                        await actualizarRegistrosDeClienteEnNeon({
+                            registroIds: idsEnNeon,
+                            nombre: nuevoNombre,
+                            afiliado: nuevoNumero
+                        }, email);
+                    }
+                    comprobantesLote.forEach((item) => {
+                        item.nombre = nuevoNombre;
+                        item.afiliado = nuevoNumero;
+                    });
+                    comprobantesActualizados = comprobantesLote.length;
+                    actualizarTabla();
+                }
+
+                if (modalEditarCliente && modalEditarCliente.open) {
+                    modalEditarCliente.close();
+                }
+
+                const msgExtra = comprobantesActualizados > 0
+                    ? ` También se actualizaron ${comprobantesActualizados} comprobante${comprobantesActualizados !== 1 ? 's' : ''} del lote activo.`
+                    : '';
+                mostrarNotificacion('Cliente Actualizado', `${nuevoNombre} (${nuevoNumero}) guardado en la base de datos.${msgExtra}`, 'success');
+            } catch (err) {
+                console.error('Error al actualizar cliente en DB:', err);
+                mostrarNotificacion('Error', 'No se pudo actualizar el cliente en Neon DB: ' + err.message, 'error');
+            } finally {
+                if (btnGuardarEditarCliente) {
+                    btnGuardarEditarCliente.disabled = false;
+                    btnGuardarEditarCliente.textContent = 'Guardar Cambios';
+                }
             }
         });
     }

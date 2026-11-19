@@ -738,3 +738,136 @@ async function sincronizarLoteClientesNeon(clientesArray, email, onProgress, ree
     return guardados;
 }
 
+/**
+ * Actualiza nombre y número de afiliado de un cliente en la tabla `clientes` de Neon DB
+ */
+async function actualizarClienteEnNeon({ id = null, oldNombre = '', oldNumero = '', nombre = '', numero = '' }, email) {
+    let token = await obtenerTokenValido();
+    if (!token) throw new Error('No hay sesión activa para actualizar en Neon.');
+    if (!email) throw new Error('No se encontró el correo de la farmacia.');
+
+    const cleanNombre = (nombre || '').toString().trim().replace(/[.,\-_/]+$/, '').trim();
+    const rawNum = (numero || '').toString().trim();
+    const cleanNumero = typeof formatCarnetIasep === 'function' ? formatCarnetIasep(rawNum) : rawNum;
+
+    if (!cleanNombre) {
+        throw new Error('El nombre del cliente no puede estar vacío.');
+    }
+
+    const payload = {
+        nombre: cleanNombre,
+        numero: cleanNumero
+    };
+
+    async function patchClientes(url) {
+        let res = await fetch(url, {
+            method: 'PATCH',
+            headers: {
+                'Authorization': `Bearer ${token}`,
+                'Content-Type': 'application/json',
+                'Prefer': 'return=representation'
+            },
+            body: JSON.stringify(payload)
+        });
+
+        if (res.status === 400 || res.status === 401) {
+            const fresh = await refrescarTokenNeon();
+            if (fresh) {
+                token = fresh;
+                res = await fetch(url, {
+                    method: 'PATCH',
+                    headers: {
+                        'Authorization': `Bearer ${token}`,
+                        'Content-Type': 'application/json',
+                        'Prefer': 'return=representation'
+                    },
+                    body: JSON.stringify(payload)
+                });
+            }
+        }
+
+        if (!res.ok) {
+            const err = await res.json().catch(() => ({}));
+            throw new Error(err.message || `Error al actualizar cliente HTTP ${res.status}`);
+        }
+        return await res.json();
+    }
+
+    let updatedRows = [];
+    if (id !== null && id !== undefined && id !== '') {
+        const urlById = `${NEON_DATA_URL}clientes?id=eq.${encodeURIComponent(id)}&farmacia_email=eq.${encodeURIComponent(email)}`;
+        updatedRows = await patchClientes(urlById);
+    }
+
+    if ((!Array.isArray(updatedRows) || updatedRows.length === 0) && oldNombre) {
+        const urlByComposite = `${NEON_DATA_URL}clientes?farmacia_email=eq.${encodeURIComponent(email)}&nombre=eq.${encodeURIComponent(oldNombre)}&numero=eq.${encodeURIComponent(oldNumero || '')}`;
+        updatedRows = await patchClientes(urlByComposite);
+    }
+
+    if (Array.isArray(updatedRows) && updatedRows.length > 0) {
+        return { updated: updatedRows[0], created: false };
+    }
+
+    // Si el cliente provenía solo de registros históricos y no estaba en la tabla `clientes`, insertarlo
+    const created = await guardarClienteEnNeon({ nombre: cleanNombre, numero: cleanNumero, es_nuevo: false }, email);
+    return { updated: created, created: true };
+}
+
+/**
+ * Actualiza nombre y número de afiliado en comprobantes ya cargados (`registros`) por lista de IDs
+ */
+async function actualizarRegistrosDeClienteEnNeon({ registroIds = [], nombre = '', afiliado = '' }, email) {
+    const validIds = (Array.isArray(registroIds) ? registroIds : []).filter(id => id !== null && id !== undefined && id !== '');
+    if (validIds.length === 0) return 0;
+
+    let token = await obtenerTokenValido();
+    if (!token) throw new Error('No hay sesión activa para actualizar comprobantes en Neon.');
+    if (!email) throw new Error('No se encontró el correo de la farmacia.');
+
+    const cleanNombre = (nombre || '').toString().trim().replace(/[.,\-_/]+$/, '').trim();
+    const rawAfil = (afiliado || '').toString().trim();
+    const cleanAfiliado = typeof formatCarnetIasep === 'function' ? formatCarnetIasep(rawAfil) : rawAfil;
+
+    const idsFilter = validIds.map(id => encodeURIComponent(id)).join(',');
+    const url = `${NEON_DATA_URL}registros?id=in.(${idsFilter})&farmacia_email=eq.${encodeURIComponent(email)}`;
+    const payload = {
+        nombre: cleanNombre,
+        afiliado: cleanAfiliado
+    };
+
+    let res = await fetch(url, {
+        method: 'PATCH',
+        headers: {
+            'Authorization': `Bearer ${token}`,
+            'Content-Type': 'application/json',
+            'Prefer': 'return=representation'
+        },
+        body: JSON.stringify(payload)
+    });
+
+    if (res.status === 400 || res.status === 401) {
+        const fresh = await refrescarTokenNeon();
+        if (fresh) {
+            token = fresh;
+            res = await fetch(url, {
+                method: 'PATCH',
+                headers: {
+                    'Authorization': `Bearer ${token}`,
+                    'Content-Type': 'application/json',
+                    'Prefer': 'return=representation'
+                },
+                body: JSON.stringify(payload)
+            });
+        }
+    }
+
+    if (!res.ok) {
+        const err = await res.json().catch(() => ({}));
+        throw new Error(err.message || `Error al actualizar comprobantes HTTP ${res.status}`);
+    }
+
+    const updated = await res.json();
+    return Array.isArray(updated) ? updated.length : 0;
+}
+
+

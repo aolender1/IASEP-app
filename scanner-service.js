@@ -14,6 +14,7 @@ const ScannerService = (function () {
     ];
 
     let currentStream = null;
+    let cameraSessionToken = 0;
     let barcodeDetectorInstance = null;
 
     // Inicializar BarcodeDetector nativo de forma segura según los formatos soportados
@@ -342,6 +343,9 @@ const ScannerService = (function () {
         // Exportar a base64 JPEG calidad 0.70 (~80-100 KB, sube en <150ms en 4G)
         const dataUrl = canvas.toDataURL('image/jpeg', 0.70);
         const base64Data = dataUrl.split(',')[1];
+        // Liberar inmediatamente memoria GPU/backing-store del canvas (crítico en móviles PWA)
+        canvas.width = 0;
+        canvas.height = 0;
         return { dataUrl, base64Data };
     }
 
@@ -588,20 +592,18 @@ const ScannerService = (function () {
         const { base64Data, dataUrl } = await optimizeImageForAI(imageSource);
 
         const prompt = `Observa atentamente esta foto del RECETARIO OFICIAL I.A.S.E.P. (Obra Social de Formosa).
-Debes extraer con máxima exactitud los siguientes campos:
-1. "APELLIDO Y NOMBRE" del afiliado (aparece en el casillero superior impreso por computadora, por ejemplo: "ACOSTA FRANCISCA TERESA." o "ALMIRON ANTONIO ADRIAN"). IMPORTANTE: Remueve cualquier punto final o signo de puntuación al final del nombre (debe quedar limpio, por ejemplo: "ACOSTA FRANCISCA TERESA"). Excluye leyendas secundarias como "Municipalidad de Ibarreta" o "Ministerio de Educación".
-2. "NUMERO DE CARNET" o número de afiliado (aparece en el casillero debajo del nombre, estrictamente en formato "D-DDDDDDDD-DD", por ejemplo: "3-18437877-00" o "1-08230286-00"). Excluye campos adyacentes como "Sexo:" o "Edad:".
-3. "PRODUCTOS" (Medicamentos facturados): Observa prioritariamente los troqueles adhesivos rectangulares pegados en la parte inferior del recetario (generalmente sobre el cartel de advertencia o recuadro inferior, cada uno tiene código de barras y texto del laboratorio). Extrae cada medicamento en formato limpio: "Nombre Dosis x Cantidad comp" (por ejemplo: "Corbis 10 x 60 comp", "Pampar 20 x 30 comp", "Turbulina 20 x 30 comp"). Si no hay troqueles pegados, busca los medicamentos en el cuerpo de prescripción o déjalo como lista vacía [].
+Debes extraer con máxima exactitud únicamente los datos visibles en esta imagen:
+1. "APELLIDO Y NOMBRE" del afiliado (aparece en el casillero superior impreso). IMPORTANTE: Remueve cualquier punto final o signo de puntuación al final del nombre. Excluye leyendas secundarias de organismo o empleador. Si no es legible, devuelve "".
+2. "NUMERO DE CARNET" o número de afiliado (aparece en el casillero debajo del nombre, estrictamente en formato "D-DDDDDDDD-DD", ej. 1 dígito, guion, 8 dígitos, guion, 2 dígitos). Excluye campos adyacentes como "Sexo:" o "Edad:". Si no es legible, devuelve "".
+3. "PRODUCTOS" (Medicamentos facturados): Observa prioritariamente los troqueles adhesivos rectangulares pegados en la parte inferior del recetario (con código de barras y texto del laboratorio). Extrae cada medicamento en formato limpio "Nombre Dosis x Cantidad comp". Si no hay troqueles pegados, busca los medicamentos en el cuerpo de prescripción o déjalo como lista vacía [].
+
+IMPORTANTE: NUNCA inventes datos ni devuelvas textos de ejemplo si la imagen está borrosa, oscura o ilegible.
 
 Responde estrictamente un JSON válido con esta estructura:
 {
-  "nombre": "APELLIDO Y NOMBRE EN MAYUSCULAS SIN PUNTOS",
-  "afiliado": "3-XXXXXXXX-00",
-  "productos": [
-    "Corbis 10 x 60 comp",
-    "Pampar 20 x 30 comp",
-    "Turbulina 20 x 30 comp"
-  ]
+  "nombre": "APELLIDO NOMBRE",
+  "afiliado": "0-00000000-00",
+  "productos": []
 }`;
 
         const result = await callGeminiVision(base64Data, prompt);
@@ -636,18 +638,16 @@ Responde estrictamente un JSON válido con esta estructura:
         const { base64Data, dataUrl } = await optimizeImageForAI(imageSource);
 
         const prompt = `Observa este ticket fiscal de farmacia.
-Debes extraer:
-1. "TOTAL": El importe final a abonar (por ejemplo: "TOTAL 82486,80" o "TOTAL 113575,81"). Extrae el número decimal estándar con punto (ej: 82486.80).
-2. "PRODUCTOS": Los medicamentos facturados que aparecen listados en las líneas de compra (por ejemplo: "Corbis 10 x 60 comp", "Pampar 20 x 30 comp", "Turbulina 20 x 30 comp"). Omite líneas de 'BONIF.' o bonificación.
+Debes extraer únicamente los datos visibles en esta imagen:
+1. "TOTAL": El importe final a abonar (busca la línea 'TOTAL' o 'TOTAL $'). Extrae el número decimal estándar con punto (sin separador de miles). Si no es legible, devuelve null.
+2. "PRODUCTOS": Los medicamentos facturados que aparecen listados en las líneas de compra. Omite líneas de 'BONIF.' o bonificación. Si no hay líneas legibles, devuelve [].
+
+IMPORTANTE: NUNCA inventes datos ni devuelvas números de ejemplo si la imagen no es legible.
 
 Responde estrictamente un JSON válido:
 {
-  "importe": 82486.80,
-  "productos": [
-    "Corbis 10 x 60 comp",
-    "Pampar 20 x 30 comp",
-    "Turbulina 20 x 30 comp"
-  ]
+  "importe": null,
+  "productos": []
 }`;
 
         const result = await callGeminiVision(base64Data, prompt);
@@ -688,27 +688,25 @@ Responde estrictamente un JSON válido:
 
         const prompt = `Observa atentamente estas DOS imágenes:
 IMAGEN 1: RECETARIO OFICIAL I.A.S.E.P. (Obra Social de Formosa).
-Debes extraer:
-1. "nombre": APELLIDO Y NOMBRE del afiliado (aparece en el casillero superior impreso por computadora, por ejemplo: "ACOSTA FRANCISCA TERESA" o "ALMIRON ANTONIO ADRIAN"). Quita cualquier punto final o signo de puntuación.
-2. "afiliado": NUMERO DE CARNET / AFILIADO (aparece debajo del nombre, estrictamente en formato "D-DDDDDDDD-DD", ej: "3-18437877-00" o "1-08230286-00").
+Debes extraer únicamente lo visible en la IMAGEN 1:
+1. "nombre": APELLIDO Y NOMBRE del afiliado en mayúsculas (casillero superior impreso). Quita cualquier punto final o signo de puntuación. Excluye leyendas de organismo/empleador. Si no es legible, devuelve "".
+2. "afiliado": NUMERO DE CARNET / AFILIADO (debajo del nombre, formato "D-DDDDDDDD-DD"). Si no es legible, devuelve "".
 3. "productos_receta": Medicamentos de los troqueles adhesivos pegados abajo o prescritos.
 
 IMAGEN 2: TICKET FISCAL de la farmacia.
-Debes extraer:
-1. "importe": El importe TOTAL final a abonar (busca la línea 'TOTAL' o 'TOTAL $', por ejemplo: "TOTAL 82486,80" -> 82486.80 en número decimal estándar con punto).
+Debes extraer únicamente lo visible en la IMAGEN 2:
+1. "importe": El importe TOTAL final a abonar (busca la línea 'TOTAL' o 'TOTAL $', como número decimal estándar con punto, sin separadores de miles). Si no es legible, devuelve null.
 2. "productos_ticket": Medicamentos facturados en el ticket (omite líneas de 'BONIF.').
 
-Combina todos los medicamentos de ambas imágenes en una sola lista limpia "productos".
+Combina todos los medicamentos de ambas imágenes en una sola lista limpia "productos" (o [] si no hay legibles).
+IMPORTANTE: NUNCA inventes datos ni devuelvas valores de ejemplo si una imagen es borrosa, oscura o ilegible.
 
 Responde estrictamente un JSON válido con esta estructura exacta:
 {
-  "nombre": "APELLIDO Y NOMBRE EN MAYUSCULAS",
-  "afiliado": "3-XXXXXXXX-00",
-  "importe": 82486.80,
-  "productos": [
-    "Turbulina 20 mg comp",
-    "Corbis 10 x 60 comp"
-  ]
+  "nombre": "",
+  "afiliado": "",
+  "importe": null,
+  "productos": []
 }`;
 
         const result = await callAIVisionMulti([optReceta.base64Data, optTicket.base64Data], prompt);
@@ -741,11 +739,76 @@ Responde estrictamente un JSON válido con esta estructura exacta:
         };
     }
 
+    function stopTracks(stream) {
+        if (stream && typeof stream.getTracks === 'function') {
+            try {
+                stream.getTracks().forEach(track => {
+                    try { track.stop(); } catch (e) {}
+                });
+            } catch (e) {}
+        }
+    }
+
+    function waitForVideoFrame(videoElement, timeoutMs = 1500) {
+        if (!videoElement) return Promise.resolve();
+        if (videoElement.readyState >= 2 && videoElement.videoWidth > 0 && videoElement.videoHeight > 0) {
+            return Promise.resolve();
+        }
+        return new Promise((resolve) => {
+            let done = false;
+            const finish = () => {
+                if (done) return;
+                done = true;
+                clearInterval(poll);
+                clearTimeout(timer);
+                resolve();
+            };
+            const poll = setInterval(() => {
+                if (videoElement.readyState >= 2 && videoElement.videoWidth > 0 && videoElement.videoHeight > 0) {
+                    finish();
+                }
+            }, 50);
+            const timer = setTimeout(finish, timeoutMs);
+        });
+    }
+
     /**
-     * Iniciar cámara del dispositivo
+     * Verifica si el elemento de video tiene un stream en vivo con fotograma decodificado listo para capturar
+     */
+    function isVideoReady(videoElement) {
+        if (!videoElement || !videoElement.srcObject) return false;
+        if (videoElement.readyState < 2 || !videoElement.videoWidth || !videoElement.videoHeight) return false;
+        if (typeof videoElement.srcObject.getVideoTracks === 'function') {
+            const tracks = videoElement.srcObject.getVideoTracks();
+            if (!tracks || tracks.length === 0 || !tracks.some(t => t.readyState === 'live')) {
+                return false;
+            }
+        }
+        return true;
+    }
+
+    /**
+     * Captura un fotograma fresco del video en vivo y libera inmediatamente el canvas temporal
+     */
+    function captureFrame(videoElement, quality = 0.85) {
+        if (!isVideoReady(videoElement)) return null;
+        const canvas = document.createElement('canvas');
+        canvas.width = videoElement.videoWidth;
+        canvas.height = videoElement.videoHeight;
+        const ctx = canvas.getContext('2d');
+        ctx.drawImage(videoElement, 0, 0, canvas.width, canvas.height);
+        const dataUrl = canvas.toDataURL('image/jpeg', quality);
+        canvas.width = 0;
+        canvas.height = 0;
+        return dataUrl;
+    }
+
+    /**
+     * Iniciar cámara del dispositivo con protección contra carreras (race conditions) y fugas de stream
      */
     async function startCamera(videoElement, facingMode = 'environment') {
-        stopCamera();
+        stopCamera(videoElement);
+        const myToken = ++cameraSessionToken;
 
         // Detectar si el dispositivo está en orientación vertical o es móvil
         const isPortrait = window.innerHeight > window.innerWidth || /iPhone|iPad|iPod|Android/i.test(navigator.userAgent);
@@ -768,51 +831,73 @@ Responde estrictamente un JSON válido con esta estructura exacta:
             audio: false
         };
 
+        let acquiredStream = null;
         try {
-            currentStream = await navigator.mediaDevices.getUserMedia(constraints);
-            if (videoElement) {
-                videoElement.srcObject = currentStream;
-                await videoElement.play();
-            }
-            return true;
+            acquiredStream = await navigator.mediaDevices.getUserMedia(constraints);
         } catch (err) {
             console.warn('Fallo con constraints ideales, reintentando con facingMode básico:', err);
+            if (myToken !== cameraSessionToken) return false;
             try {
-                currentStream = await navigator.mediaDevices.getUserMedia({
+                acquiredStream = await navigator.mediaDevices.getUserMedia({
                     video: { facingMode: { ideal: facingMode } },
                     audio: false
                 });
-                if (videoElement) {
-                    videoElement.srcObject = currentStream;
-                    await videoElement.play();
-                }
-                return true;
             } catch (fallbackErr) {
                 console.warn('Fallback a cualquier cámara disponible:', fallbackErr);
+                if (myToken !== cameraSessionToken) return false;
                 try {
-                    currentStream = await navigator.mediaDevices.getUserMedia({ video: true, audio: false });
-                    if (videoElement) {
-                        videoElement.srcObject = currentStream;
-                        await videoElement.play();
-                    }
-                    return true;
+                    acquiredStream = await navigator.mediaDevices.getUserMedia({ video: true, audio: false });
                 } catch (finalErr) {
                     throw new Error('No se pudo acceder a la cámara. Verifique los permisos en el navegador.');
                 }
             }
         }
+
+        // Si mientras esperábamos getUserMedia el usuario cambió de paso o cerró el escáner, liberar inmediatamente
+        if (myToken !== cameraSessionToken) {
+            stopTracks(acquiredStream);
+            return false;
+        }
+
+        currentStream = acquiredStream;
+
+        if (videoElement) {
+            videoElement.srcObject = currentStream;
+            await videoElement.play();
+            if (myToken !== cameraSessionToken) {
+                stopCamera(videoElement);
+                return false;
+            }
+            await waitForVideoFrame(videoElement, 1500);
+            if (myToken !== cameraSessionToken) {
+                stopCamera(videoElement);
+                return false;
+            }
+        }
+        return true;
     }
 
     /**
-     * Detener la cámara activa
+     * Detener la cámara activa y vaciar el buffer de fotogramas del elemento <video>
      */
     function stopCamera(videoElement = null) {
+        cameraSessionToken++;
         if (currentStream) {
-            currentStream.getTracks().forEach(track => track.stop());
+            stopTracks(currentStream);
             currentStream = null;
         }
         if (videoElement) {
+            if (videoElement.srcObject) {
+                stopTracks(videoElement.srcObject);
+            }
+            try {
+                if (typeof videoElement.pause === 'function') videoElement.pause();
+            } catch (e) {}
             videoElement.srcObject = null;
+            try {
+                if (typeof videoElement.removeAttribute === 'function') videoElement.removeAttribute('src');
+                if (typeof videoElement.load === 'function') videoElement.load();
+            } catch (e) {}
         }
     }
 
@@ -1038,6 +1123,8 @@ Responde estrictamente un JSON válido con esta estructura exacta:
         extractCompleteRecipeAndTicket,
         startCamera,
         stopCamera,
+        isVideoReady,
+        captureFrame,
         scanQrFromVideo,
         testApiKey,
         formatCarnetIasep
